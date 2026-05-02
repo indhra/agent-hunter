@@ -154,15 +154,39 @@ class TestCmdAudit:
 
 
 # ---------------------------------------------------------------------------
-# cmd_update (stub)
+# cmd_update
 # ---------------------------------------------------------------------------
 
 class TestCmdUpdate:
-    def test_update_returns_0(self, capsys):
-        code = run(["update"])
+    def test_update_no_updates_available_returns_0(self, capsys):
+        with patch("main.SkillUpdater") as mock_cls:
+            mock_cls.return_value.run_interactive_update.return_value = (0, 0)
+            code = run(["update"])
+        assert code == 0  # 0 approved, 0 total → equal → return 0
+
+    def test_update_all_approved_returns_0(self):
+        with patch("main.SkillUpdater") as mock_cls:
+            mock_cls.return_value.run_interactive_update.return_value = (2, 2)
+            code = run(["update"])
         assert code == 0
-        out = capsys.readouterr().out
-        assert "v0.3.0" in out
+
+    def test_update_some_approved_returns_1(self):
+        with patch("main.SkillUpdater") as mock_cls:
+            mock_cls.return_value.run_interactive_update.return_value = (1, 2)
+            code = run(["update"])
+        assert code == 1
+
+    def test_update_filters_by_skill_name(self):
+        with patch("main.SkillUpdater") as mock_cls:
+            mock_cls.return_value.run_interactive_update.return_value = (1, 1)
+            code = run(["update", "myskill"])
+        mock_cls.return_value.run_interactive_update.assert_called_with(skill_name="myskill")
+        assert code == 0
+
+    def test_update_exception_returns_1(self, capsys):
+        with patch("main.SkillUpdater", side_effect=RuntimeError("fail")):
+            code = run(["update"])
+        assert code == 1
 
 
 # ---------------------------------------------------------------------------

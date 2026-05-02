@@ -19,11 +19,15 @@ No LLM calls.
 
 from __future__ import annotations
 
+import os
 import sys
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
+
+import requests
 
 from registry import Registry, RegistryEntry, check_sha_tamper
 from security_scan import scan_skill, ScanResult
@@ -42,6 +46,8 @@ class AuditEntryResult:
     conflicts: list[str] = field(default_factory=list)  # names of conflicting skills
     license_issue: Optional[str] = None
     overall_status: str = "healthy"  # "healthy", "update_available", "tampered", "security_issue", "conflict"
+    update_available: bool = False  # True if remote content differs from installed
+    remote_content: Optional[str] = None  # cached remote SKILL.md for comparison
 
 
 @dataclass
@@ -107,23 +113,37 @@ class Auditor:
         result.sha_tampered = tampered
         result.sha_message = msg
 
-        # --- Re-run security scan (TODO: fetch current remote content) ---
-        # For now, scan whatever is locally installed
-        install_path = Path(entry.install_path)
-        if install_path.exists():
-            content = install_path.read_text(encoding="utf-8", errors="ignore")
-            result.scan_result = scan_skill(content=content, repo_url=entry.repo_url)
+        # --- Fetch remote content for update detection and security re-scan ---
+        remote_content = self._fetch_remote_skill_content(entry)
+        result.remote_content = remote_content
+
+        # --- Re-run security scan on remote content (if available) or local fallback ---
+        if remote_content:
+            result.scan_result = scan_skill(content=remote_content, repo_url=entry.repo_url)
+            # Detect if local differs from remote (indicates update available)
+            install_path = Path(entry.install_path)
+            if install_path.exists():
+                local_content = install_path.read_text(encoding="utf-8", errors="ignore")
+                result.update_available = (local_content != remote_content)
         else:
-            result.scan_result = ScanResult(scan_error=f"Install path not found: {entry.install_path}")
+            # Fallback: scan locally installed if we can't fetch remote
+            install_path = Path(entry.install_path)
+            if install_path.exists():
+                content = install_path.read_text(encoding="utf-8", errors="ignore")
+                result.scan_result = scan_skill(content=content, repo_url=entry.repo_url)
+            else:
+                result.scan_result = ScanResult(scan_error=f"Install path not found: {entry.install_path}")
 
         # --- License check ---
         result.license_issue = _check_license_compat(entry.license)
 
-        # --- Set overall status ---
+        # --- Set overall status (priority: tampered > security_issue > update_available > conflict > healthy) ---
         if tampered:
             result.overall_status = "tampered"
         elif result.scan_result and result.scan_result.severity == "RED":
             result.overall_status = "security_issue"
+        elif result.update_available:
+            result.overall_status = "update_available"
         elif result.license_issue:
             result.overall_status = "conflict"
         else:
@@ -138,6 +158,33 @@ class Auditor:
         Placeholder for v0.3.0.
         """
         pass
+
+    def _fetch_remote_skill_content(self, entry: RegistryEntry) -> Optional[str]:
+        """Fetch the current SKILL.md from GitHub for the skill.
+
+        Returns:
+            Remote SKILL.md content, or None if unavailable (network error, 404, etc).
+        """
+        if not entry.repo_url:
+            return None
+
+        # Parse repo_url → convert to raw.githubusercontent URL for SKILL.md
+        parts = entry.repo_url.rstrip("/").split("/")
+        if len(parts) < 2:
+            return None
+        owner, repo = parts[-2], parts[-1]
+
+        # Try main branch first, then master
+        for branch in ("main", "master"):
+            url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/SKILL.md"
+            try:
+                resp = requests.get(url, timeout=10)
+                if resp.status_code == 200:
+                    return resp.text
+            except requests.RequestException:
+                continue
+
+        return None
 
     def _update_registry_status(self, entry: RegistryEntry, result: AuditEntryResult) -> None:
         """Persist the audit status back to registry."""
@@ -164,6 +211,8 @@ class Auditor:
             print(f"  {icon}  {r.entry.name:<30} {r.overall_status}")
             if r.sha_tampered:
                 print(f"       ⚠️  SHA MISMATCH — {r.sha_message[:80]}")
+            if r.update_available:
+                print(f"       🟡 Update available — run `agent-hunter update {r.entry.name}`")
             if r.scan_result and r.scan_result.severity != "GREEN":
                 for f in r.scan_result.findings[:2]:
                     sev = "🔴" if f.severity == "RED" else "🟡"

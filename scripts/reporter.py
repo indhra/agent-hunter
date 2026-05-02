@@ -195,7 +195,22 @@ def _markdown_result(s: ScoredResult, scan_results: dict[str, ScanResult]) -> li
     ]
     if r.description:
         lines.append(f"- **Description:** {r.description[:150]}")
+
+    # MCP-specific info
+    if r.result_type == "mcp":
+        if r.mcp_transport_type:
+            lines.append(f"- **Transport:** {r.mcp_transport_type}")
+        if r.mcp_capabilities:
+            lines.append(f"- **Capabilities:** {', '.join(r.mcp_capabilities)}")
+
     if s.explanation:
         lines.append(f"- **Why this for you:** {s.explanation}")
-    lines.append(f"\n**Install:**\n```bash\ngh skill install {r.owner}/{r.repo_name}\n```\n")
+
+    # Installation command (varies by type)
+    if r.result_type == "mcp" and r.mcp_install_command:
+        install_cmd = r.mcp_install_command
+    else:
+        install_cmd = f"gh skill install {r.owner}/{r.repo_name}"
+
+    lines.append(f"\n**Install:**\n```bash\n{install_cmd}\n```\n")
     return lines

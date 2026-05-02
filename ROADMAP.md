@@ -51,16 +51,20 @@ This is the foundation. If it doesn't work here, nothing else matters.
 - **`security_scan.py`** — Static analysis: prompt injection patterns in description + body, unguarded `exec()` / `subprocess` / `os.system()`, hidden Unicode (U+202E direction override, zero-width chars, homoglyphs), embedded secrets (API keys, tokens). Integrates `pors/skill-audit` if installed.
 - **`scorer.py`** — 4-signal relevance score: `(stack_match × 0.35 + domain_match × 0.25 + log_stars × 0.20 + recency_decay × 0.20) × yagni_multiplier`. YAGNI: active domain (7-day commits) = 2.0×, recent (30-day) = 1.0×, dormant (90+ days) = 0.5×.
 - **`reporter.py`** — Terminal rich table with 🟢/🟡/🔴 signals + per-result "why this for you" explanation. Saves `~/.agent-hunter/reports/hunt_report_YYYY-MM-DD.md`.
-- **`registry.py`** — Read/write `~/.agent-hunter/registry.json`. No install logic yet (user runs install commands shown in report).
-- **Pre-filter pipeline** — Applied before scoring. Rejects any result where: `stars < 10`, `last_commit > 180 days ago`, `no code files in repo`, `tech name not found in SKILL.md body`.
+- **`registry.py`** — Read/write `~/.agent-hunter/registry.json`. Snapshot/restore support. SHA storage at install time.
+- **`installer.py`** — Executes all file-system actions on `~/.claude/skills/`. Four actions: `install` (via `gh skill install`, falls back to `git clone`), `disable` (rename to `_skill-name` — reversible), `enable` (undo disable), `uninstall` (permanent, only on explicit user request). All actions appended to `~/.agent-hunter/install_log.jsonl`. Never touches RED-flagged results.
+- **`rollback.py`** — `agent-hunter rollback`: restores `~/.agent-hunter/registry.json` from the most recent pre-audit/pre-update snapshot. Instant, no network.
+- **Pre-filter pipeline** — Applied before scoring. Rejects any result where: `stars < 10`, `last_commit > 180 days ago`, `no code files in repo`, `tech name not found in SKILL.md body`. Runs in parallel (thread pool) to avoid serial API bottleneck.
+- **Scan → confirm → act flow** — After showing the hunt report, SKILL.md builds an action summary (INSTALL N skills + DISABLE M dangerous) and asks the user ONCE. On confirmation, `installer.py execute_actions()` runs all items, prints per-result status, and prints a final summary. No partial installs, no silent failures.
 - **Hunt command** — `agent-hunter hunt` (also triggers automatically on session start if `AGENT_HUNTER_RAN` not set).
+- **Rollback command** — `agent-hunter rollback` restores the registry to the last healthy state.
 
 ### Does NOT ship
 - MCP server hunting
-- Audit, update, rollback, scaffold commands
-- SHA tracking / tamper detection
-- Trust tiers
-- Runtime sandbox
+- Audit, update, scaffold commands
+- SHA tamper detection (stored at install, compared in v0.2.0 audit)
+- Trust tiers (assigned in hunt, enforced scoring weights from v0.2.1)
+- Runtime sandbox (subprocess mode ships in v0.2.0)
 - License compatibility check
 
 ### Release gate

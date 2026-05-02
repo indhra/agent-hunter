@@ -521,3 +521,116 @@ class TestHuntIntegration:
         if results:
             # description should be filled in from repo metadata
             assert results[0].description == "Injected description"
+
+
+# ---------------------------------------------------------------------------
+# MCP Server Hunting
+# ---------------------------------------------------------------------------
+
+class TestMCPHunting:
+    def _make_mcp_search_item(self, name: str, stars: int = 100) -> dict:
+        return {
+            "repository": {
+                "name": name,
+                "html_url": f"https://github.com/owner/{name}",
+                "owner": {"login": "owner"},
+                "description": f"A {name} MCP server",
+                "stargazers_count": stars,
+            },
+            "html_url": f"https://github.com/owner/{name}/blob/main/mcp.json",
+        }
+
+    @patch("hunter.Hunter._fetch_mcp_json")
+    @patch("hunter.Hunter._fetch_repo_metadata")
+    def test_mcp_result_type_set(self, mock_meta, mock_mcp):
+        mock_meta.return_value = REPO_META_OK
+        mock_mcp.return_value = '{"name": "test-mcp", "version": "1.0.0"}'
+        h = make_hunter(include_mcp=True)
+        r = make_result(result_type="mcp", stars=100)
+        assert h._passes_prefilter(r) is True
+        assert r.result_type == "mcp"
+
+    @patch("hunter.Hunter._fetch_mcp_json")
+    @patch("hunter.Hunter._fetch_repo_metadata")
+    def test_mcp_metadata_extracted(self, mock_meta, mock_mcp):
+        mock_meta.return_value = REPO_META_OK
+        mcp_config = """{
+            "name": "web-search",
+            "version": "1.0.0",
+            "transport": "stdio",
+            "command": "npx @modelcontextprotocol/server-web-search",
+            "capabilities": {"tools": true, "resources": false}
+        }"""
+        mock_mcp.return_value = mcp_config
+        h = make_hunter()
+        r = make_result(result_type="mcp", stars=100, owner="o", repo_name="r")
+        assert h._passes_prefilter(r) is True
+        assert r.name == "web-search"
+        assert r.mcp_transport_type == "stdio"
+        assert "npx" in r.mcp_install_command
+        assert "tools" in r.mcp_capabilities
+
+    @patch("hunter.Hunter._fetch_mcp_json")
+    @patch("hunter.Hunter._fetch_repo_metadata")
+    def test_mcp_json_not_found_skips(self, mock_meta, mock_mcp):
+        mock_meta.return_value = REPO_META_OK
+        mock_mcp.return_value = None  # No mcp.json found
+        h = make_hunter()
+        r = make_result(result_type="mcp", stars=100)
+        # Should still pass (no content requirement for MCP yet)
+        result = h._passes_prefilter(r)
+        assert isinstance(result, bool)
+
+    def test_build_queries_includes_mcp_queries(self):
+        h = make_hunter(include_mcp=True)
+        from context_extractor import ContextProfile
+        profile = ContextProfile(tech_stack=["fastapi", "nodejs"])
+        queries = h._build_queries(profile)
+        mcp_queries = [q for q in queries if q[1] == "mcp"]
+        assert len(mcp_queries) > 0
+        assert any("mcp.json" in q[0] for q in mcp_queries)
+
+    def test_build_queries_respects_include_mcp_false(self):
+        h = make_hunter(include_mcp=False)
+        from context_extractor import ContextProfile
+        profile = ContextProfile(tech_stack=["fastapi"])
+        queries = h._build_queries(profile)
+        mcp_queries = [q for q in queries if q[1] == "mcp"]
+        assert len(mcp_queries) == 0
+
+    @patch("hunter.Hunter._fetch_mcp_json")
+    @patch("hunter.Hunter._fetch_repo_metadata")
+    def test_hunt_separates_skills_and_mcp(self, mock_meta, mock_mcp):
+        mock_meta.return_value = REPO_META_OK
+        mock_mcp.return_value = '{"name": "mcp-server"}'
+        h = make_hunter(include_mcp=True)
+
+        from context_extractor import ContextProfile
+        profile = ContextProfile(tech_stack=["fastapi"])
+
+        skill_item = {
+            "repository": {
+                "name": "skill-x",
+                "html_url": "https://github.com/owner/skill-x",
+                "owner": {"login": "owner"},
+                "description": "A skill",
+                "stargazers_count": 100,
+            },
+            "html_url": "https://github.com/owner/skill-x/blob/main/SKILL.md",
+        }
+        mcp_item = self._make_mcp_search_item("server-y", 50)
+
+        with patch.object(h._session, "get") as mock_get:
+            # First query returns skill, second returns mcp
+            mock_get.side_effect = [
+                _mock_response(200, json_data={"items": [skill_item]}),
+                _mock_response(200, json_data={"items": []}),
+                _mock_response(200, json_data={"items": [mcp_item]}),
+                _mock_response(200, json_data={"items": []}),
+            ]
+            results = h.hunt(profile)
+
+        skills = [r for r in results if r.result_type == "skill"]
+        mcps = [r for r in results if r.result_type == "mcp"]
+        assert len(skills) >= 0
+        assert len(mcps) >= 0

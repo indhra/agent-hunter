@@ -30,6 +30,7 @@ No LLM calls. Shell commands via subprocess only.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -50,6 +51,10 @@ INSTALL_LOG = Path.home() / ".agent-hunter" / "install_log.jsonl"
 
 GH_AVAILABLE = shutil.which("gh") is not None
 
+# Allowlist: alphanumeric, hyphens, underscores, dots. No path separators.
+_SAFE_SKILL_NAME = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_\-\.]{0,63}$')
+_SAFE_OWNER_REPO = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_\-\.]{0,99}$')
+
 
 # ---------------------------------------------------------------------------
 # Exceptions
@@ -57,6 +62,23 @@ GH_AVAILABLE = shutil.which("gh") is not None
 
 class InstallerError(Exception):
     """Raised when an install/uninstall/rollback action fails."""
+
+
+def _validate_skill_name(skill_name: str) -> None:
+    """Raise InstallerError if skill_name could escape SKILLS_DIR."""
+    if not _SAFE_SKILL_NAME.match(skill_name):
+        raise InstallerError(
+            f"Invalid skill name {skill_name!r}. "
+            "Only alphanumeric characters, hyphens, underscores, and dots are allowed."
+        )
+
+
+def _validate_owner_repo(value: str, label: str) -> None:
+    """Raise InstallerError if owner or repo contains path traversal characters."""
+    if not _SAFE_OWNER_REPO.match(value):
+        raise InstallerError(
+            f"Invalid {label} {value!r}. Must be a valid GitHub identifier."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -125,6 +147,9 @@ class Installer:
                             or if installation fails fatally.
         """
         skill_name = skill_name or repo
+        _validate_skill_name(skill_name)
+        _validate_owner_repo(owner, "owner")
+        _validate_owner_repo(repo, "repo")
         target_dir = SKILLS_DIR / skill_name
 
         self._log_action("install", skill_name, owner=owner, repo=repo, sha=pin_sha or "")
@@ -155,6 +180,7 @@ class Installer:
         Returns:
             ActionResult.
         """
+        _validate_skill_name(skill_name)
         target_dir = SKILLS_DIR / skill_name
 
         self._log_action("uninstall", skill_name)
@@ -199,6 +225,7 @@ class Installer:
         Returns:
             ActionResult.
         """
+        _validate_skill_name(skill_name)
         target_dir = SKILLS_DIR / skill_name
         disabled_dir = SKILLS_DIR / f"_{skill_name}"
 
@@ -230,6 +257,7 @@ class Installer:
 
     def enable(self, skill_name: str) -> ActionResult:
         """Re-enable a disabled skill (undoes disable())."""
+        _validate_skill_name(skill_name)
         disabled_dir = SKILLS_DIR / f"_{skill_name}"
         target_dir = SKILLS_DIR / skill_name
 
@@ -274,6 +302,9 @@ class Installer:
             ActionResult.
         """
         skill_name = skill_name or repo
+        _validate_skill_name(skill_name)
+        _validate_owner_repo(owner, "owner")
+        _validate_owner_repo(repo, "repo")
         self._log_action("rollback", skill_name, sha=sha)
 
         if self.dry_run:

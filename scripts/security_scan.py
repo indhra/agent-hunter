@@ -79,8 +79,8 @@ ENV_EXFIL_PATTERNS = [
     re.compile(r'(?i)(requests\.|urllib|http\.client|socket\.connect|subprocess\.run|curl)[\s\S]{0,200}?(os\.environ|os\.getenv)'),
 ]
 
-UNICODE_DIRECTION_OVERRIDE = re.compile(r'[‪-‮⁦-⁩]')
-ZERO_WIDTH_CHARS = re.compile(r'[​-‏‪- ﻿]')
+UNICODE_DIRECTION_OVERRIDE = re.compile(r'[‪-‮⁦-⁩]')  # nosec B613
+ZERO_WIDTH_CHARS = re.compile(r'[​-‏‪- ﻿]')  # nosec B613
 
 
 # ---------------------------------------------------------------------------

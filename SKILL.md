@@ -18,6 +18,19 @@ triggers:
   - "agent-hunter scaffold"
   - "agent-hunter update"
 mcp_dependencies: []
+skill_dependencies:
+  - name: "skill-audit"
+    repo: "pors/skill-audit"
+    role: "security_scan_delegate"
+    min_trust_tier: "community"
+    optional: true
+    fallback: "built_in_scanner"
+  - name: "skill-scanner"
+    repo: "cisco-ai-defense/skill-scanner"
+    role: "secondary_scanner"
+    min_trust_tier: "community"
+    optional: true
+    fallback: "none"
 ---
 
 # agent-hunter
@@ -68,6 +81,43 @@ Before running context extraction, tell the user:
 
 After extraction, SHOW the user the extracted signals and confirm before proceeding:
 > "Found these tech signals: [list]. Does this look right? I'll use these to hunt for relevant skills."
+
+---
+
+## Step 0 — Resolve Skill Dependencies
+
+Before running the hunt, check whether any trusted installed skills can enhance this session.
+This is the pandas/numpy model: agent-hunter declares optional sub-components; if they're
+present and trusted, it delegates to them; if not, it uses its own built-in logic.
+
+Run:
+```bash
+python scripts/skill_parser.py --resolve-deps
+```
+
+This outputs a JSON map of `role → {status, trust_tier, use_fallback, fallback, path}`.
+
+**Role: `security_scan_delegate`** (declared dep: `pors/skill-audit`)
+- If `status == "satisfied"`: in Step 3, invoke that skill's scanner first, then apply
+  agent-hunter's own static scan as a final gate. The delegate may catch additional
+  vectors the built-in misses. Union results — if either says RED, the skill is blocked.
+- If `use_fallback == true` and `fallback == "built_in_scanner"`: run Step 3 as normal
+  (built-in `security_scan.py` only). This is the default path.
+- **Never invoke a dependency with status `"not_installed"`, `"trust_insufficient"`, or
+  `"disabled"`.** The resolver enforces this gate — trust it.
+
+**Role: `secondary_scanner`** (declared dep: `cisco-ai-defense/skill-scanner`)
+- If `status == "satisfied"`: after Step 3, invoke this as a second pass. Union results
+  (conservative: any RED from either scanner blocks the skill).
+- If `use_fallback == true` and `fallback == "none"`: skip the secondary pass silently.
+
+**If a dependency is `optional: false` and `use_fallback == true`**: abort with:
+> "Required skill dependency `<name>` is not satisfied (status: <status>).
+> Install it first: agent-hunter install <owner> <repo>"
+
+**Trust tier ordering:** `verified` > `community` > `raw`.
+A skill installed as `raw` never satisfies a `min_trust_tier: community` gate.
+This prevents a newly-discovered unvetted skill from taking over agent-hunter's security scan.
 
 ---
 

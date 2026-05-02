@@ -30,6 +30,7 @@ from typing import Optional
 import requests
 
 from context_extractor import ContextProfile
+from mcp_parser import parse_mcp_json, is_mcp_server_py
 
 
 # ---------------------------------------------------------------------------
@@ -63,7 +64,15 @@ class HuntResult:
     result_type: str = "skill"           # "skill" or "mcp"
     trust_tier: str = "raw"             # "verified", "community", "raw"
     git_tree_sha: str = ""
-    raw_content: str = ""               # raw SKILL.md content (fetched separately)
+    raw_content: str = ""               # raw SKILL.md/mcp.json content
+    # MCP-specific fields
+    mcp_transport_type: str = ""        # "stdio", "sse", "http" (MCP only)
+    mcp_install_command: str = ""       # e.g., "npx @mcp/server-name" (MCP only)
+    mcp_capabilities: list[str] = None  # ["resources", "tools", "prompts"] (MCP only)
+
+    def __post_init__(self) -> None:
+        if self.mcp_capabilities is None:
+            self.mcp_capabilities = []
 
 
 # ---------------------------------------------------------------------------
@@ -245,6 +254,7 @@ class Hunter:
             2. Repo pushed_at recency (fetches repo metadata via GitHub API).
             3. Repo has at least one code language (not a docs-only repo).
             4. For skills: fetch raw SKILL.md content and store it.
+            5. For MCP: fetch mcp.json/server.py and extract metadata.
 
         Returns:
             True if the result passes all checks, False to exclude it.
@@ -279,11 +289,22 @@ class Hunter:
             if not r.description and meta.get("description"):
                 r.description = meta["description"] or ""
 
-        # 4. Fetch raw SKILL.md content (skills only)
+        # 4 & 5. Fetch and parse content (SKILL.md for skills, mcp.json for MCP)
         if r.result_type == "skill" and r.raw_url and not r.raw_content:
             content = self._fetch_skill_content(r.raw_url)
             if content is not None:
                 r.raw_content = content
+        elif r.result_type == "mcp" and r.raw_url and not r.raw_content:
+            # Try to fetch mcp.json first, fall back to server.py detection
+            content = self._fetch_mcp_json(r.raw_url, r.owner, r.repo_name)
+            if content:
+                r.raw_content = content
+                mcp_meta = parse_mcp_json(content)
+                if mcp_meta:
+                    r.name = mcp_meta.name or r.repo_name
+                    r.mcp_transport_type = mcp_meta.transport_type
+                    r.mcp_install_command = mcp_meta.install_command
+                    r.mcp_capabilities = mcp_meta.capabilities
 
         return True
 
@@ -356,6 +377,44 @@ class Hunter:
                 continue
             print(f"[agent-hunter] GitHub {resp.status_code} fetching: {raw_url}")
             return None
+        return None
+
+    def _fetch_mcp_json(self, html_url: str, owner: str, repo_name: str) -> Optional[str]:
+        """Fetch mcp.json or detect MCP server from GitHub.
+
+        Tries in order:
+            1. Direct mcp.json file in repo root
+            2. server.py file (check for MCP imports)
+
+        Args:
+            html_url: GitHub HTML URL (usually from search result)
+            owner: Repository owner
+            repo_name: Repository name
+
+        Returns:
+            mcp.json content if found, server.py content if MCP-like, None otherwise.
+        """
+        # Try mcp.json in root
+        mcp_json_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/main/mcp.json"
+        resp = None
+        try:
+            resp = self._session.get(mcp_json_url, timeout=10)
+            if resp.status_code == 200:
+                return resp.text
+        except requests.RequestException:
+            pass
+
+        # Fallback: try server.py to detect MCP pattern
+        server_py_url = f"https://raw.githubusercontent.com/{owner}/{repo_name}/main/server.py"
+        try:
+            resp = self._session.get(server_py_url, timeout=10)
+            if resp.status_code == 200:
+                content = resp.text
+                if is_mcp_server_py(content):
+                    return content
+        except requests.RequestException:
+            pass
+
         return None
 
     def _load_verified_urls(self) -> set[str]:

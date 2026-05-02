@@ -80,7 +80,7 @@ ENV_EXFIL_PATTERNS = [
 ]
 
 UNICODE_DIRECTION_OVERRIDE = re.compile(r'[‪-‮⁦-⁩]')  # nosec B613
-ZERO_WIDTH_CHARS = re.compile(r'[​-‏‪- ﻿]')  # nosec B613
+ZERO_WIDTH_CHARS = re.compile(r'[\u200b\u200c\u200d\u200e\u200f\ufeff\u2060]')  # nosec B613
 
 
 # ---------------------------------------------------------------------------

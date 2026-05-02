@@ -6,24 +6,24 @@ Orchestrates the full pipeline by wiring together the I/O scripts.
 Commands:
     hunt [project_root]     — Discover skills/MCP servers for your project.
     audit                   — Health-check all installed skills.
+    update [skill_name]     — Update installed skills interactively.
     rollback                — Restore registry to last known good state.
     context [project_root]  — Show what context agent-hunter sees for your project.
     scaffold <name>         — Generate a SKILL.md stub for a new skill.
     install <owner> <repo>  — Install a skill directly by owner/repo.
     remove <skill_name>     — Permanently remove an installed skill.
     enable <skill_name>     — Re-enable a disabled (_prefixed) skill.
-    update                  — (v0.3.0 stub) Re-scan and update installed skills.
 
 Usage:
     python scripts/main.py hunt [project_root]
     python scripts/main.py audit
+    python scripts/main.py update [skill_name]
     python scripts/main.py rollback
     python scripts/main.py context [project_root]
     python scripts/main.py scaffold <skill-name>
     python scripts/main.py install <owner> <repo>
     python scripts/main.py remove <skill_name>
     python scripts/main.py enable <skill_name>
-    python scripts/main.py update
 
 Error handling (per SPEC.md §13):
     - GitHub API unreachable → clear message, non-zero exit, no partial results
@@ -58,6 +58,7 @@ from scaffold import scaffold_skill  # noqa: E402
 from skill_parser import parse_skill_content, SkillMetadata  # noqa: E402
 from audit import Auditor  # noqa: E402
 from installer import Installer  # noqa: E402
+from update import SkillUpdater  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -370,14 +371,19 @@ def cmd_enable(args: list[str]) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Command: update (v0.3.0 stub)
+# Command: update
 # ---------------------------------------------------------------------------
 
-def cmd_update(_args: list[str]) -> int:
-    """Update installed skills (v0.3.0 feature — not yet implemented)."""
-    print("[agent-hunter] `update` is planned for v0.3.0.")
-    print("  For now, re-run `agent-hunter hunt` to find newer versions manually.")
-    return 0
+def cmd_update(args: list[str]) -> int:
+    """Update installed skills interactively."""
+    skill_name = args[0] if args else None
+    try:
+        updater = SkillUpdater()
+        approved, total = updater.run_interactive_update(skill_name=skill_name)
+        return 0 if approved == total else 1
+    except Exception as exc:
+        print(f"[agent-hunter] Update failed: {exc}")
+        return 1
 
 
 # ---------------------------------------------------------------------------
@@ -390,13 +396,13 @@ agent-hunter — proactive SKILL.md and MCP server discovery
 Usage:
   agent-hunter hunt [project_root]    Discover skills for your project
   agent-hunter audit                  Health-check installed skills
+  agent-hunter update [skill_name]    Update installed skills
   agent-hunter rollback               Restore registry to last good state
   agent-hunter context [project_root] Show detected project context
   agent-hunter scaffold <name>        Generate a new SKILL.md stub
   agent-hunter install <owner> <repo> Install a skill by owner/repo
   agent-hunter remove <skill_name>    Remove an installed skill
   agent-hunter enable <skill_name>    Re-enable a disabled skill
-  agent-hunter update                 Update installed skills (v0.3.0)
 
 Options:
   -h, --help    Show this message and exit

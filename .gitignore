@@ -54,6 +54,13 @@ npm-debug.log
 yarn-error.log
 yarn-debug.log
 
+# Testing / Coverage
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+pytest-cache-files-*/
+
 # Project specific
 hunt_report_*.md
 .agent-hunter/

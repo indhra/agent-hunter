@@ -63,7 +63,11 @@ def rollback(
     print(f"  Will be replaced by: {target.name}")
 
     if interactive:
-        confirm = input("\n  Proceed? [y/N] ").strip().lower()
+        try:
+            confirm = input("\n  Proceed? [y/N] ").strip().lower()
+        except EOFError:
+            print("\n[agent-hunter] Rollback cancelled (non-interactive context).")
+            return False
         if confirm != "y":
             print("[agent-hunter] Rollback cancelled.")
             return False

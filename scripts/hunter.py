@@ -205,7 +205,7 @@ class Hunter:
                 return []
 
             if resp.status_code == 429:
-                wait = 2 ** attempt
+                wait = int(resp.headers.get("Retry-After", RATE_LIMIT_BACKOFF_SECONDS))
                 print(f"[agent-hunter] Rate limited searching. Waiting {wait}s (attempt {attempt+1}/3)...")
                 time.sleep(wait)
                 continue
@@ -310,7 +310,7 @@ class Hunter:
             if resp.status_code == 404:
                 return None
             if resp.status_code == 429:
-                wait = 2 ** attempt
+                wait = int(resp.headers.get("Retry-After", RATE_LIMIT_BACKOFF_SECONDS))
                 print(f"[agent-hunter] Rate limited fetching repo metadata. Waiting {wait}s...")
                 time.sleep(wait)
                 continue
@@ -350,7 +350,7 @@ class Hunter:
             if resp.status_code == 404:
                 return None
             if resp.status_code == 429:
-                wait = 2 ** attempt
+                wait = int(resp.headers.get("Retry-After", RATE_LIMIT_BACKOFF_SECONDS))
                 print(f"[agent-hunter] Rate limited fetching content. Waiting {wait}s...")
                 time.sleep(wait)
                 continue

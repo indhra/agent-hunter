@@ -9,6 +9,9 @@ Commands:
     rollback                — Restore registry to last known good state.
     context [project_root]  — Show what context agent-hunter sees for your project.
     scaffold <name>         — Generate a SKILL.md stub for a new skill.
+    install <owner> <repo>  — Install a skill directly by owner/repo.
+    remove <skill_name>     — Permanently remove an installed skill.
+    enable <skill_name>     — Re-enable a disabled (_prefixed) skill.
     update                  — (v0.3.0 stub) Re-scan and update installed skills.
 
 Usage:
@@ -17,6 +20,9 @@ Usage:
     python scripts/main.py rollback
     python scripts/main.py context [project_root]
     python scripts/main.py scaffold <skill-name>
+    python scripts/main.py install <owner> <repo>
+    python scripts/main.py remove <skill_name>
+    python scripts/main.py enable <skill_name>
     python scripts/main.py update
 
 Error handling (per SPEC.md §13):
@@ -51,6 +57,7 @@ from rollback import rollback as do_rollback  # noqa: E402
 from scaffold import scaffold_skill  # noqa: E402
 from skill_parser import parse_skill_content, SkillMetadata  # noqa: E402
 from audit import Auditor  # noqa: E402
+from installer import Installer  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -288,6 +295,81 @@ def cmd_scaffold(args: list[str]) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Command: install
+# ---------------------------------------------------------------------------
+
+def cmd_install(args: list[str]) -> int:
+    """Install a skill directly by GitHub owner/repo."""
+    if len(args) < 2:
+        print("[agent-hunter] Error: install requires <owner> <repo>.")
+        print("  Usage: agent-hunter install <owner> <repo>")
+        return 1
+    owner, repo = args[0], args[1]
+    try:
+        installer = Installer()
+        result = installer.install(owner, repo)
+        if result.success:
+            print(f"[agent-hunter] {result.message}")
+            return 0
+        else:
+            print(f"[agent-hunter] Install failed: {result.error}")
+            return 1
+    except Exception as exc:
+        print(f"[agent-hunter] Install failed: {exc}")
+        return 1
+
+
+# ---------------------------------------------------------------------------
+# Command: remove
+# ---------------------------------------------------------------------------
+
+def cmd_remove(args: list[str]) -> int:
+    """Permanently remove an installed skill."""
+    if not args:
+        print("[agent-hunter] Error: remove requires a skill name.")
+        print("  Usage: agent-hunter remove <skill_name>")
+        return 1
+    skill_name = args[0]
+    try:
+        installer = Installer()
+        result = installer.uninstall(skill_name)
+        if result.success:
+            print(f"[agent-hunter] {result.message}")
+            return 0
+        else:
+            print(f"[agent-hunter] Remove failed: {result.error}")
+            return 1
+    except Exception as exc:
+        print(f"[agent-hunter] Remove failed: {exc}")
+        return 1
+
+
+# ---------------------------------------------------------------------------
+# Command: enable
+# ---------------------------------------------------------------------------
+
+def cmd_enable(args: list[str]) -> int:
+    """Re-enable a disabled (_prefixed) skill."""
+    if not args:
+        print("[agent-hunter] Error: enable requires a skill name.")
+        print("  Usage: agent-hunter enable <skill_name>")
+        return 1
+    skill_name = args[0]
+    try:
+        installer = Installer()
+        result = installer.enable(skill_name)
+        if result.success:
+            print(f"[agent-hunter] {result.message}")
+            return 0
+        else:
+            print(f"[agent-hunter] Enable failed: {result.error}")
+            return 1
+    except Exception as exc:
+        print(f"[agent-hunter] Enable failed: {exc}")
+        return 1
+
+
+# ---------------------------------------------------------------------------
 # Command: update (v0.3.0 stub)
 # ---------------------------------------------------------------------------
 
@@ -311,6 +393,9 @@ Usage:
   agent-hunter rollback               Restore registry to last good state
   agent-hunter context [project_root] Show detected project context
   agent-hunter scaffold <name>        Generate a new SKILL.md stub
+  agent-hunter install <owner> <repo> Install a skill by owner/repo
+  agent-hunter remove <skill_name>    Remove an installed skill
+  agent-hunter enable <skill_name>    Re-enable a disabled skill
   agent-hunter update                 Update installed skills (v0.3.0)
 
 Options:
@@ -336,6 +421,9 @@ _COMMANDS: dict[str, object] = {
     "rollback": cmd_rollback,
     "context":  cmd_context,
     "scaffold": cmd_scaffold,
+    "install":  cmd_install,
+    "remove":   cmd_remove,
+    "enable":   cmd_enable,
     "update":   cmd_update,
     "help":     cmd_help,
     "--help":   cmd_help,

@@ -1,6 +1,6 @@
 ---
 name: "agent-hunter"
-description: "Proactively hunts for relevant, security-vetted SKILL.md files and MCP servers that match the current project's tech stack. Prevents reinventing existing tools. The immune system of an AI agentic system."
+description: "Proactively hunts for relevant SKILL.md files and MCP servers that match the current project's tech stack. Security-scans every result. Prevents reinventing existing tools. Context-aware. Security-scanned. Self-evolving."
 version: "0.1.0"
 license: "MIT"
 author: "indhra"
@@ -22,7 +22,7 @@ mcp_dependencies: []
 
 # agent-hunter
 
-**The immune system of your AI agentic system.**
+**Hunt the right skills. Block the bad ones.**
 Finds proven skills and MCP servers that match what you're actually building.
 Security-scans every result before showing it. Never installs without your confirmation.
 

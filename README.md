@@ -1,7 +1,7 @@
 # agent-hunter
 
-> **The immune system of your AI agentic system.**
-> Context-aware. Security-vetted. Self-evolving.
+> **Hunt the right skills. Block the bad ones.**
+> Context-aware. Security-scanned. Self-evolving.
 
 <!--
 ████████████████████████████████████████████████████████
@@ -39,7 +39,7 @@ The result: developers rebuild skills that already exist, install skills that ha
 
 **agent-hunter is different.** It reads what you're actually building — your repo, your git history, your CLAUDE.md — hunts skills and MCP servers that match your exact context, vets every result for security issues before showing it to you, and warns you when installed skills have been tampered with.
 
-It's not a search tool. It's the **immune system of your AI team**.
+It's not a search tool. It hunts what fits, blocks what doesn't.
 
 > *"I built something from scratch, then found a SKILL.md that already did exactly that. Wasted time. I wish I had known."*
 > — The pain that built this tool.

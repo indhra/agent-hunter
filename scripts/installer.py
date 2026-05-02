@@ -233,6 +233,8 @@ class Installer:
         disabled_dir = SKILLS_DIR / f"_{skill_name}"
         target_dir = SKILLS_DIR / skill_name
 
+        self._log_action("enable", skill_name)
+
         if not disabled_dir.exists():
             return ActionResult(
                 action="enable", skill_name=skill_name, success=False,

@@ -59,8 +59,14 @@ class RegistryEntry:
 class Registry:
     """agent-hunter local skill registry."""
 
-    def __init__(self, registry_path: Path = REGISTRY_FILE) -> None:
-        self.registry_path = registry_path
+    def __init__(self, registry_path: Path | str = REGISTRY_FILE) -> None:
+        # Convert string to Path, handle directory vs file path
+        path = Path(registry_path) if isinstance(registry_path, str) else registry_path
+        if path.is_dir() or (not path.exists() and not path.suffix):
+            # If it's a directory or looks like one, append registry.json
+            self.registry_path = path / "registry.json"
+        else:
+            self.registry_path = path
         self._entries: dict[str, RegistryEntry] = {}  # keyed by repo_url
         self._ensure_dir()
         self._load()
@@ -93,9 +99,14 @@ class Registry:
     def snapshot(self) -> Path:
         """Write a timestamped backup of the current registry for rollback.
 
+        If the registry file does not exist yet (no skills installed), writes
+        an empty registry file first so the backup is well-formed.
+
         Returns the path of the backup file.
         """
         BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+        if not self.registry_path.exists():
+            self._save()  # write empty registry so shutil.copy2 has a source
         ts = int(time.time())
         backup_path = BACKUPS_DIR / f"registry_{ts}.json"
         shutil.copy2(self.registry_path, backup_path)

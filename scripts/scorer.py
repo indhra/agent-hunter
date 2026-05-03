@@ -26,9 +26,11 @@ No LLM calls. No network access.
 
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from context_extractor import ContextProfile
@@ -224,13 +226,90 @@ def _compute_recency(r: HuntResult) -> float:
 
 
 def _compute_yagni(r: HuntResult, profile: ContextProfile) -> float:
-    """YAGNI multiplier: reward skills that match domains actively in use."""
-    # Check if this skill's tech overlaps with the project's active domains
+    """
+    YAGNI multiplier: reward skills matching domains actively in use.
+    
+    Also checks install_log.jsonl to detect dormant installed skills
+    (installed >30 days ago with 0 session mentions) and apply the
+    dormant multiplier. This closes Gap 3: install_log → scorer feedback.
+    """
     text = f"{r.name} {r.repo_name}".lower()
+    
+    # First: check git activity signals (existing logic)
     if any(t in text for t in profile.active_domains):
         return YAGNI_MULTIPLIERS["active"]
     if any(t in text for t in profile.recent_domains):
         return YAGNI_MULTIPLIERS["recent"]
+    
+    # Second: check if this skill is installed AND dormant (new feedback loop)
+    install_status = _check_installed_skill_usage(r.name, profile)
+    if install_status == "dormant":
+        return YAGNI_MULTIPLIERS["dormant"]
+    elif install_status == "active":
+        # Boost active installed skills (up to 1.1× cap)
+        return min(1.1, YAGNI_MULTIPLIERS["recent"])
+    
+    # Third: check dormant git domains (existing logic)
     if profile.dormant_domains and any(t in text for t in profile.dormant_domains):
         return YAGNI_MULTIPLIERS["dormant"]
+    
     return YAGNI_MULTIPLIERS["unknown"]
+
+
+def _check_installed_skill_usage(skill_name: str, profile: ContextProfile) -> Optional[str]:
+    """
+    Check if a skill is installed and whether it's been used recently.
+    
+    Returns:
+        "dormant":  installed >30d ago, 0 session mentions
+        "active":   installed, has session mentions in last 30d
+        None:       not installed or insufficient data
+    """
+    install_log_path = Path.home() / ".agent-hunter" / "install_log.jsonl"
+    if not install_log_path.exists():
+        return None
+    
+    try:
+        install_history = {}
+        with open(install_log_path) as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    name = entry.get("skill_name", "").lower()
+                    if name == skill_name.lower():
+                        # Track most recent install/enable time
+                        action = entry.get("action", "")
+                        if action in ("install", "enable"):
+                            ts = entry.get("timestamp")
+                            if ts:
+                                install_history[name] = datetime.fromisoformat(ts)
+                except (json.JSONDecodeError, ValueError):
+                    continue
+    except OSError:
+        return None
+    
+    # If skill isn't in install_log, it's not installed
+    if skill_name.lower() not in install_history:
+        return None
+    
+    installed_at = install_history[skill_name.lower()]
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
+    if isinstance(installed_at, datetime) and installed_at.tzinfo:
+        installed_at = installed_at.replace(tzinfo=None)
+    
+    days_since_install = (now - installed_at).days
+    
+    # Check session mentions
+    session_skills_dict = {s.skill_name.lower(): s for s in profile.session_skills}
+    skill_session = session_skills_dict.get(skill_name.lower())
+    
+    # Dormant if installed >30d ago AND no recent session mentions
+    if days_since_install > 30:
+        if not skill_session or skill_session.mention_count == 0:
+            return "dormant"
+    
+    # Active if there are recent session mentions
+    if skill_session and skill_session.mention_count > 0:
+        return "active"
+    
+    return None

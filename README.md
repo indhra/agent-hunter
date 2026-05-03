@@ -113,6 +113,8 @@ git log (last 50)              no code, no paths)               GitHub Search (f
 
 ## Quick Start
 
+### Installation
+
 ```bash
 # Install agent-hunter as a Claude skill
 gh skill install indhra/agent-hunter
@@ -121,12 +123,56 @@ gh skill install indhra/agent-hunter
 cp -r agent-hunter ~/.claude/skills/agent-hunter
 ```
 
-Then in any Claude session:
+### Your First Hunt
+
+Imagine you're working on a FastAPI + PostgreSQL project. Just ask Claude to hunt:
+
 ```
 Hunt for skills relevant to this project
 ```
 
-That's it. No config file. No API keys upfront. It reads your project and hunts.
+agent-hunter will:
+1. **Read your project** — detects FastAPI, PostgreSQL, Docker, pytest
+2. **Hunt GitHub** — finds 8 skills matching your stack
+3. **Security scan** — flags 2 RED (injected shells), hides them
+4. **Rank results** — shows 6 green, scored by relevance + trust
+5. **Print report**:
+
+```
+─────────────────────────────────────────────────────────
+HUNT RESULTS — agent-hunter v0.1.0
+─────────────────────────────────────────────────────────
+Your stack: fastapi, postgresql, docker, pytest, pydantic
+Domain: backend
+─────────────────────────────────────────────────────────
+
+1. ⭐⭐⭐⭐⭐ trusty (by /someone)
+   Security scanner for Claude skills. 🟢 VERIFIED
+   Score: 4.8/5.0  Trust: verified  Stars: 2400
+   Reason: Exact stack match (fastapi+pydantic). Active (2d).
+   
+2. ⭐⭐⭐⭐  autotest (by /author)
+   Auto-generate pytest tests from docstrings.  🟢 COMMUNITY
+   Score: 4.3/5.0  Trust: community  Stars: 890
+   Reason: Stack match (pytest). Used in your sessions (8 days ago).
+   
+3. ⭐⭐⭐⭐  db-migrate (by /someone-else)
+   PostgreSQL schema versioning + rollback. 🟡 RAW
+   Score: 3.9/5.0  Trust: raw  Stars: 340
+   Reason: Domain match (backend+database). Newer (4d).
+   
+[Install any? Type: agent-hunter install trusty]
+
+2 results RED-scanned (hidden) — use --show-scan-details to review
+─────────────────────────────────────────────────────────
+```
+
+Then:
+```bash
+agent-hunter install trusty autotest
+```
+
+That's it. The skills are cloned to `~/.claude/skills/` and immediately available. No restart needed.
 
 ---
 
@@ -151,6 +197,15 @@ agent-hunter context
 # Scaffold a new SKILL.md stub pre-filled with your project's stack
 agent-hunter scaffold <name>
 ```
+
+---
+
+## Updates & Releases
+
+- **Check for updates:** `agent-hunter update`
+- **Release notes:** [GitHub Releases](https://github.com/indhra/agent-hunter/releases)
+- **Version history:** [CHANGELOG.md](./CHANGELOG.md)
+- **Rollback:** `agent-hunter rollback` (if needed)
 
 ---
 
@@ -253,7 +308,7 @@ See [ROADMAP.md](./ROADMAP.md) for the full versioned plan.
 
 ## License
 
-MIT © 2026 [Indhra Kiranu](https://github.com/indhra)
+MIT © 2026 [Indhra Kiranu N A](https://github.com/indhra)
 
 ---
 

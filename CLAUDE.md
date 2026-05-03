@@ -1,5 +1,7 @@
 # agent-hunter
 
+**Author:** Indhra Kiranu N A
+
 > Hunt the right skills. Block the bad ones.
 
 This is the repo root for `agent-hunter` — a Claude-native SKILL.md and MCP server discovery tool. It reads your project context, hunts GitHub for relevant skills, security-scans every result, and surfaces ranked recommendations.

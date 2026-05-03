@@ -113,6 +113,48 @@ False negatives on the security scan are **critical** — open a separate issue 
 
 ---
 
+## Pre-Merge Checklist
+
+Before merging a PR into `main`, ensure the following:
+
+1. **Update CHANGELOG.md** under the `[Unreleased]` section:
+   ```markdown
+   ### Added
+   - New feature description
+
+   ### Fixed
+   - Bug fix description
+
+   ### Changed
+   - Breaking changes or updates
+   ```
+
+2. **For release PRs** (when bumping version):
+   - Move `[Unreleased]` entries into a new versioned section:
+     ```markdown
+     ## [0.4.1] - 2026-05-03
+
+     ### Added
+     - Feature A
+     - Feature B
+
+     ## [Unreleased]
+
+     (Section ready for next version)
+     ```
+
+3. **After merge to main**, run the release script:
+   ```bash
+   python scripts/release.py --version 0.4.1
+   ```
+   This will:
+   - Create a git tag (`v0.4.1`)
+   - Push tag to GitHub
+   - Create a GitHub Release with notes from CHANGELOG.md
+   - Users will be notified via GitHub releases feed
+
+---
+
 ## Code Style
 
 - Python 3.10+
@@ -133,6 +175,12 @@ Email: security@[TODO: add domain after launch]
 Or open a [private security advisory](https://github.com/indhra/agent-hunter/security/advisories/new) on GitHub.
 
 We aim to respond within 48 hours and ship a patch within 7 days for confirmed vulnerabilities.
+
+---
+
+## Maintainers
+
+- **Indhra Kiranu N A** ([@indhra](https://github.com/indhra)) — Project creator and primary maintainer
 
 ---
 

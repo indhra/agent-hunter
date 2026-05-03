@@ -19,9 +19,8 @@ No LLM calls.
 
 from __future__ import annotations
 
-import os
+import json
 import sys
-import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -31,6 +30,7 @@ import requests
 
 from registry import Registry, RegistryEntry, check_sha_tamper
 from security_scan import scan_skill, ScanResult
+from context_extractor import _extract_session_skills
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +45,9 @@ class AuditEntryResult:
     scan_result: Optional[ScanResult] = None
     conflicts: list[str] = field(default_factory=list)  # names of conflicting skills
     license_issue: Optional[str] = None
-    overall_status: str = "healthy"  # "healthy", "update_available", "tampered", "security_issue", "conflict"
+    dormant: bool = False  # True if installed >30d ago with 0 session mentions (v0.4.0)
+    dormant_days: int = 0  # days since install if dormant
+    overall_status: str = "healthy"  # "healthy", "update_available", "tampered", "security_issue", "conflict", "dormant"
     update_available: bool = False  # True if remote content differs from installed
     remote_content: Optional[str] = None  # cached remote SKILL.md for comparison
 
@@ -137,11 +139,16 @@ class Auditor:
         # --- License check ---
         result.license_issue = _check_license_compat(entry.license)
 
-        # --- Set overall status (priority: tampered > security_issue > update_available > conflict > healthy) ---
+        # --- Dormant skill detection (v0.4.0 Gap 3) ---
+        result.dormant, result.dormant_days = _check_dormant_skill(entry.name)
+
+        # --- Set overall status (priority: tampered > security_issue > dormant > update_available > conflict > healthy) ---
         if tampered:
             result.overall_status = "tampered"
         elif result.scan_result and result.scan_result.severity == "RED":
             result.overall_status = "security_issue"
+        elif result.dormant:
+            result.overall_status = "dormant"
         elif result.update_available:
             result.overall_status = "update_available"
         elif result.license_issue:
@@ -204,6 +211,7 @@ class Auditor:
             "tampered": "🔴",
             "security_issue": "🔴",
             "conflict": "🟡",
+            "dormant": "⚪",
         }
 
         for r in report.audit_results:
@@ -211,6 +219,8 @@ class Auditor:
             print(f"  {icon}  {r.entry.name:<30} {r.overall_status}")
             if r.sha_tampered:
                 print(f"       ⚠️  SHA MISMATCH — {r.sha_message[:80]}")
+            if r.dormant:
+                print(f"       ⚪ Dormant: {r.dormant_days} days without use")
             if r.update_available:
                 print(f"       🟡 Update available — run `agent-hunter update {r.entry.name}`")
             if r.scan_result and r.scan_result.severity != "GREEN":
@@ -237,11 +247,50 @@ def _check_license_compat(skill_license: str) -> Optional[str]:
     return None
 
 
+def _check_dormant_skill(skill_name: str, threshold_days: int = 30) -> tuple[bool, int]:
+    """Check if a skill is dormant (installed >threshold_days with 0 session mentions).
+    
+    Returns: (is_dormant, days_since_install)
+    """
+    install_log_path = Path.home() / ".agent-hunter" / "install_log.jsonl"
+    if not install_log_path.exists():
+        return False, 0
+    
+    install_ts = None
+    try:
+        for line in install_log_path.read_text().strip().split('\n'):
+            if not line.strip():
+                continue
+            entry = json.loads(line)
+            if entry.get("skill_name") == skill_name and entry.get("action") == "install":
+                install_ts = datetime.fromisoformat(entry.get("timestamp", ""))
+                break
+    except (json.JSONDecodeError, ValueError):
+        return False, 0
+    
+    if not install_ts:
+        return False, 0
+    
+    # Normalize install_ts to UTC if naive
+    if install_ts.tzinfo is None:
+        install_ts = install_ts.replace(tzinfo=timezone.utc)
+    
+    now = datetime.now(timezone.utc)
+    days_since = (now - install_ts).days
+    
+    # Check for recent session mentions
+    session_skills = _extract_session_skills()
+    has_recent_mention = any(s.skill_name == skill_name for s in session_skills)
+    
+    is_dormant = (days_since > threshold_days) and not has_recent_mention
+    return is_dormant, days_since
+
+
 # ---------------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     auditor = Auditor()
     report = auditor.run()
     sys.exit(1 if report.has_issues else 0)

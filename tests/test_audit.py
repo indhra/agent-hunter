@@ -456,7 +456,6 @@ class TestUpdateRegistryStatus:
         assert updated_entry.last_audit_at is not None
 
     def test_updates_last_audit_timestamp(self):
-        import time
         auditor = _make_auditor([])
         entry = _entry()
         result = AuditEntryResult(entry=entry, overall_status="healthy")
@@ -914,7 +913,7 @@ class TestAuditCliEntryPoint:
             mock_instance.run.return_value = AuditReport(audit_results=[])
             mock_auditor_class.return_value = mock_instance
 
-            with patch("sys.exit") as mock_exit:
+            with patch("sys.exit"):
                 # Simulate running the __main__ block
                 from audit import Auditor
                 auditor = Auditor()

@@ -220,7 +220,7 @@ class TestRunInSubprocessErrors:
         """TimeoutExpired should set result.timed_out=True."""
         from sandbox import run_in_subprocess
         import subprocess
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import patch
 
         script = tmp_path / "timeout.py"
         script.write_text("import time; time.sleep(999)\n")

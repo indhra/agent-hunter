@@ -292,7 +292,6 @@ class TestRestoreSpecific:
         mock_reg.registry_path = registry_path
 
         # Make the parent directory read-only to trigger OSError
-        import os
         registry_path.parent.chmod(0o444)
 
         try:

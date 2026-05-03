@@ -368,8 +368,6 @@ class TestMarkdownResultMCP:
         scan = {r.repo_url: yellow_scan}
 
         # _print_terminal includes findings
-        import io
-        import sys as _sys
-        captured = io.StringIO()
+        import io  # noqa: F401
         _print_terminal([s], scan, 0, ".")
         # Just confirm it doesn't raise

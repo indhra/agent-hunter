@@ -657,7 +657,6 @@ A helpful skill.
 """)
         
         # Mock subprocess to simulate gh not installed
-        import subprocess
         with patch("subprocess.run") as mock_run:
             mock_run.side_effect = FileNotFoundError("gh not found")
             
@@ -1326,10 +1325,10 @@ class TestGetDangerousInstalled:
 
 
 # ---------------------------------------------------------------------------
-# _prompt_confirm_actions
+# _prompt_confirm_actions (additional edge cases)
 # ---------------------------------------------------------------------------
 
-class TestPromptConfirmActions:
+class TestPromptConfirmActionsEdgeCases:
     def _make_install_action(self, name="skill-a", reason=None):
         a = MagicMock()
         a.action = "install"

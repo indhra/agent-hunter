@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from mcp_parser import MCPMetadata, parse_mcp_json, is_mcp_server_py, _extract_transport, _infer_install_command
+from mcp_parser import parse_mcp_json, is_mcp_server_py, _extract_transport, _infer_install_command
 
 
 # ---------------------------------------------------------------------------

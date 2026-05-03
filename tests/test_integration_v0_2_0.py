@@ -13,15 +13,13 @@ All tests use mocked network + real filesystem (tmp_path).
 
 from __future__ import annotations
 
-import json
 import sys
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from audit import Auditor, AuditEntryResult, AuditReport
+from audit import Auditor
 from update import SkillUpdater
 from rollback import rollback
 from registry import Registry, RegistryEntry
@@ -333,7 +331,7 @@ class TestConcurrencyAndPerformance:
         updater = SkillUpdater(registry=reg)
 
         # All have updates available
-        v2_content = f"---\nname: test\nversion: 2.0.0\n---\nV2"
+        v2_content = "---\nname: test\nversion: 2.0.0\n---\nV2"
         with patch.object(updater.auditor, "_fetch_remote_skill_content", return_value=v2_content):
             updates = updater.check_updates()
 

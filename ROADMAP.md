@@ -1,7 +1,7 @@
 # agent-hunter · Roadmap
 
 **Version:** 1.0.0
-**Last updated:** 2026-05-01
+**Last updated:** 2026-05-03
 **Status:** Active development
 
 This roadmap is versioned and intentional. Every release ships a working, useful tool — not a preview. Features are added when they've earned their place, proven by real usage.
@@ -10,28 +10,44 @@ This roadmap is versioned and intentional. Every release ships a working, useful
 
 ## Versioning Convention
 
-`MAJOR.MINOR.PATCH`
+`MAJOR.MINOR.PATCH.BUILD`
 
 - **MAJOR** — breaking changes to SKILL.md interface, registry schema, or report format
 - **MINOR** — new commands, new sources, new scan capabilities (backward-compatible)
-- **PATCH** — bug fixes, score tuning, security rule updates, doc corrections
+- **PATCH** — robustness enhancements, security hardening, core gaps closed
+- **BUILD** — incremental (0 = initial, 1+ = hot fixes before next minor bump)
 
-Versions below `v1.0.0` are pre-release. `v1.0.0` is the first production-stable release.
+Examples: `v0.1.0.0` (alpha), `v0.2.1.3` (patch + 3 hotfixes), `v1.0.0.0` (GA).
+
+Versions below `v1.0.0.0` are pre-release. `v1.0.0.0` is the first production-stable release.
 
 ---
 
 ## Timeline Overview
 
 ```
-v0.1.0    v0.1.1    v0.2.0    v0.2.1    v0.3.0    v0.3.1    v1.0.0
-  │         │         │         │         │         │         │
-Week 1    Week 2    Week 4    Week 6    Week 9    Week 11   Week 16
-  │         │         │         │         │         │         │
-Core      Score     MCP +     Trust     Conflict  Dep.      GA:
-hunt      tuning    Audit +   tiers +   detect +  detect +  Benchmarked
-Security  + fixes   SHA +     CVE       Sandbox   Scaffold  Demo ready
-scan                Rollback  index     (Docker)  command   Production
+v0.1.0   v0.1.1   v0.2.0   v0.2.1   v0.3.0   v0.3.1   v0.4.0   v0.5.0   v0.6.0   v0.7.0   v0.8.0   v1.0.0
+  │        │        │        │        │        │        │        │        │        │        │        │
+Week 1   Week 2   Week 4   Week 6   Week 9  Week 11  Week 13  Week 15  Week 17  Week 19  Week 21  Week 24
+  │        │        │        │        │        │        │        │        │        │        │        │
+Core     Score    MCP +    Trust    Conflict Contrib  Feedback Runtime  Dep.    Web-of- Verified   GA:
+hunt     tuning   Audit +  tiers +  detect + loop    Snap     Sandbox  Mgmt    Trust   index     Prod
+Sec      fixes    SHA +    CVE      Docker   (Gap 3)  restore  obfuscat conflict verify  crypto    ready
+scan             Rollback  index    (Gap 2)   Gap 4             (Gap 1)  (Gap 3) (Gap 4)
 ```
+
+---
+
+## Core Robustness Gaps (integrated v0.5.0 → v0.8.0)
+
+These four gaps emerged from security + operational analysis:
+
+| Gap | Problem | Solution Roadmap | v1.0.0 Ready? |
+|-----|---------|------------------|---------------|
+| **Gap 1: Runtime Sandboxing** | Obfuscated malware bypasses static analysis | v0.6.0: Docker hardening + behavior analysis | ✅ |
+| **Gap 2: Safe-State Recovery** | Poisoned SHAs with no rollback points | v0.5.0: Pre-audit snapshots + recovery playbook | ✅ |
+| **Gap 3: Dependency Conflicts** | Python/Node version conflicts crash agent | v0.7.0: Resolver + containerization | ✅ |
+| **Gap 4: Web-of-Trust** | GitHub search: SEO poisoning + typo-squat | v0.8.0: Crypto verification + curated index | ✅ |
 
 ---
 

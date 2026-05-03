@@ -205,3 +205,71 @@ class TestShaTamper:
             tampered, msg = check_sha_tamper(e)
         assert tampered is False
         assert "Could not fetch" in msg
+
+
+# ---------------------------------------------------------------------------
+# _fetch_remote_sha direct tests
+# ---------------------------------------------------------------------------
+
+class TestFetchRemoteSha:
+    def test_short_url_returns_none(self):
+        """URL with fewer than 2 path parts should return None immediately."""
+        import registry as reg_mod
+        result = reg_mod._fetch_remote_sha("https://github.com/only-one")
+        assert result is None
+
+    def test_token_is_added_to_headers(self):
+        """When token provided, Authorization header should be sent."""
+        import registry as reg_mod
+        from unittest.mock import MagicMock, patch
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"sha": "abc123def"}
+
+        with patch("requests.get", return_value=mock_resp) as mock_get:
+            result = reg_mod._fetch_remote_sha(
+                "https://github.com/owner/repo", token="my-token"
+            )
+
+        assert result == "abc123def"
+        call_kwargs = mock_get.call_args.kwargs
+        assert call_kwargs["headers"]["Authorization"] == "Bearer my-token"
+
+    def test_200_returns_sha(self):
+        """A 200 response should return the sha from JSON."""
+        import registry as reg_mod
+        from unittest.mock import MagicMock, patch
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = {"sha": "deadbeef"}
+
+        with patch("requests.get", return_value=mock_resp):
+            result = reg_mod._fetch_remote_sha("https://github.com/owner/repo")
+
+        assert result == "deadbeef"
+
+    def test_non_200_returns_none(self):
+        """A non-200 status code should fall through and return None."""
+        import registry as reg_mod
+        from unittest.mock import MagicMock, patch
+
+        mock_resp = MagicMock()
+        mock_resp.status_code = 404
+
+        with patch("requests.get", return_value=mock_resp):
+            result = reg_mod._fetch_remote_sha("https://github.com/owner/repo")
+
+        assert result is None
+
+    def test_network_exception_returns_none(self):
+        """Any network exception should be caught and return None."""
+        import registry as reg_mod
+        from unittest.mock import patch
+        import requests
+
+        with patch("requests.get", side_effect=requests.ConnectionError("no network")):
+            result = reg_mod._fetch_remote_sha("https://github.com/owner/repo")
+
+        assert result is None

@@ -7,8 +7,9 @@ Uses mocked registries and tmp_path — never touches ~/.agent-hunter/ or ~/.cla
 
 from __future__ import annotations
 
+import json
 import sys
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -16,9 +17,10 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from audit import Auditor, AuditEntryResult, AuditReport, _check_license_compat
+from audit import Auditor, AuditEntryResult, AuditReport, _check_license_compat, _check_dormant_skill
 from registry import RegistryEntry
 from security_scan import ScanResult
+from context_extractor import SkillUsage
 
 
 # ---------------------------------------------------------------------------
@@ -726,6 +728,178 @@ class TestStatusPriority:
 
         assert result.overall_status == "conflict"
         assert result.update_available is False
+
+
+# ---------------------------------------------------------------------------
+# Dormant skill detection (v0.4.0 Gap 3)
+# ---------------------------------------------------------------------------
+
+class TestDormantSkillDetection:
+    """Test dormant skill detection — installed >30d with 0 session mentions."""
+
+    def test_dormant_detected_old_install_no_mentions(self, tmp_path, monkeypatch):
+        """Skill installed >30d ago with 0 session mentions should be dormant."""
+        agent_hunter_dir = tmp_path / ".agent-hunter"
+        agent_hunter_dir.mkdir()
+        
+        install_log = agent_hunter_dir / "install_log.jsonl"
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        old_ts = (now - timedelta(days=35)).isoformat()
+        
+        install_log.write_text(
+            json.dumps({
+                "skill_name": "old-skill",
+                "action": "install",
+                "timestamp": old_ts,
+            }) + "\n"
+        )
+        
+        monkeypatch.setenv("HOME", str(tmp_path))
+        
+        with patch("audit._extract_session_skills", return_value=[]):
+            is_dormant, days = _check_dormant_skill("old-skill")
+        
+        assert is_dormant is True
+        assert days >= 35
+
+    def test_not_dormant_recent_install(self, tmp_path, monkeypatch):
+        """Skill installed <30d ago should NOT be dormant."""
+        agent_hunter_dir = tmp_path / ".agent-hunter"
+        agent_hunter_dir.mkdir()
+        
+        install_log = agent_hunter_dir / "install_log.jsonl"
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        recent_ts = (now - timedelta(days=10)).isoformat()
+        
+        install_log.write_text(
+            json.dumps({
+                "skill_name": "new-skill",
+                "action": "install",
+                "timestamp": recent_ts,
+            }) + "\n"
+        )
+        
+        monkeypatch.setenv("HOME", str(tmp_path))
+        
+        with patch("audit._extract_session_skills", return_value=[]):
+            is_dormant, days = _check_dormant_skill("new-skill")
+        
+        assert is_dormant is False
+        assert days == 10
+
+    def test_not_dormant_with_recent_mentions(self, tmp_path, monkeypatch):
+        """Skill with recent session mentions should NOT be dormant."""
+        agent_hunter_dir = tmp_path / ".agent-hunter"
+        agent_hunter_dir.mkdir()
+        
+        install_log = agent_hunter_dir / "install_log.jsonl"
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        old_ts = (now - timedelta(days=40)).isoformat()
+        
+        install_log.write_text(
+            json.dumps({
+                "skill_name": "active-skill",
+                "action": "install",
+                "timestamp": old_ts,
+            }) + "\n"
+        )
+        
+        monkeypatch.setenv("HOME", str(tmp_path))
+        
+        # Mock recent session mentions
+        mock_skills = [
+            SkillUsage(
+                skill_name="active-skill",
+                last_seen=datetime.now(),
+                mention_count=5,
+            )
+        ]
+        
+        with patch("audit._extract_session_skills", return_value=mock_skills):
+            is_dormant, days = _check_dormant_skill("active-skill")
+        
+        assert is_dormant is False
+
+    def test_dormant_not_installed(self, tmp_path, monkeypatch):
+        """Skill not in install_log should NOT be dormant."""
+        agent_hunter_dir = tmp_path / ".agent-hunter"
+        agent_hunter_dir.mkdir()
+        (agent_hunter_dir / "install_log.jsonl").write_text("")
+        
+        monkeypatch.setenv("HOME", str(tmp_path))
+        
+        with patch("audit._extract_session_skills", return_value=[]):
+            is_dormant, days = _check_dormant_skill("never-installed")
+        
+        assert is_dormant is False
+        assert days == 0
+
+    def test_dormant_in_audit_entry(self, tmp_path, monkeypatch):
+        """_audit_entry should detect and mark dormant skills."""
+        agent_hunter_dir = tmp_path / ".agent-hunter"
+        agent_hunter_dir.mkdir()
+        
+        install_log = agent_hunter_dir / "install_log.jsonl"
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        old_ts = (now - timedelta(days=40)).isoformat()
+        
+        install_log.write_text(
+            json.dumps({
+                "skill_name": "dormant-skill",
+                "action": "install",
+                "timestamp": old_ts,
+            }) + "\n"
+        )
+        
+        monkeypatch.setenv("HOME", str(tmp_path))
+        
+        auditor = _make_auditor([])
+        entry = _entry(name="dormant-skill")
+        
+        with patch("audit.check_sha_tamper", return_value=(False, "ok")):
+            with patch.object(auditor, "_fetch_remote_skill_content", return_value="---\nname: test\n---\n"):
+                with patch("audit._extract_session_skills", return_value=[]):
+                    result = auditor._audit_entry(entry)
+        
+        assert result.dormant is True
+        assert result.overall_status == "dormant"
+
+    def test_status_priority_dormant_over_update(self, tmp_path, monkeypatch):
+        """Dormant status should take priority over update_available."""
+        agent_hunter_dir = tmp_path / ".agent-hunter"
+        agent_hunter_dir.mkdir()
+        
+        install_log = agent_hunter_dir / "install_log.jsonl"
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        old_ts = (now - timedelta(days=40)).isoformat()
+        
+        install_log.write_text(
+            json.dumps({
+                "skill_name": "dormant-skill",
+                "action": "install",
+                "timestamp": old_ts,
+            }) + "\n"
+        )
+        
+        monkeypatch.setenv("HOME", str(tmp_path))
+        
+        auditor = _make_auditor([])
+        local_file = tmp_path / "SKILL.md"
+        local_file.write_text("old content")
+        entry = _entry(name="dormant-skill", install_path=str(local_file))
+        
+        # Remote has different content (update_available=True) but skill is dormant
+        remote_content = "new content"
+        
+        with patch("audit.check_sha_tamper", return_value=(False, "ok")):
+            with patch.object(auditor, "_fetch_remote_skill_content", return_value=remote_content):
+                with patch("audit._extract_session_skills", return_value=[]):
+                    result = auditor._audit_entry(entry)
+        
+        assert result.update_available is True
+        assert result.dormant is True
+        # Dormant should take priority
+        assert result.overall_status == "dormant"
 
 
 # ---------------------------------------------------------------------------

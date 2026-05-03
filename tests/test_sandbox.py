@@ -209,3 +209,38 @@ class TestSandboxRunFactory:
         script.write_text("x = 1 + 1\n")
         result = sandbox_run(script, mode="subprocess")
         assert result.is_suspicious is False
+
+
+# ---------------------------------------------------------------------------
+# run_in_subprocess: TimeoutExpired + OSError paths (lines 130-131)
+# ---------------------------------------------------------------------------
+
+class TestRunInSubprocessErrors:
+    def test_timeout_expired_sets_timed_out(self, tmp_path):
+        """TimeoutExpired should set result.timed_out=True."""
+        from sandbox import run_in_subprocess
+        import subprocess
+        from unittest.mock import patch, MagicMock
+
+        script = tmp_path / "timeout.py"
+        script.write_text("import time; time.sleep(999)\n")
+
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["python3"], 5)):
+            result = run_in_subprocess(script, timeout=5)
+
+        assert result.timed_out is True
+        assert "timeout" in result.error.lower()
+
+    def test_oserror_sets_error(self, tmp_path):
+        """OSError/PermissionError should set result.error."""
+        from sandbox import run_in_subprocess
+        from unittest.mock import patch
+
+        script = tmp_path / "nope.py"
+        script.write_text("pass\n")
+
+        with patch("subprocess.run", side_effect=PermissionError("cannot exec")):
+            result = run_in_subprocess(script, timeout=10)
+
+        assert result.error == "cannot exec"
+        assert result.timed_out is False

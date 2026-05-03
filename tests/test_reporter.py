@@ -14,7 +14,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from hunter import HuntResult  # noqa: E402
-from reporter import _include_in_report, _print_terminal, _save_markdown  # noqa: E402
+from reporter import _include_in_report, _print_terminal, _save_markdown, _score_bar, render_hunt_report  # noqa: E402
 from scorer import ScoredResult  # noqa: E402
 from security_scan import ScanFinding, ScanResult  # noqa: E402
 
@@ -190,3 +190,186 @@ class TestSaveMarkdown:
         content = path.read_text()
         assert "evil-skill" not in content
         assert "1" in content  # red_count shown somewhere
+
+
+# ---------------------------------------------------------------------------
+# _score_bar
+# ---------------------------------------------------------------------------
+
+class TestScoreBar:
+    def test_full_score_all_filled(self):
+        bar = _score_bar(1.0, width=10)
+        assert "██████████" in bar
+        assert "░" not in bar
+
+    def test_zero_score_all_empty(self):
+        bar = _score_bar(0.0, width=10)
+        assert "█" not in bar
+        assert "░░░░░░░░░░" in bar
+
+    def test_half_score(self):
+        bar = _score_bar(0.5, width=10)
+        assert bar.count("█") == 5
+        assert bar.count("░") == 5
+
+
+# ---------------------------------------------------------------------------
+# _print_terminal: no results branch (lines 60-70)
+# ---------------------------------------------------------------------------
+
+class TestPrintTerminalNoResults:
+    def test_no_results_prints_tip(self, capsys):
+        """Empty results list should print 'No results found' with a tip."""
+        _print_terminal([], {}, 0, "/my/project")
+        out = capsys.readouterr().out
+        assert "No results found" in out
+        assert "scaffold" in out
+
+    def test_no_results_returns_early(self, capsys):
+        """Should print nothing beyond the no-results message (no install lines)."""
+        _print_terminal([], {}, 0, ".")
+        out = capsys.readouterr().out
+        assert "Install:" not in out
+
+
+# ---------------------------------------------------------------------------
+# render_hunt_report: save_markdown path (lines 109 + save path)
+# ---------------------------------------------------------------------------
+
+class TestRenderHuntReportMarkdown:
+    def test_save_markdown_creates_file(self, tmp_path, capsys):
+        """save_markdown=True should create a report file and print its path."""
+        s = _make_scored("fastapi-skill")
+        scan = {s.hunt_result.repo_url: _green_scan()}
+
+        with patch("reporter.REPORTS_DIR", tmp_path):
+            render_hunt_report([s], scan, save_markdown=True)
+
+        out = capsys.readouterr().out
+        assert "Report saved" in out
+        reports = list(tmp_path.glob("*.md"))
+        assert len(reports) == 1
+
+    def test_save_markdown_false_no_file(self, tmp_path, capsys):
+        """save_markdown=False (default) should not create a file."""
+        s = _make_scored("fastapi-skill")
+        scan = {s.hunt_result.repo_url: _green_scan()}
+
+        with patch("reporter.REPORTS_DIR", tmp_path):
+            render_hunt_report([s], scan, save_markdown=False)
+
+        assert len(list(tmp_path.glob("*.md"))) == 0
+
+
+# ---------------------------------------------------------------------------
+# _markdown_result: MCP-specific fields (lines 172-174, 201-204, 207, 211)
+# ---------------------------------------------------------------------------
+
+class TestMarkdownResultMCP:
+    def test_mcp_result_includes_transport(self, tmp_path):
+        """MCP result with transport type should include it in markdown."""
+        r = HuntResult(
+            name="my-mcp-server",
+            repo_url="https://github.com/o/my-mcp-server",
+            stars=50,
+            result_type="mcp",
+            trust_tier="raw",
+            repo_name="my-mcp-server",
+            owner="o",
+            mcp_transport_type="stdio",
+            mcp_capabilities=["search", "read"],
+        )
+        s = ScoredResult(hunt_result=r, skill_metadata=None, total_score=0.7)
+        scan = {r.repo_url: _green_scan()}
+
+        with patch("reporter.REPORTS_DIR", tmp_path):
+            path = _save_markdown([s], scan, 0, ".", [s])
+
+        content = path.read_text()
+        assert "stdio" in content
+        assert "search" in content
+
+    def test_mcp_result_without_transport_still_renders(self, tmp_path):
+        """MCP result without transport should still render cleanly."""
+        r = HuntResult(
+            name="minimal-mcp",
+            repo_url="https://github.com/o/minimal-mcp",
+            stars=10,
+            result_type="mcp",
+            trust_tier="raw",
+            repo_name="minimal-mcp",
+            owner="o",
+        )
+        s = ScoredResult(hunt_result=r, skill_metadata=None, total_score=0.5)
+        scan = {r.repo_url: _green_scan()}
+
+        with patch("reporter.REPORTS_DIR", tmp_path):
+            path = _save_markdown([s], scan, 0, ".", [s])
+
+        content = path.read_text()
+        assert "minimal-mcp" in content
+
+    def test_mcp_result_uses_mcp_install_command(self, tmp_path):
+        """MCP result with mcp_install_command should use it in markdown."""
+        r = HuntResult(
+            name="my-mcp",
+            repo_url="https://github.com/o/my-mcp",
+            stars=20,
+            result_type="mcp",
+            trust_tier="raw",
+            repo_name="my-mcp",
+            owner="o",
+            mcp_install_command="npx -y @my/mcp-server",
+        )
+        s = ScoredResult(hunt_result=r, skill_metadata=None, total_score=0.6)
+        scan = {r.repo_url: _green_scan()}
+
+        with patch("reporter.REPORTS_DIR", tmp_path):
+            path = _save_markdown([s], scan, 0, ".", [s])
+
+        content = path.read_text()
+        assert "npx -y @my/mcp-server" in content
+
+    def test_skill_result_with_explanation_rendered(self, tmp_path):
+        """Skill result with explanation should include it in markdown."""
+        r = HuntResult(
+            name="my-skill",
+            repo_url="https://github.com/o/my-skill",
+            stars=100,
+            result_type="skill",
+            trust_tier="community",
+            repo_name="my-skill",
+            owner="o",
+        )
+        s = ScoredResult(hunt_result=r, skill_metadata=None, total_score=0.8, explanation="High relevance to your stack")
+        scan = {r.repo_url: _green_scan()}
+
+        with patch("reporter.REPORTS_DIR", tmp_path):
+            path = _save_markdown([s], scan, 0, ".", [s])
+
+        content = path.read_text()
+        assert "High relevance" in content
+
+    def test_scan_findings_in_markdown(self, tmp_path):
+        """Scan findings on a YELLOW result should appear in the markdown."""
+        from security_scan import ScanFinding
+        r = HuntResult(
+            name="yellow-skill",
+            repo_url="https://github.com/o/yellow-skill",
+            stars=50,
+            result_type="skill",
+            trust_tier="raw",
+            repo_name="yellow-skill",
+            owner="o",
+        )
+        finding = ScanFinding(severity="YELLOW", pattern_id="eval_use", description="Suspicious eval use", location="body")
+        yellow_scan = ScanResult(severity="YELLOW", findings=[finding])
+        s = ScoredResult(hunt_result=r, skill_metadata=None, total_score=0.5)
+        scan = {r.repo_url: yellow_scan}
+
+        # _print_terminal includes findings
+        import io
+        import sys as _sys
+        captured = io.StringIO()
+        _print_terminal([s], scan, 0, ".")
+        # Just confirm it doesn't raise

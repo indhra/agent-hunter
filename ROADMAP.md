@@ -255,6 +255,58 @@ Raw GitHub search is the weakest link — easily SEO-poisoned, typo-squatted, or
 
 ---
 
+## v0.4.0 · Beta — Compound Loop Completion (Feedback + Contribution)
+
+**Status:** 📋 Planned
+**Target:** Week 13
+
+This version closes the two open links in the compound learning loop. Without these, the scorer is static — it ranks by stars and recency forever. With them, it gets smarter from actual usage.
+
+### Gap 3 — install_log → scorer feedback
+
+**Problem:** `install_log.jsonl` records every install/disable/uninstall action but nothing reads it back. The scorer has no knowledge of "you installed this skill 3 weeks ago and it was never triggered." The dormant signal exists in the YAGNI multiplier design but is driven by git commit recency — not actual usage history.
+
+**Ships:**
+- `scorer.py` extended: reads `~/.agent-hunter/install_log.jsonl` at score time to detect dormant installed skills
+  - Installed > 30 days ago + 0 `context_extractor` session matches → apply `dormant` YAGNI multiplier (0.5×) to re-hunt score
+  - Installed + actively invoked (matched in `~/.claude/sessions/` transcripts in last 30 days) → boost trust signal (1.1× cap)
+- `context_extractor.py` session transcript mining wired into the scorer (was deferred since v0.1.0)
+  - Reads `~/.claude/sessions/*.jsonl` for skill name mentions
+  - Output: `{"skill_name": str, "last_seen": date, "mention_count": int}` → consumed by scorer
+- Registry gains an `install_log_summary()` helper: returns per-skill `{installed_at, last_triggered, trigger_count}` for scorer consumption
+- `audit.py` uses the same signal to surface "installed but never triggered" in the audit report
+
+**Release gate:**
+- Scorer correctly applies 0.5× to a skill installed 31+ days ago with 0 session mentions
+- Scorer correctly boosts a skill with 5+ session mentions in last 30 days
+- `audit.py` lists dormant skills (installed >30d, 0 triggers) as a distinct category
+
+---
+
+### Gap 4 — `agent-hunter contribute` command
+
+**Problem:** `scaffold.py` tells users to "open a PR manually." The loop from consumer → contributor is fully open. A user who builds something useful has no path back to the verified index without leaving the tool.
+
+**Ships:**
+- `scripts/main.py` gains a `contribute` subcommand: `agent-hunter contribute <skill-name>`
+  - Validates the named skill is installed in `~/.claude/skills/`
+  - Runs `security_scan.py` on it — blocks contribution if RED result
+  - Runs `skill_parser.py` — validates YAML frontmatter is complete (name, version, trigger, domain_tags required)
+  - Opens a pre-filled GitHub issue on `indhra/agent-hunter` via `gh issue create` with:
+    - Skill name, repo URL, stars, trust tier, security scan result summary
+    - Templated body from `assets/contribute_template.md`
+  - Falls back to printing the filled template to stdout if `gh` is not installed
+- `assets/contribute_template.md` — contribution issue template (skill metadata + self-certification checklist)
+- `references/VERIFIED_SKILLS.md` documents the manual review process for maintainers
+
+**Release gate:**
+- `contribute` command validates frontmatter and rejects incomplete skills with clear error
+- Contribute blocked on RED scan result (test with `tests/fixtures/malicious_skill.md`)
+- `gh` fallback: template printed to stdout with correct content when `gh` is not available
+- End-to-end: install a scaffolded skill → `contribute` → issue body is correct
+
+---
+
 ## v1.0.0 · General Availability — Benchmarked and Production-Ready
 
 **Status:** 📋 Planned

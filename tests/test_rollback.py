@@ -17,7 +17,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from rollback import _parse_backup_timestamp, rollback, list_backups_cmd
+from rollback import _parse_backup_timestamp, rollback, list_backups_cmd, _restore_specific
 
 
 # ---------------------------------------------------------------------------
@@ -239,3 +239,160 @@ class TestListBackupsCmd:
             list_backups_cmd()
         out = capsys.readouterr().out
         assert backup.name in out
+
+
+# ---------------------------------------------------------------------------
+# _restore_specific — direct tests
+# ---------------------------------------------------------------------------
+
+class TestRestoreSpecific:
+    def test_restore_specific_succeeds(self, tmp_path):
+        """_restore_specific should copy backup to registry path and reload."""
+        backup = _make_backup(tmp_path, ts_offset=3600)
+        registry_path = tmp_path / "registry.json"
+        _write_registry(registry_path)
+
+        mock_reg = MagicMock()
+        mock_reg.registry_path = registry_path
+
+        result = _restore_specific(mock_reg, backup)
+
+        assert result is True
+        # Verify _load was called
+        mock_reg._load.assert_called_once()
+        # Verify the file was copied
+        assert registry_path.exists()
+
+    def test_restore_specific_file_copied_correctly(self, tmp_path):
+        """Verify the backup content is actually copied to registry path."""
+        backup_content = {"skills": [{"name": "restored-skill"}], "version": "1"}
+        backup = tmp_path / "backup.json"
+        backup.write_text(json.dumps(backup_content))
+
+        registry_path = tmp_path / "registry.json"
+        registry_path.write_text(json.dumps({"skills": [], "version": "1"}))
+
+        mock_reg = MagicMock()
+        mock_reg.registry_path = registry_path
+
+        _restore_specific(mock_reg, backup)
+
+        # Verify the registry now contains the backup content
+        restored = json.loads(registry_path.read_text())
+        assert restored == backup_content
+
+    def test_restore_specific_handles_oserror(self, tmp_path, capsys):
+        """_restore_specific should return False and print error on OSError."""
+        backup = tmp_path / "backup.json"
+        backup.write_text("{}")
+        registry_path = tmp_path / "readonly_dir" / "registry.json"
+        registry_path.parent.mkdir(parents=True)
+
+        mock_reg = MagicMock()
+        mock_reg.registry_path = registry_path
+
+        # Make the parent directory read-only to trigger OSError
+        import os
+        registry_path.parent.chmod(0o444)
+
+        try:
+            result = _restore_specific(mock_reg, backup)
+            assert result is False
+            out = capsys.readouterr().out
+            assert "Restore error" in out
+        finally:
+            # Cleanup: restore write permission
+            registry_path.parent.chmod(0o755)
+
+    def test_restore_specific_with_nonexistent_source(self, tmp_path, capsys):
+        """_restore_specific should handle missing backup file gracefully."""
+        backup = tmp_path / "nonexistent.json"
+        registry_path = tmp_path / "registry.json"
+        _write_registry(registry_path)
+
+        mock_reg = MagicMock()
+        mock_reg.registry_path = registry_path
+
+        result = _restore_specific(mock_reg, backup)
+        assert result is False
+        out = capsys.readouterr().out
+        assert "Restore error" in out
+
+
+# ---------------------------------------------------------------------------
+# rollback() — output messages and warnings
+# ---------------------------------------------------------------------------
+
+class TestRollbackOutputMessages:
+    def test_shows_backup_timestamp_when_available(self, tmp_path, capsys):
+        """Verify rollback shows the creation timestamp of the backup."""
+        backup = _make_backup(tmp_path)
+        mock_reg = _mock_registry(tmp_path, backups=[backup])
+        mock_reg.registry_path = tmp_path / "registry.json"
+        _write_registry(tmp_path / "registry.json")
+
+        rollback(registry=mock_reg, interactive=False)
+        out = capsys.readouterr().out
+
+        # Should show a timestamp (or handle gracefully if parsing fails)
+        assert backup.name in out or "rollback" in out.lower()
+
+    def test_shows_success_message(self, tmp_path, capsys):
+        """Verify success message is printed after successful rollback."""
+        backup = _make_backup(tmp_path)
+        _write_registry(tmp_path / "registry.json")
+        mock_reg = _mock_registry(tmp_path, backups=[backup])
+        mock_reg.registry_path = tmp_path / "registry.json"
+        mock_reg.restore_latest.return_value = True
+
+        rollback(registry=mock_reg, interactive=False)
+        out = capsys.readouterr().out
+
+        assert "✅" in out or "Rollback complete" in out.lower()
+        assert "audit" in out.lower()  # Suggests running audit
+
+    def test_shows_failure_message(self, tmp_path, capsys):
+        """Verify failure message is printed when rollback fails."""
+        backup = _make_backup(tmp_path)
+        _write_registry(tmp_path / "registry.json")
+        mock_reg = _mock_registry(tmp_path, backups=[backup])
+        mock_reg.registry_path = tmp_path / "registry.json"
+        mock_reg.restore_latest.return_value = False
+
+        rollback(registry=mock_reg, interactive=False)
+        out = capsys.readouterr().out
+
+        assert "❌" in out or "failed" in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# rollback() — edge cases
+# ---------------------------------------------------------------------------
+
+class TestRollbackEdgeCases:
+    def test_handles_registry_path_not_existing(self, tmp_path):
+        """Rollback should not crash if registry.json doesn't exist yet."""
+        backup = _make_backup(tmp_path)
+        mock_reg = _mock_registry(tmp_path, backups=[backup])
+        # Don't create registry.json
+        mock_reg.registry_path = tmp_path / "nonexistent_registry.json"
+        mock_reg.restore_latest.return_value = True
+
+        # Should not crash, snapshot() is skipped
+        result = rollback(registry=mock_reg, interactive=False)
+        assert result is True
+
+    def test_prints_helpful_prompt_text(self, tmp_path, capsys):
+        """Interactive mode should show helpful text about the restore operation."""
+        backup = _make_backup(tmp_path)
+        _write_registry(tmp_path / "registry.json")
+        mock_reg = _mock_registry(tmp_path, backups=[backup])
+        mock_reg.registry_path = tmp_path / "registry.json"
+
+        with patch("builtins.input", return_value="n"):
+            rollback(registry=mock_reg, interactive=True)
+
+        out = capsys.readouterr().out
+        assert "Rollback target" in out
+        assert "registry" in out.lower()
+        assert "Current registry" in out or "Will be replaced by" in out

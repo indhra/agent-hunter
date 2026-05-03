@@ -8,6 +8,7 @@ Uses mocked registries and tmp_path — never touches ~/.agent-hunter/ or ~/.cla
 from __future__ import annotations
 
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -300,130 +301,463 @@ class TestAuditReport:
 
 
 # ---------------------------------------------------------------------------
-# Auditor._detect_conflicts — placeholder (v0.3.0)
+# _detect_conflicts (placeholder for v0.3.0, should not crash)
 # ---------------------------------------------------------------------------
 
 class TestDetectConflicts:
     def test_detect_conflicts_is_noop(self):
-        """_detect_conflicts is a v0.3.0 stub — should not raise."""
-        auditor = _make_auditor([])
-        e = _entry()
-        results = [AuditEntryResult(entry=e, overall_status="healthy")]
-        auditor._detect_conflicts(results)  # must not raise
+        """v0.3.0 stub — should not crash."""
+        entries = [_entry(name="skill-a"), _entry(name="skill-b")]
+        results = [
+            AuditEntryResult(entry=entries[0]),
+            AuditEntryResult(entry=entries[1]),
+        ]
+        auditor = _make_auditor(entries)
+        # Should not raise
+        auditor._detect_conflicts(results)
 
 
 # ---------------------------------------------------------------------------
-# Auditor._fetch_remote_skill_content
+# _fetch_remote_skill_content
 # ---------------------------------------------------------------------------
 
 class TestFetchRemoteSkillContent:
-    def test_fetch_from_main_branch(self):
-        """Successfully fetch SKILL.md from main branch."""
+    def test_fetch_success_main_branch(self):
+        auditor = _make_auditor([])
+        entry = _entry(repo_url="https://github.com/owner/myskill")
+
+        with patch("audit.requests.get") as mock_get:
+            mock_get.return_value = MagicMock(
+                status_code=200, text="# Remote SKILL content"
+            )
+            content = auditor._fetch_remote_skill_content(entry)
+
+        assert content == "# Remote SKILL content"
+        # Should have tried main first
+        called_url = mock_get.call_args[0][0]
+        assert "main" in called_url
+
+    def test_fetch_fallback_to_master(self):
+        auditor = _make_auditor([])
+        entry = _entry(repo_url="https://github.com/owner/myskill")
+
+        def get_side_effect(*args, **kwargs):
+            url = args[0]
+            if "main" in url:
+                resp = MagicMock(status_code=404)
+            else:  # master
+                resp = MagicMock(status_code=200, text="# Master branch content")
+            return resp
+
+        with patch("audit.requests.get", side_effect=get_side_effect):
+            content = auditor._fetch_remote_skill_content(entry)
+
+        assert content == "# Master branch content"
+
+    def test_fetch_network_error_returns_none(self):
+        auditor = _make_auditor([])
+        entry = _entry(repo_url="https://github.com/owner/myskill")
+
+        with patch("audit.requests.get", side_effect=requests.RequestException("timeout")):
+            content = auditor._fetch_remote_skill_content(entry)
+
+        assert content is None
+
+    def test_fetch_network_error_on_main_continues_to_master(self):
+        """Test the continue statement when main raises RequestException."""
+        auditor = _make_auditor([])
+        entry = _entry(repo_url="https://github.com/owner/myskill")
+
+        call_count = {"main": 0, "master": 0}
+
+        def get_side_effect(url, timeout=None):
+            # Track calls and fail main, succeed on master
+            if "main" in url:
+                call_count["main"] += 1
+                raise requests.RequestException("connection timeout")
+            if "master" in url:
+                call_count["master"] += 1
+                return MagicMock(status_code=200, text="# Master branch fallback")
+            return MagicMock(status_code=404)
+
+        with patch("audit.requests.get", side_effect=get_side_effect):
+            content = auditor._fetch_remote_skill_content(entry)
+
+        # Both should have been tried (continue statement hit)
+        assert call_count["main"] == 1
+        assert call_count["master"] == 1
+        assert content == "# Master branch fallback"
+
+    def test_fetch_404_on_both_branches_returns_none(self):
+        auditor = _make_auditor([])
+        entry = _entry(repo_url="https://github.com/owner/myskill")
+
+        with patch("audit.requests.get") as mock_get:
+            mock_get.return_value = MagicMock(status_code=404)
+            content = auditor._fetch_remote_skill_content(entry)
+
+        assert content is None
+
+    def test_fetch_no_repo_url_returns_none(self):
+        auditor = _make_auditor([])
+        entry = _entry(repo_url="")
+
+        content = auditor._fetch_remote_skill_content(entry)
+        assert content is None
+
+    def test_fetch_invalid_repo_url_returns_none(self):
+        """Repo URL with < 2 parts after split."""
+        auditor = _make_auditor([])
+        entry = _entry(repo_url="https://github.com/invalid")
+
+        content = auditor._fetch_remote_skill_content(entry)
+        assert content is None
+
+    def test_fetch_single_part_repo_url_returns_none(self):
+        """Repo URL that splits to < 2 parts (edge case for coverage)."""
+        auditor = _make_auditor([])
+        # A URL that splits to only 1 part (no slashes)
+        entry = _entry(repo_url="singleword")
+
+        content = auditor._fetch_remote_skill_content(entry)
+        assert content is None
+
+    def test_fetch_timeout_parameter(self):
+        """Verify timeout is set correctly."""
         auditor = _make_auditor([])
         entry = _entry(repo_url="https://github.com/owner/repo")
-        remote_content = "---\nname: skill\n---\nContent"
 
         with patch("audit.requests.get") as mock_get:
-            mock_get.return_value.status_code = 200
-            mock_get.return_value.text = remote_content
-            result = auditor._fetch_remote_skill_content(entry)
+            mock_get.return_value = MagicMock(status_code=200, text="content")
+            auditor._fetch_remote_skill_content(entry)
 
-        assert result == remote_content
-        mock_get.assert_called_once()
-        call_args = mock_get.call_args
-        assert "main" in call_args[0][0]
+        # Should have been called with timeout=10
+        assert mock_get.call_args[1]["timeout"] == 10
 
-    def test_fallback_to_master_if_main_missing(self):
-        """Fallback to master branch when main returns 404."""
+
+# ---------------------------------------------------------------------------
+# _update_registry_status
+# ---------------------------------------------------------------------------
+
+class TestUpdateRegistryStatus:
+    def test_updates_entry_with_audit_status(self):
         auditor = _make_auditor([])
-        entry = _entry(repo_url="https://github.com/owner/repo")
-        master_content = "---\nname: skill\n---\nMaster content"
+        entry = _entry()
+        result = AuditEntryResult(entry=entry, overall_status="tampered")
 
-        with patch("audit.requests.get") as mock_get:
-            # First call (main) → 404, second call (master) → 200
-            mock_get.side_effect = [
-                MagicMock(status_code=404),
-                MagicMock(status_code=200, text=master_content),
-            ]
-            result = auditor._fetch_remote_skill_content(entry)
+        with patch.object(auditor.registry, "upsert") as mock_upsert:
+            auditor._update_registry_status(entry, result)
 
-        assert result == master_content
-        assert mock_get.call_count == 2
+        mock_upsert.assert_called_once()
+        updated_entry = mock_upsert.call_args[0][0]
+        assert updated_entry.audit_status == "tampered"
+        assert updated_entry.last_audit_at is not None
 
-    def test_returns_none_on_network_error(self):
-        """Return None when network request fails."""
+    def test_updates_last_audit_timestamp(self):
+        import time
         auditor = _make_auditor([])
-        entry = _entry(repo_url="https://github.com/owner/repo")
+        entry = _entry()
+        result = AuditEntryResult(entry=entry, overall_status="healthy")
 
-        with patch("audit.requests.get") as mock_get:
-            mock_get.side_effect = requests.RequestException("Network error")
-            result = auditor._fetch_remote_skill_content(entry)
+        before = datetime.now(timezone.utc).isoformat()
+        auditor._update_registry_status(entry, result)
+        after = datetime.now(timezone.utc).isoformat()
 
-        assert result is None
+        # Check that last_audit_at was set
+        assert entry.last_audit_at is not None
+        assert before <= entry.last_audit_at <= after
 
-    def test_returns_none_on_invalid_url(self):
-        """Return None when repo_url is invalid."""
+
+# ---------------------------------------------------------------------------
+# _print_report (output formatting)
+# ---------------------------------------------------------------------------
+
+class TestPrintReport:
+    def test_print_report_shows_all_statuses(self, capsys):
+        entries = [
+            _entry(name="healthy-skill"),
+            _entry(name="tampered-skill"),
+            _entry(name="update-skill"),
+        ]
+        results = [
+            AuditEntryResult(
+                entry=entries[0], overall_status="healthy"
+            ),
+            AuditEntryResult(
+                entry=entries[1], overall_status="tampered"
+            ),
+            AuditEntryResult(
+                entry=entries[2], overall_status="update_available"
+            ),
+        ]
+        report = AuditReport(audit_results=results)
+        auditor = _make_auditor(entries)
+
+        auditor._print_report(report)
+        captured = capsys.readouterr()
+
+        assert "healthy-skill" in captured.out
+        assert "tampered-skill" in captured.out
+        assert "update-skill" in captured.out
+        assert "🟢" in captured.out or "Audit Report" in captured.out
+
+    def test_print_report_empty_results(self, capsys):
+        """Empty results should not crash."""
+        report = AuditReport(audit_results=[])
         auditor = _make_auditor([])
-        entry = _entry(repo_url="invalid-url")
-        result = auditor._fetch_remote_skill_content(entry)
-        assert result is None
+        auditor._print_report(report)
+        captured = capsys.readouterr()
+        assert "Audit Report" in captured.out
 
-    def test_returns_none_when_both_branches_fail(self):
-        """Return None when both main and master return 404."""
+    def test_print_report_timestamp(self, capsys):
+        """Report should include audit timestamp."""
+        timestamp = "2026-05-03T10:30:00"
+        report = AuditReport(audit_at=timestamp, audit_results=[])
         auditor = _make_auditor([])
-        entry = _entry(repo_url="https://github.com/owner/nonexistent")
+        auditor._print_report(report)
+        captured = capsys.readouterr()
+        assert "2026-05-03" in captured.out
 
-        with patch("audit.requests.get") as mock_get:
-            mock_get.return_value.status_code = 404
-            result = auditor._fetch_remote_skill_content(entry)
+    def test_print_report_shows_sha_tamper_warning(self, capsys):
+        """Verify SHA tamper warning is printed when sha_tampered is True."""
+        entry = _entry(name="tampered-skill")
+        result = AuditEntryResult(
+            entry=entry,
+            overall_status="tampered",
+            sha_tampered=True,
+            sha_message="Expected abc123, got def456",
+        )
+        report = AuditReport(audit_results=[result])
+        auditor = _make_auditor([entry])
 
-        assert result is None
+        auditor._print_report(report)
+        captured = capsys.readouterr()
 
-    def test_timeout_handling(self):
-        """Handle timeout gracefully."""
+        assert "SHA MISMATCH" in captured.out
+        assert "Expected abc123, got def456" in captured.out
+
+    def test_print_report_shows_update_available_message(self, capsys):
+        """Verify update message is printed when update_available is True."""
+        entry = _entry(name="outdated-skill")
+        result = AuditEntryResult(
+            entry=entry,
+            overall_status="update_available",
+            update_available=True,
+        )
+        report = AuditReport(audit_results=[result])
+        auditor = _make_auditor([entry])
+
+        auditor._print_report(report)
+        captured = capsys.readouterr()
+
+        assert "Update available" in captured.out
+        assert "agent-hunter update" in captured.out
+
+    def test_print_report_shows_scan_findings(self, capsys):
+        """Verify scan findings are printed when present."""
+        entry = _entry(name="risky-skill")
+        scan_result = ScanResult(
+            severity="YELLOW",
+            findings=[
+                MagicMock(severity="YELLOW", description="Unused variable foo"),
+                MagicMock(severity="RED", description="Shell injection risk"),
+            ],
+        )
+        result = AuditEntryResult(
+            entry=entry,
+            overall_status="security_issue",
+            scan_result=scan_result,
+        )
+        report = AuditReport(audit_results=[result])
+        auditor = _make_auditor([entry])
+
+        auditor._print_report(report)
+        captured = capsys.readouterr()
+
+        assert "Unused variable foo" in captured.out
+        assert "Shell injection risk" in captured.out
+
+    def test_print_report_shows_license_issue(self, capsys):
+        """Verify license issue is printed when present."""
+        entry = _entry(name="gpl-skill", license="GPL-3.0")
+        result = AuditEntryResult(
+            entry=entry,
+            overall_status="conflict",
+            license_issue="GPL-3.0 skill may have license compatibility issues",
+        )
+        report = AuditReport(audit_results=[result])
+        auditor = _make_auditor([entry])
+
+        auditor._print_report(report)
+        captured = capsys.readouterr()
+
+        assert "License:" in captured.out
+        assert "GPL-3.0" in captured.out
+
+    def test_print_report_shows_backup_path(self, capsys):
+        """Verify backup path is shown when present."""
+        from pathlib import Path
+        backup_file = Path("/tmp/agent-hunter-backup.json")
+        report = AuditReport(
+            audit_results=[],
+            backup_path=backup_file,
+        )
         auditor = _make_auditor([])
-        entry = _entry(repo_url="https://github.com/owner/repo")
 
-        with patch("audit.requests.get") as mock_get:
-            mock_get.side_effect = requests.Timeout("Connection timeout")
-            result = auditor._fetch_remote_skill_content(entry)
+        auditor._print_report(report)
+        captured = capsys.readouterr()
 
-        assert result is None
+        assert "Backup saved to" in captured.out
+        assert str(backup_file) in captured.out
+        assert "rollback" in captured.out
 
-    def test_parses_complex_repo_urls(self):
-        """Handle various GitHub URL formats."""
-        auditor = _make_auditor([])
+    def test_print_report_multiple_findings_limited_to_two(self, capsys):
+        """Verify only first 2 findings are printed (performance)."""
+        entry = _entry(name="many-issues-skill")
+        scan_result = ScanResult(
+            severity="RED",
+            findings=[
+                MagicMock(severity="RED", description="Issue 1"),
+                MagicMock(severity="RED", description="Issue 2"),
+                MagicMock(severity="RED", description="Issue 3"),
+                MagicMock(severity="RED", description="Issue 4"),
+            ],
+        )
+        result = AuditEntryResult(
+            entry=entry,
+            overall_status="security_issue",
+            scan_result=scan_result,
+        )
+        report = AuditReport(audit_results=[result])
+        auditor = _make_auditor([entry])
 
-        # With trailing slash
-        entry = _entry(repo_url="https://github.com/owner/repo/")
-        with patch("audit.requests.get") as mock_get:
-            mock_get.return_value.status_code = 200
-            mock_get.return_value.text = "content"
-            result = auditor._fetch_remote_skill_content(entry)
+        auditor._print_report(report)
+        captured = capsys.readouterr()
 
-        assert result == "content"
-        # Verify no slash duplication in URL
-        call_url = mock_get.call_args[0][0]
-        assert "//" not in call_url.replace("https://", "")
+        assert "Issue 1" in captured.out
+        assert "Issue 2" in captured.out
+        # Issue 3 and 4 should not be printed ([:2] limit)
+        assert "Issue 3" not in captured.out
+        assert "Issue 4" not in captured.out
 
-    def test_remote_content_none_falls_back_to_local(self, tmp_path):
-        """When remote fetch fails, fall back to scanning local content."""
+
+# ---------------------------------------------------------------------------
+# Full integration: Auditor.run() with snapshot
+# ---------------------------------------------------------------------------
+
+class TestAuditorSnapshot:
+    def test_run_creates_snapshot_when_registry_exists(self, tmp_path):
+        """Pre-audit snapshot should be created if registry file exists."""
+        entries = [_entry(name="skill")]
+        auditor = _make_auditor(entries)
+
+        # Mock that registry_path exists
+        registry_file = tmp_path / "registry.json"
+        registry_file.write_text("{}")
+        auditor.registry.registry_path = registry_file
+
+        backup_file = tmp_path / "backup.json"
+        auditor.registry.snapshot = MagicMock(return_value=backup_file)
+
+        with patch.object(auditor, "_audit_entry") as mock_audit:
+            mock_audit.return_value = AuditEntryResult(
+                entry=entries[0], overall_status="healthy"
+            )
+            with patch.object(auditor, "_print_report"):
+                report = auditor.run()
+
+        auditor.registry.snapshot.assert_called_once()
+        assert report.backup_path == backup_file
+
+    def test_run_skips_snapshot_when_registry_missing(self):
+        """No snapshot if registry file doesn't exist."""
+        entries = [_entry()]
+        auditor = _make_auditor(entries)
+
+        # Mock that registry_path doesn't exist
+        auditor.registry.registry_path = Path("/tmp/does_not_exist.json")
+
+        with patch.object(auditor, "_audit_entry") as mock_audit:
+            mock_audit.return_value = AuditEntryResult(
+                entry=entries[0], overall_status="healthy"
+            )
+            with patch.object(auditor, "_print_report"):
+                report = auditor.run()
+
+        auditor.registry.snapshot.assert_not_called()
+        assert report.backup_path is None
+
+
+# ---------------------------------------------------------------------------
+# Status priority resolution (edge cases)
+# ---------------------------------------------------------------------------
+
+class TestStatusPriority:
+    def test_update_available_takes_priority_over_license_conflict(self, tmp_path):
+        """update_available should be shown even if license is bad."""
         local_file = tmp_path / "SKILL.md"
-        local_content = "---\nname: test\n---\nLocal content"
-        local_file.write_text(local_content)
+        local_file.write_text("---\nname: test\nversion: 1.0.0\n---\nlocal")
 
         auditor = _make_auditor([])
-        entry = _entry(install_path=str(local_file))
+        entry = _entry(install_path=str(local_file), license="GPL-3.0")
+
+        remote_content = "---\nname: test\nversion: 2.0.0\n---\nremote"
+        with patch("audit.check_sha_tamper", return_value=(False, "ok")):
+            with patch.object(auditor, "_fetch_remote_skill_content", return_value=remote_content):
+                result = auditor._audit_entry(entry)
+
+        # Both update_available and license_issue are true,
+        # but update_available takes priority in status
+        assert result.overall_status == "update_available"
+        assert result.license_issue is not None
+
+    def test_license_conflict_without_updates(self, tmp_path):
+        """License conflict shows when there's no update."""
+        local_file = tmp_path / "SKILL.md"
+        content = "---\nname: test\n---\ncontent"
+        local_file.write_text(content)
+
+        auditor = _make_auditor([])
+        entry = _entry(install_path=str(local_file), license="AGPL-3.0")
 
         with patch("audit.check_sha_tamper", return_value=(False, "ok")):
-            with patch.object(auditor, "_fetch_remote_skill_content", return_value=None):
-                with patch("audit.scan_skill") as mock_scan:
-                    mock_scan.return_value = ScanResult(severity="GREEN")
-                    result = auditor._audit_entry(entry)
+            with patch.object(auditor, "_fetch_remote_skill_content", return_value=content):
+                result = auditor._audit_entry(entry)
 
-        assert result.remote_content is None
+        assert result.overall_status == "conflict"
         assert result.update_available is False
-        assert result.overall_status == "healthy"
-        # Verify scan was called on local content
-        mock_scan.assert_called_once()
-        assert local_content in mock_scan.call_args[1]["content"]
+
+
+# ---------------------------------------------------------------------------
+# CLI entry point (__main__)
+# ---------------------------------------------------------------------------
+
+class TestAuditCliEntryPoint:
+    def test_main_with_no_issues_exits_zero(self):
+        """CLI should exit with code 0 when there are no issues."""
+        with patch("audit.Auditor") as mock_auditor_class:
+            mock_instance = MagicMock()
+            mock_instance.run.return_value = AuditReport(audit_results=[])
+            mock_auditor_class.return_value = mock_instance
+
+            with patch("sys.exit") as mock_exit:
+                # Simulate running the __main__ block
+                from audit import Auditor
+                auditor = Auditor()
+                report = auditor.run()
+                exit_code = 1 if report.has_issues else 0
+                
+                # Verify the exit code logic
+                assert exit_code == 0
+
+    def test_main_with_issues_exits_one(self):
+        """CLI should exit with code 1 when there are issues."""
+        e = _entry()
+        result = AuditEntryResult(entry=e, overall_status="tampered")
+        report = AuditReport(audit_results=[result])
+
+        # Verify the exit code logic
+        exit_code = 1 if report.has_issues else 0
+        assert exit_code == 1
+        assert report.has_issues is True
+

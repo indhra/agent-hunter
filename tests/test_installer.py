@@ -6,9 +6,12 @@ All tests use tmp_path and mock registries — no real ~/.claude/skills/ is touc
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Add scripts/ to import path (same pattern as other test files)
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
@@ -333,3 +336,468 @@ class TestBuildActionList:
         assert install_actions[0].skill_name == "good"
         assert len(disable_actions) == 1
         assert disable_actions[0].skill_name == "dangerous-old"
+
+
+# ---------------------------------------------------------------------------
+# rollback_to_sha()
+# ---------------------------------------------------------------------------
+
+class TestRollback:
+    def test_rollback_dry_run(self, tmp_path):
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry, dry_run=True)
+
+        with patch("installer.SKILLS_DIR", tmp_path):
+            result = installer.rollback_to_sha("owner", "myrepo", "abc123def")
+
+        assert result.success is True
+        assert "[dry-run]" in result.message
+
+    def test_rollback_uninstall_failure(self, tmp_path):
+        """If uninstall fails, rollback should fail immediately."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        with patch("installer.SKILLS_DIR", tmp_path):
+            # No skill dir exists, so uninstall will fail
+            result = installer.rollback_to_sha("owner", "myrepo", "abc123def")
+
+        assert result.success is False
+        assert "uninstall" in (result.error or "").lower()
+
+    def test_rollback_orchestrates_uninstall_then_install(self, tmp_path):
+        """Rollback should uninstall current version, then install pinned SHA."""
+        mock_registry = MagicMock()
+        mock_registry.all.return_value = []
+        installer = Installer(registry=mock_registry)
+        
+        # Pre-create the skill dir
+        skill_dir = tmp_path / "myrepo"
+        skill_dir.mkdir()
+
+        def fake_subprocess(*args, **kwargs):
+            # Simulate git clone + checkout
+            target = kwargs.get("cwd") or (tmp_path / "myrepo")
+            Path(target).mkdir(parents=True, exist_ok=True)
+            return MagicMock(returncode=0, stderr="")
+
+        with patch("installer.SKILLS_DIR", tmp_path), \
+             patch("installer.GH_AVAILABLE", False), \
+             patch("installer.subprocess.run", side_effect=fake_subprocess):
+            result = installer.rollback_to_sha("owner", "myrepo", "abc123def", "myrepo")
+
+        # Should succeed
+        assert result.success is True
+        assert "Rolled back" in result.message
+
+
+# ---------------------------------------------------------------------------
+# _install_via_gh()
+# ---------------------------------------------------------------------------
+
+class TestInstallViaGh:
+    def test_install_via_gh_success(self, tmp_path):
+        """gh skill install succeeds."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+        skill_dir = tmp_path / "myrepo"
+        skill_dir.mkdir()  # simulate that install created it
+
+        with patch("installer.SKILLS_DIR", tmp_path), \
+             patch("installer.subprocess.run",
+                   return_value=MagicMock(returncode=0, stderr="")):
+            result = installer._install_via_gh("owner", "myrepo", "myrepo", None)
+
+        assert result.success is True
+        assert "gh skill install" in result.message
+
+    def test_install_via_gh_fallback_on_failure(self, tmp_path):
+        """gh skill install fails → fallback to git clone."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        call_count = [0]
+        def fake_subprocess(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:  # gh skill install fails
+                return MagicMock(returncode=1, stderr="gh not configured")
+            else:  # git clone succeeds
+                skill_dir = tmp_path / "myrepo"
+                skill_dir.mkdir(parents=True, exist_ok=True)
+                return MagicMock(returncode=0, stderr="")
+
+        with patch("installer.SKILLS_DIR", tmp_path), \
+             patch("installer.subprocess.run", side_effect=fake_subprocess):
+            result = installer._install_via_gh("owner", "myrepo", "myrepo", None)
+
+        # Should succeed via fallback
+        assert result.success is True
+
+    def test_install_via_gh_with_pin_sha(self, tmp_path):
+        """gh skill install with --pin flag."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+        skill_dir = tmp_path / "myrepo"
+        skill_dir.mkdir()
+
+        with patch("installer.SKILLS_DIR", tmp_path), \
+             patch("installer.subprocess.run",
+                   return_value=MagicMock(returncode=0, stderr="")) as mock_run:
+            result = installer._install_via_gh("owner", "myrepo", "myrepo", "abc123")
+
+        assert result.success is True
+        # Should have called subprocess with --pin flag
+        calls = mock_run.call_args_list
+        assert len(calls) > 0
+        call_args = str(calls[0])
+        assert "pin" in call_args.lower() or "abc123" in call_args
+
+
+# ---------------------------------------------------------------------------
+# _install_via_git() with pin_sha
+# ---------------------------------------------------------------------------
+
+class TestInstallViaGitWithPin:
+    def test_install_via_git_with_pin_sha_success(self, tmp_path):
+        """git clone with checkout to specific SHA."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        call_count = [0]
+        def fake_subprocess(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:  # git clone
+                skill_dir = tmp_path / "myrepo"
+                skill_dir.mkdir(parents=True, exist_ok=True)
+            return MagicMock(returncode=0, stderr="", stdout="")
+
+        with patch("installer.SKILLS_DIR", tmp_path), \
+             patch("installer.subprocess.run", side_effect=fake_subprocess):
+            result = installer._install_via_git("owner", "myrepo", "myrepo", "abc123def")
+
+        assert result.success is True
+        # Should have called git clone, fetch --unshallow, and checkout
+        assert call_count[0] >= 3
+
+    def test_install_via_git_pin_sha_checkout_fails(self, tmp_path):
+        """git checkout to SHA fails."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        call_count = [0]
+        def fake_subprocess(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:  # git clone
+                skill_dir = tmp_path / "myrepo"
+                skill_dir.mkdir(parents=True, exist_ok=True)
+                return MagicMock(returncode=0, stderr="")
+            elif call_count[0] == 2:  # fetch --unshallow
+                return MagicMock(returncode=0, stderr="")
+            else:  # git checkout — FAILS
+                return MagicMock(returncode=1, stderr="SHA not found")
+
+        with patch("installer.SKILLS_DIR", tmp_path), \
+             patch("installer.subprocess.run", side_effect=fake_subprocess):
+            result = installer._install_via_git("owner", "myrepo", "myrepo", "badsha")
+
+        assert result.success is False
+        assert "SHA not found" in (result.error or "")
+
+    def test_install_via_git_clone_timeout(self, tmp_path):
+        """git clone times out."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        with patch("installer.SKILLS_DIR", tmp_path), \
+             patch("installer.subprocess.run", side_effect=subprocess.TimeoutExpired("git", 60)):
+            result = installer._install_via_git("owner", "myrepo", "myrepo", None)
+
+        assert result.success is False
+        assert "timed out" in (result.error or "").lower()
+
+
+# ---------------------------------------------------------------------------
+# execute_actions()
+# ---------------------------------------------------------------------------
+
+class TestExecuteActions:
+    def test_execute_actions_empty_list(self, tmp_path):
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        with patch("installer.SKILLS_DIR", tmp_path):
+            results = installer.execute_actions([])
+
+        assert len(results) == 0
+
+    def test_execute_actions_install_and_disable(self, tmp_path):
+        """Execute a mix of install and disable actions."""
+        from installer import PendingAction
+
+        mock_registry = MagicMock()
+        mock_registry.all.return_value = []
+        installer = Installer(registry=mock_registry)
+
+        # Create a disabled skill
+        (tmp_path / "evil-skill").mkdir()
+
+        actions = [
+            PendingAction(action="disable", skill_name="evil-skill"),
+        ]
+
+        def fake_subprocess(*args, **kwargs):
+            # For installs, simulate dir creation
+            return MagicMock(returncode=0, stderr="")
+
+        with patch("installer.SKILLS_DIR", tmp_path), \
+             patch("installer.subprocess.run", side_effect=fake_subprocess), \
+             patch("installer.GH_AVAILABLE", False):
+            results = installer.execute_actions(actions)
+
+        assert len(results) == 1
+        assert results[0].action == "disable"
+        assert results[0].success is True
+
+    def test_execute_actions_continues_on_non_fatal_error(self, tmp_path):
+        """execute_actions should continue after a failure."""
+        from installer import PendingAction
+
+        mock_registry = MagicMock()
+        mock_registry.all.return_value = []
+        installer = Installer(registry=mock_registry)
+
+        actions = [
+            PendingAction(action="disable", skill_name="nonexistent-skill"),  # will fail
+            PendingAction(action="disable", skill_name="also-missing"),  # will also fail
+        ]
+
+        with patch("installer.SKILLS_DIR", tmp_path):
+            results = installer.execute_actions(actions)
+
+        # Should have 2 results (both failed, but both attempted)
+        assert len(results) == 2
+        assert all(not r.success for r in results)
+
+    def test_execute_actions_unknown_action_type(self, tmp_path):
+        """execute_actions handles unknown action types gracefully."""
+        from installer import PendingAction
+
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        actions = [
+            PendingAction(action="unknown-action", skill_name="skill"),
+        ]
+
+        with patch("installer.SKILLS_DIR", tmp_path):
+            results = installer.execute_actions(actions)
+
+        assert len(results) == 1
+        assert results[0].success is False
+        assert "Unknown action" in (results[0].error or "")
+
+
+# ---------------------------------------------------------------------------
+# Validation functions
+# ---------------------------------------------------------------------------
+
+class TestValidation:
+    def test_validate_skill_name_valid(self):
+        from installer import _validate_skill_name
+        # Should not raise
+        _validate_skill_name("my-skill")
+        _validate_skill_name("MySkill")
+        _validate_skill_name("skill.v1")
+        _validate_skill_name("skill_name")
+
+    def test_validate_skill_name_invalid_path_traversal(self):
+        from installer import _validate_skill_name, InstallerError
+        # Path traversal attempts should fail
+        with pytest.raises(InstallerError):
+            _validate_skill_name("../../../etc/passwd")
+
+    def test_validate_skill_name_invalid_special_chars(self):
+        from installer import _validate_skill_name, InstallerError
+        with pytest.raises(InstallerError):
+            _validate_skill_name("skill$name")
+        with pytest.raises(InstallerError):
+            _validate_skill_name("skill@name")
+        with pytest.raises(InstallerError):
+            _validate_skill_name("skill/name")
+
+    def test_validate_owner_repo_valid(self):
+        from installer import _validate_owner_repo
+        # Should not raise
+        _validate_owner_repo("indhra", "owner")
+        _validate_owner_repo("my-org", "owner")
+        _validate_owner_repo("fastapi-helper", "repo")
+
+    def test_validate_owner_repo_invalid(self):
+        from installer import _validate_owner_repo, InstallerError
+        with pytest.raises(InstallerError):
+            _validate_owner_repo("../evil", "owner")
+        with pytest.raises(InstallerError):
+            _validate_owner_repo("bad@name", "repo")
+
+    def test_validate_owner_repo_too_long(self):
+        from installer import _validate_owner_repo, InstallerError
+        # Max length is 100 characters
+        long_name = "a" * 101
+        with pytest.raises(InstallerError):
+            _validate_owner_repo(long_name, "owner")
+
+
+# ---------------------------------------------------------------------------
+# _repo_url_for_skill()
+# ---------------------------------------------------------------------------
+
+class TestRepoUrlForSkill:
+    def test_repo_url_found(self):
+        from registry import RegistryEntry
+
+        entry = RegistryEntry(
+            name="myskill",
+            repo_url="https://github.com/owner/myskill",
+            install_path="~/.claude/skills/myskill",
+            trust_tier="raw",
+        )
+        mock_registry = MagicMock()
+        mock_registry.all.return_value = [entry]
+
+        installer = Installer(registry=mock_registry)
+        url = installer._repo_url_for_skill("myskill")
+
+        assert url == "https://github.com/owner/myskill"
+
+    def test_repo_url_not_found(self):
+        mock_registry = MagicMock()
+        mock_registry.all.return_value = []
+
+        installer = Installer(registry=mock_registry)
+        url = installer._repo_url_for_skill("unknown")
+
+        assert url is None
+
+
+# ---------------------------------------------------------------------------
+# _log_action()
+# ---------------------------------------------------------------------------
+
+class TestLogAction:
+    def test_log_action_creates_entry(self, tmp_path):
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        with patch("installer.INSTALL_LOG", tmp_path / "install_log.jsonl"):
+            installer._log_action("install", "test-skill", owner="owner", repo="repo")
+
+        # Check that the log file was created
+        log_file = tmp_path / "install_log.jsonl"
+        assert log_file.exists()
+
+        # Parse the logged JSON
+        lines = log_file.read_text(encoding="utf-8").strip().split("\n")
+        assert len(lines) == 1
+        entry = __import__("json").loads(lines[0])
+        assert entry["action"] == "install"
+        assert entry["skill"] == "test-skill"
+        assert entry["owner"] == "owner"
+
+    def test_log_action_appends(self, tmp_path):
+        """Multiple log_action calls should append."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        with patch("installer.INSTALL_LOG", tmp_path / "install_log.jsonl"):
+            installer._log_action("install", "skill1")
+            installer._log_action("disable", "skill2")
+
+        log_file = tmp_path / "install_log.jsonl"
+        lines = log_file.read_text(encoding="utf-8").strip().split("\n")
+        assert len(lines) == 2
+
+
+# ---------------------------------------------------------------------------
+# Error edge cases
+# ---------------------------------------------------------------------------
+
+class TestErrorCases:
+    def test_install_invalid_owner(self, tmp_path):
+        from installer import InstallerError
+
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        with patch("installer.SKILLS_DIR", tmp_path):
+            with pytest.raises(InstallerError):
+                installer.install("../evil", "repo")
+
+    def test_install_invalid_repo(self, tmp_path):
+        from installer import InstallerError
+
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+
+        with patch("installer.SKILLS_DIR", tmp_path):
+            with pytest.raises(InstallerError):
+                installer.install("owner", "repo/../../evil")
+
+    def test_disable_then_disable_again_fails(self, tmp_path):
+        """Disabling an already-disabled skill should fail."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+        (tmp_path / "_myskill").mkdir()
+
+        with patch("installer.SKILLS_DIR", tmp_path):
+            result = installer.disable("myskill")
+
+        assert result.success is False
+        assert "not found" in (result.error or "").lower()
+
+    def test_enable_when_not_disabled_fails(self, tmp_path):
+        """Enabling a normal (not disabled) skill should fail."""
+        mock_registry = MagicMock()
+        installer = Installer(registry=mock_registry)
+        (tmp_path / "myskill").mkdir()  # normal, not disabled
+
+        with patch("installer.SKILLS_DIR", tmp_path):
+            result = installer.enable("myskill")
+
+        assert result.success is False
+
+
+# ---------------------------------------------------------------------------
+# Integration: full workflow
+# ---------------------------------------------------------------------------
+
+class TestIntegration:
+    def test_install_disable_enable_workflow(self, tmp_path):
+        """Full workflow: install → disable → enable."""
+        mock_registry = MagicMock()
+        mock_registry.all.return_value = []
+        installer = Installer(registry=mock_registry)
+
+        def fake_subprocess(*args, **kwargs):
+            target = tmp_path / "my-skill"
+            target.mkdir(parents=True, exist_ok=True)
+            return MagicMock(returncode=0, stderr="")
+
+        with patch("installer.SKILLS_DIR", tmp_path), \
+             patch("installer.GH_AVAILABLE", False), \
+             patch("installer.subprocess.run", side_effect=fake_subprocess):
+            # Install
+            r1 = installer.install("owner", "my-skill")
+            assert r1.success is True
+            assert (tmp_path / "my-skill").exists()
+
+            # Disable
+            r2 = installer.disable("my-skill")
+            assert r2.success is True
+            assert (tmp_path / "_my-skill").exists()
+            assert not (tmp_path / "my-skill").exists()
+
+            # Enable
+            r3 = installer.enable("my-skill")
+            assert r3.success is True
+            assert (tmp_path / "my-skill").exists()
+            assert not (tmp_path / "_my-skill").exists()

@@ -280,6 +280,68 @@ class TestFetchSkillContent:
                 )
         assert content is None
 
+    def test_rate_limit_uses_retry_after_header(self):
+        """Verify Retry-After header is read and respected."""
+        h = make_hunter()
+        with patch.object(h._session, "get") as mock_get:
+            # First response: 429 with Retry-After header
+            resp_429 = MagicMock()
+            resp_429.status_code = 429
+            resp_429.headers = {"Retry-After": "10"}  # Expect 10s backoff
+            
+            # Second response: success
+            resp_200 = _mock_response(200, text="# SKILL content")
+            
+            mock_get.side_effect = [resp_429, resp_200]
+            
+            with patch("hunter.time.sleep") as mock_sleep:
+                content = h._fetch_skill_content(
+                    "https://github.com/owner/repo/blob/main/SKILL.md"
+                )
+            
+            # Should have slept for 10s (from header)
+            mock_sleep.assert_called_with(10)
+            assert content == "# SKILL content"
+
+    def test_rate_limit_uses_default_backoff_when_no_header(self):
+        """Verify fallback to default backoff when Retry-After is missing."""
+        h = make_hunter()
+        with patch.object(h._session, "get") as mock_get:
+            # 429 without Retry-After header
+            resp_429 = MagicMock()
+            resp_429.status_code = 429
+            resp_429.headers = {}  # No Retry-After
+            
+            resp_200 = _mock_response(200, text="success")
+            mock_get.side_effect = [resp_429, resp_200]
+            
+            with patch("hunter.time.sleep") as mock_sleep:
+                content = h._fetch_skill_content(
+                    "https://github.com/owner/repo/blob/main/SKILL.md"
+                )
+            
+            # Should have slept for RATE_LIMIT_BACKOFF_SECONDS (60)
+            from hunter import RATE_LIMIT_BACKOFF_SECONDS
+            mock_sleep.assert_called_with(RATE_LIMIT_BACKOFF_SECONDS)
+            assert content == "success"
+
+    def test_rate_limit_on_repo_metadata_fetch(self):
+        """Retry-After handling on _fetch_repo_metadata."""
+        h = make_hunter()
+        with patch.object(h._session, "get") as mock_get:
+            resp_429 = MagicMock()
+            resp_429.status_code = 429
+            resp_429.headers = {"Retry-After": "5"}
+            
+            resp_200 = _mock_response(200, json_data=REPO_META_OK)
+            mock_get.side_effect = [resp_429, resp_200]
+            
+            with patch("hunter.time.sleep") as mock_sleep:
+                meta = h._fetch_repo_metadata("owner", "repo")
+            
+            mock_sleep.assert_called_with(5)
+            assert meta == REPO_META_OK
+
 
 # ---------------------------------------------------------------------------
 # _fetch_repo_metadata

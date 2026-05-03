@@ -306,6 +306,15 @@ See [ROADMAP.md](./ROADMAP.md) for the full versioned plan.
 
 ---
 
+## Connect
+
+**Have questions or want to collaborate?**
+
+- 🐛 **Issues & feedback:** [GitHub Issues](https://github.com/indhra/agent-hunter/issues)
+- 💼 **Collaboration & partnerships:** [LinkedIn](https://www.linkedin.com/in/indhra/)
+
+---
+
 ## License
 
 MIT © 2026 [Indhra Kiranu N A](https://github.com/indhra)

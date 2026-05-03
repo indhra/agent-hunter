@@ -209,7 +209,7 @@ class TestExtractSessionSkillsOSError:
         monkeypatch.setenv("HOME", str(tmp_path))
 
         # Patch glob to raise OSError
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import patch
         with patch("context_extractor.Path.home", return_value=tmp_path):
             with patch.object(type(sessions_dir), "glob", side_effect=OSError("permission denied")):
                 skills = _extract_session_skills()

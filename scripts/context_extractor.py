@@ -20,6 +20,7 @@ No LLM calls. No network access.
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 from dataclasses import dataclass, field
@@ -77,6 +78,14 @@ _ALLOWLIST_PATTERN = re.compile(
 # ---------------------------------------------------------------------------
 
 @dataclass
+class SkillUsage:
+    """Track a skill's usage: when last invoked and how many times."""
+    skill_name: str
+    last_seen: datetime
+    mention_count: int
+
+
+@dataclass
 class ContextProfile:
     tech_stack: list[str] = field(default_factory=list)      # all detected tech
     domain_tags: list[str] = field(default_factory=list)      # inferred domains
@@ -85,6 +94,7 @@ class ContextProfile:
     dormant_domains: list[str] = field(default_factory=list)  # no commits in 90+d
     sources_read: list[str] = field(default_factory=list)     # files that were read
     extraction_warnings: list[str] = field(default_factory=list)
+    session_skills: list[SkillUsage] = field(default_factory=list)  # recently invoked skills
 
 
 # ---------------------------------------------------------------------------
@@ -142,12 +152,83 @@ def extract_context(project_root: str | Path) -> ContextProfile:
     profile.recent_domains = [t for t in profile.tech_stack if t in git_activity.get("recent", set())]
     profile.dormant_domains = [t for t in profile.tech_stack if t in git_activity.get("dormant", set())]
 
+    # Extract recently invoked skills from ~/.claude/sessions/ (v0.1.5)
+    profile.session_skills = _extract_session_skills()
+
     # Print signals for user verification (privacy transparency)
     print(f"[agent-hunter] Context extracted from: {', '.join(profile.sources_read)}")
     print(f"[agent-hunter] Tech signals found: {', '.join(profile.tech_stack)}")
     print(f"[agent-hunter] Domain tags: {', '.join(profile.domain_tags)}")
+    if profile.session_skills:
+        skills_str = ", ".join([s.skill_name for s in profile.session_skills])
+        print(f"[agent-hunter] Recently invoked skills: {skills_str}")
 
     return profile
+
+
+def _extract_session_skills() -> list[SkillUsage]:
+    """
+    Extract recently invoked skills from ~/.claude/sessions/.
+    
+    Reads session metadata files and aggregates skill mentions from
+    the last 30 days. Returns list of SkillUsage sorted by most recent.
+    
+    Privacy: Only skill names are extracted — no file paths, no commands.
+    
+    Returns:
+        List of SkillUsage objects sorted by last_seen (most recent first).
+    """
+    sessions_dir = Path.home() / ".claude" / "sessions"
+    if not sessions_dir.exists():
+        return []
+    
+    skill_mentions: dict[str, dict] = {}  # {skill_name: {last_seen, mention_count}}
+    cutoff = datetime.now() - timedelta(days=30)
+    
+    try:
+        for session_file in sessions_dir.glob("*.json"):
+            try:
+                data = json.loads(session_file.read_text())
+                # Session file format: {pid, sessionId, cwd, startedAt, ...}
+                # We look for mentions of skills in the cwd or any other available context
+                # For now, we parse the cwd to detect project context
+                cwd = data.get("cwd", "")
+                # Extract skill names from cwd path (e.g., "~/.claude/skills/trusty/...")
+                if "/.claude/skills/" in cwd:
+                    parts = cwd.split("/.claude/skills/")
+                    if len(parts) > 1:
+                        skill_name = parts[1].split("/")[0]
+                        if skill_name and not skill_name.startswith("."):
+                            ts_ms = data.get("updatedAt", 0)
+                            ts = datetime.fromtimestamp(ts_ms / 1000.0)
+                            
+                            if ts >= cutoff:
+                                if skill_name not in skill_mentions:
+                                    skill_mentions[skill_name] = {
+                                        "last_seen": ts,
+                                        "mention_count": 0,
+                                    }
+                                skill_mentions[skill_name]["mention_count"] += 1
+                                # Update to most recent timestamp
+                                if ts > skill_mentions[skill_name]["last_seen"]:
+                                    skill_mentions[skill_name]["last_seen"] = ts
+            except (json.JSONDecodeError, KeyError, ValueError, OSError):
+                # Skip malformed session files
+                continue
+    except OSError:
+        # Sessions directory might not be readable
+        pass
+    
+    # Convert to SkillUsage list, sorted by most recent first
+    results = [
+        SkillUsage(
+            skill_name=name,
+            last_seen=info["last_seen"],
+            mention_count=info["mention_count"],
+        )
+        for name, info in skill_mentions.items()
+    ]
+    return sorted(results, key=lambda s: s.last_seen, reverse=True)
 
 
 def _extract_signals_from_file(path: Path) -> set[str]:
@@ -231,7 +312,7 @@ def _infer_domain_tags(signals: set[str]) -> list[str]:
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import sys
 
     root = sys.argv[1] if len(sys.argv) > 1 else "."

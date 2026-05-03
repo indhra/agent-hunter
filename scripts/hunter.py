@@ -478,7 +478,7 @@ def _to_raw_url(html_url: str) -> Optional[str]:
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import sys
     from context_extractor import extract_context
 

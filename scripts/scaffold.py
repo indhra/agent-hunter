@@ -147,7 +147,7 @@ mcp_dependencies: []
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import argparse
 
     parser = argparse.ArgumentParser(description="Scaffold a new SKILL.md stub")

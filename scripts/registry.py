@@ -234,7 +234,7 @@ def _fetch_remote_sha(repo_url: str, token: Optional[str] = None) -> Optional[st
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import sys
 
     reg = Registry()

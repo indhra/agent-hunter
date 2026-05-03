@@ -112,7 +112,7 @@ class SkillUpdater:
         elif remote_lines < local_lines:
             print(f"  Δ {remote_lines - local_lines} lines")
         else:
-            print(f"  Δ Content changed (same line count)")
+            print("  Δ Content changed (same line count)")
 
         # Extract version from frontmatter if possible
         local_version = _extract_version(request.local_content)
@@ -181,7 +181,7 @@ class SkillUpdater:
         print(f"\n{'═' * 70}")
         print(f"  Updates applied: {approved_count}/{len(updates)}")
         if approved_count > 0:
-            print(f"  Run `agent-hunter audit` to verify updated skills.")
+            print("  Run `agent-hunter audit` to verify updated skills.")
         print(f"{'═' * 70}\n")
 
         return approved_count, len(updates)
@@ -211,7 +211,7 @@ def _extract_version(content: str) -> Optional[str]:
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import argparse
 
     parser = argparse.ArgumentParser(description="Update installed skills to newer versions")

@@ -537,7 +537,7 @@ def build_action_list(
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import argparse
 
     parser = argparse.ArgumentParser(description="agent-hunter skill installer")

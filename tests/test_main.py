@@ -353,3 +353,147 @@ class TestDeepMerge:
         base = {"a": 1}
         cli_main._deep_merge(base, {"a": 2})
         assert base["a"] == 1
+
+
+# ---------------------------------------------------------------------------
+# cmd_install
+# ---------------------------------------------------------------------------
+
+class TestCmdInstall:
+    def test_missing_args_returns_1(self, capsys):
+        code = run(["install"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "requires <owner> <repo>" in out
+
+    def test_one_arg_returns_1(self, capsys):
+        code = run(["install", "onlyowner"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "requires <owner> <repo>" in out
+
+    def test_success_returns_0(self, capsys):
+        from installer import ActionResult
+        with patch("main.Installer") as mock_cls:
+            mock_cls.return_value.install.return_value = ActionResult(
+                action="install", skill_name="my-skill", success=True,
+                message="Installed my-skill"
+            )
+            code = run(["install", "owner", "my-skill"])
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "Installed my-skill" in out
+
+    def test_failure_returns_1(self, capsys):
+        from installer import ActionResult
+        with patch("main.Installer") as mock_cls:
+            mock_cls.return_value.install.return_value = ActionResult(
+                action="install", skill_name="my-skill", success=False,
+                error="Already installed"
+            )
+            code = run(["install", "owner", "my-skill"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "Install failed" in out
+        assert "Already installed" in out
+
+    def test_exception_returns_1(self, capsys):
+        with patch("main.Installer") as mock_cls:
+            mock_cls.return_value.install.side_effect = RuntimeError("network error")
+            code = run(["install", "owner", "my-skill"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "Install failed" in out
+        assert "network error" in out
+
+
+# ---------------------------------------------------------------------------
+# cmd_remove
+# ---------------------------------------------------------------------------
+
+class TestCmdRemove:
+    def test_missing_args_returns_1(self, capsys):
+        code = run(["remove"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "requires a skill name" in out
+
+    def test_success_returns_0(self, capsys):
+        from installer import ActionResult
+        with patch("main.Installer") as mock_cls:
+            mock_cls.return_value.uninstall.return_value = ActionResult(
+                action="uninstall", skill_name="my-skill", success=True,
+                message="Removed my-skill"
+            )
+            code = run(["remove", "my-skill"])
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "Removed my-skill" in out
+
+    def test_failure_returns_1(self, capsys):
+        from installer import ActionResult
+        with patch("main.Installer") as mock_cls:
+            mock_cls.return_value.uninstall.return_value = ActionResult(
+                action="uninstall", skill_name="my-skill", success=False,
+                error="Skill not found"
+            )
+            code = run(["remove", "my-skill"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "Remove failed" in out
+        assert "Skill not found" in out
+
+    def test_exception_returns_1(self, capsys):
+        with patch("main.Installer") as mock_cls:
+            mock_cls.return_value.uninstall.side_effect = OSError("permission denied")
+            code = run(["remove", "my-skill"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "Remove failed" in out
+        assert "permission denied" in out
+
+
+# ---------------------------------------------------------------------------
+# cmd_enable
+# ---------------------------------------------------------------------------
+
+class TestCmdEnable:
+    def test_missing_args_returns_1(self, capsys):
+        code = run(["enable"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "requires a skill name" in out
+
+    def test_success_returns_0(self, capsys):
+        from installer import ActionResult
+        with patch("main.Installer") as mock_cls:
+            mock_cls.return_value.enable.return_value = ActionResult(
+                action="enable", skill_name="my-skill", success=True,
+                message="Re-enabled: _my-skill → my-skill"
+            )
+            code = run(["enable", "my-skill"])
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "Re-enabled" in out
+
+    def test_failure_returns_1(self, capsys):
+        from installer import ActionResult
+        with patch("main.Installer") as mock_cls:
+            mock_cls.return_value.enable.return_value = ActionResult(
+                action="enable", skill_name="my-skill", success=False,
+                error="Disabled skill not found"
+            )
+            code = run(["enable", "my-skill"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "Enable failed" in out
+        assert "Disabled skill not found" in out
+
+    def test_exception_returns_1(self, capsys):
+        with patch("main.Installer") as mock_cls:
+            mock_cls.return_value.enable.side_effect = OSError("disk full")
+            code = run(["enable", "my-skill"])
+        assert code == 1
+        out = capsys.readouterr().out
+        assert "Enable failed" in out
+        assert "disk full" in out

@@ -468,5 +468,5 @@ def main(argv: list[str] | None = None) -> int:
     return handler(rest)  # type: ignore[operator]
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     sys.exit(main())

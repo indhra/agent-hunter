@@ -244,7 +244,7 @@ def _has_homoglyphs(text: str) -> bool:
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import sys
 
     if len(sys.argv) < 2:

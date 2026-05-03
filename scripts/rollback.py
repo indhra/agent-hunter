@@ -131,7 +131,7 @@ def list_backups_cmd() -> None:
 # CLI entry point
 # ---------------------------------------------------------------------------
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     import argparse
 
     parser = argparse.ArgumentParser(description="Rollback agent-hunter registry to a previous state")

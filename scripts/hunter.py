@@ -140,6 +140,13 @@ class Hunter:
         """Build a list of (query_string, result_type) tuples."""
         queries = []
 
+        # Intent-driven queries (Highest priority if present)
+        if hasattr(profile, 'intent_keywords') and profile.intent_keywords:
+            intent_q = " ".join(profile.intent_keywords)
+            queries.append((f"filename:SKILL.md {intent_q}", "skill"))
+            if getattr(self, 'include_mcp', False):
+                queries.append((f"filename:mcp.json {intent_q}", "mcp"))
+
         # Per-technology skill queries
         for tech in profile.tech_stack[:5]:  # top 5 to stay within rate limits
             queries.append((f"filename:SKILL.md {tech}", "skill"))

@@ -44,9 +44,9 @@ python scripts/context_extractor.py .
 |---|---|
 | `SKILL.md` | The brain — Claude's step-by-step instructions for the hunt pipeline |
 | `SPEC.md` | Full technical specification (16 sections + robustness additions) |
-| `ROADMAP.md` | Versioned roadmap v0.1.0 → v1.0.0 with release gates |
-| `scripts/hunter.py` | GitHub API search — the main gap to implement for v0.1.0 |
-| `scripts/main.py` | CLI entry point — needs to be created for v0.1.0 |
+| `ROADMAP.md` | Versioned roadmap v0.4.0 → v1.0.0 with release gates |
+| `scripts/hunter.py` | GitHub API search — completed |
+| `scripts/main.py` | CLI entry point — completed |
 | `config/defaults.json` | All configurable parameters with comments |
 
 ## Hard rules
@@ -57,10 +57,14 @@ python scripts/context_extractor.py .
 4. **Security:** RED scan results are never shown. Count only.
 5. **Fail loudly.** Partial results are worse than clear error messages.
 
-## Current state (v0.1.0 in progress)
+## Current state
+
+Implemented and tested: all core scripts including `hunter`, `main`, `skill_parser`, `context_extractor`, `security_scan`, `scorer`, `registry`, `reporter`, `rollback`, `sandbox`, `scaffold`.
+
+Ready for real-world user testing. Do not add future roadmap features before smoothing the core UX.
 
 Implemented and tested: `skill_parser`, `context_extractor`, `security_scan`, `scorer`, `registry`, `reporter`, `rollback`, `sandbox`, `scaffold`.
 
-**Needs work:** `hunter.py` pre-filter completion + raw content fetch. **Needs creation:** `scripts/main.py` CLI entry point.
+**
 
 See `.github/copilot-instructions.md` for the exact tasks.

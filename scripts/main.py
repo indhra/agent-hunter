@@ -389,8 +389,16 @@ def cmd_context(args: list[str]) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_audit(_args: list[str]) -> int:
-    """Run the full audit on all installed skills."""
+    """Run the full audit on all installed skills.
+    
+    Creates a pre-audit snapshot before running audit (v0.5.0+).
+    """
     try:
+        # Create pre-audit snapshot for safe recovery (v0.5.0)
+        reg = Registry()
+        snapshot_path = reg.snapshot(trigger="pre_audit")
+        print(f"[agent-hunter] Snapshot created: {snapshot_path.name}")
+
         auditor = Auditor()
         report = auditor.run()
         return 1 if report.has_issues else 0
@@ -515,9 +523,17 @@ def cmd_enable(args: list[str]) -> int:
 # ---------------------------------------------------------------------------
 
 def cmd_update(args: list[str]) -> int:
-    """Update installed skills interactively."""
+    """Update installed skills interactively.
+    
+    Creates a pre-update snapshot before running updates (v0.5.0+).
+    """
     skill_name = args[0] if args else None
     try:
+        # Create pre-update snapshot for safe recovery (v0.5.0)
+        reg = Registry()
+        snapshot_path = reg.snapshot(trigger="pre_update")
+        print(f"[agent-hunter] Snapshot created: {snapshot_path.name}")
+
         updater = SkillUpdater()
         approved, total = updater.run_interactive_update(skill_name=skill_name)
         return 0 if approved == total else 1

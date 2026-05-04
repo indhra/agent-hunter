@@ -323,43 +323,309 @@ This version closes the two open links in the compound learning loop. Without th
 
 ---
 
-## v1.0.0 · General Availability — Benchmarked and Production-Ready
+## v0.5.0.0 · Beta — Safe-State Recovery (Gap 2 Closure)
 
 **Status:** 📋 Planned
-**Target:** Week 16
+**Target:** Week 15
 
-This is the release that earns the 1.0.0 label. Not a feature dump — a quality gate.
+Robustness gap 2: Poisoned SHAs with no rollback points. A single GitHub Account compromise or malicious commit can silently inject backdoors. This version hardens rollback with pre-audit snapshots and a complete recovery playbook.
 
 ### Ships
 
-- Full test suite: precision/recall benchmarks across 10 real projects (results published in BENCHMARKS.md)
-- `references/VERIFIED_SKILLS.md` — 25+ manually verified entries
-- `references/SECURITY_PATTERNS.md` — 15+ contributed detection rules, all tested
-- `references/KNOWN_MALICIOUS.md` — seeded from Snyk ToxicSkills + community contributions
-- `cisco-ai-defense/skill-scanner` as optional secondary scan backend (user opt-in)
-- GitHub Actions CI: lints, all tests, security pattern validation, fixture-based scan regression
-- All script modules: full docstrings, type hints, error handling per SPEC error table
-- SPEC.md finalized, API docs published for all script modules
-- demo GIF recorded and in `assets/demo.gif`
+**Pre-audit snapshot mechanism**
+- `registry.py` extended: before running `audit` or `update` commands, writes a timestamped snapshot to `~/.agent-hunter/backups/pre_audit_YYYYMMDD_HHMMSS.json`
+  - Snapshot includes: installed skills list, registry SHAs, installed_log tail (last 100 entries)
+  - Metadata: `{"snapshot_time": datetime, "trigger": "pre_audit|pre_update", "git_branch": str}`
+- Each snapshot is immutable (append-only log)
+- Automatic retention: keep last 30 snapshots, delete older (configurable)
 
-### v1.0.0 Benchmark Targets (hard gates — release blocked if not met)
+**Enhanced rollback command**
+- `rollback.py` extended: `agent-hunter rollback [--to <snapshot-name>] [--force]`
+  - Lists available snapshots with timestamps, trigger reason, delta preview
+  - User selects target snapshot (or `--to pre_audit_20260503_143022.json` for automation)
+  - Shows diff: "Will restore 5 skills from snapshot. Will uninstall 2 skills added since then. Proceed?"
+  - `--force` skips confirmation (for scripted recovery)
+- Rollback now also restores installed skill git SHAs to snapshot state (not just registry)
+  - Calls `git reset --hard <SHA>` for each skill in `~/.claude/skills/`
+  - Reverts any in-flight changes to installed skills
+
+**Recovery playbook (documentation)**
+- New `docs/RECOVERY.md`: step-by-step playbook for common incident scenarios:
+  - "I think a skill was compromised" → rollback, audit, re-scan
+  - "My registry is corrupted" → restore from backup
+  - "I want to freeze my installation" → snapshot + read-only config
+  - "How to detect a poisoned SHA" → signature verification workflow (v0.8.0 prereq)
+- Linked in main help text: `agent-hunter help | grep -i recovery`
+
+**Snapshot integrity validation**
+- `registry.py` adds CRC32 checksum to each snapshot (lightweight tamper detection)
+- Rollback verifies checksum before restore (fails loudly if corrupted)
+- Not cryptographic yet (v0.8.0 adds Ed25519 signing)
+
+**Configuration for snapshot retention**
+- `config.json` gains:
+  - `"snapshot_retention_days": 90` (auto-delete snapshots older than 90 days)
+  - `"max_snapshots_kept": 30`
+  - `"freeze_mode": false` (when true, all install actions require explicit confirmation + snapshot write)
+
+### Release gate
+- Snapshot written before audit, contains correct metadata
+- Rollback restores registry + skill SHAs correctly
+- CRC32 validation detects corrupted snapshot
+- Recovery playbook reviewed by 2 maintainers
+- Edge case: rollback with 0 snapshots (error message is clear)
+
+---
+
+## v0.6.0.0 · Beta — Runtime Sandboxing (Gap 1 Closure)
+
+**Status:** 📋 Planned
+**Target:** Week 17
+
+Robustness gap 1: Obfuscated malware bypasses static analysis. Minor code obfuscation (base64 decode, dynamic eval) defeats regex-based scanning. This version adds behavioral analysis + hardened Docker isolation.
+
+### Ships
+
+**Obfuscation detection**
+- `security_scan.py` extended with dynamic unpacking:
+  - Detects `base64.b64decode()`, `codecs.decode()`, `marshal`, `pickle` patterns
+  - For suspicious code blocks, uses AST + controlled execution in sandbox to unpack and re-scan
+  - New finding type: `OBFUSCATION_DETECTED` (severity: medium → orange 🟠 flag)
+  - If unpacked code contains RED patterns → elevated to RED
+- Heuristic: code that decodes then execs is highly suspicious even if decoder is clean
+
+**Hardened Docker sandbox**
+- `sandbox.py` complete Docker mode (v0.3.0 was stub):
+  - Builds minimal Dockerfile on-the-fly: `FROM python:3.12-slim` + isolated `WORKDIR /tmp/skill_test`
+  - Runs skill code inside container with:
+    - Read-only filesystem (except `/tmp`)
+    - No network (DNS blocked via `--net none`)
+    - Memory limit: 256MB
+    - CPU share: 1 (50% of 2-core baseline)
+    - 10s execution timeout, killed if exceeded
+    - No `/proc`, `/sys` access
+  - Captures stdout/stderr for inspection
+  - Container discarded after test (no layer reuse)
+- Config option `"sandbox_mode": "subprocess" | "docker"` (default subprocess for speed, docker for trust-critical audits)
+- Integration: when running `agent-hunter audit` on red-flagged skills, automatically use docker mode
+
+**Behavior analysis during sandbox execution**
+- Monitor for:
+  - File writes outside `/tmp` (attempt to escape sandbox)
+  - Network connection attempts (DNS queries, socket opens)
+  - Process spawn (fork/exec attempts)
+  - Environment variable reads (looking for secrets)
+- Report findings as: `SANDBOX_ESCAPE_ATTEMPT` 🔴 or `SUSPICIOUS_ENV_READ` 🟠
+- Captured behaviors are appended to skill's audit history
+
+**Security baseline for v1.0.0**
+- Any skill with `OBFUSCATION_DETECTED` or `SANDBOX_ESCAPE_ATTEMPT` is blocked from install
+- Audit report includes behavior section: "Observed during sandbox: [list]"
+
+### Release gate
+- Sandbox successfully executes safe skill code and captures output
+- Sandbox blocks network connection attempt (test with `urllib.request.urlopen("http://example.com")`)
+- Sandbox blocks file write outside /tmp
+- Obfuscation detector unpacks base64 code and re-scans correctly
+- Docker mode gracefully falls back to subprocess if Docker not installed
+
+---
+
+## v0.7.0.0 · Beta — Dependency Conflict Management (Gap 3 Closure)
+
+**Status:** 📋 Planned
+**Target:** Week 19
+
+Robustness gap 3: Python/Node/Ruby version conflicts crash the agent. Installing Skill A (`pydantic<2.0`) then Skill B (`pydantic>=2.0`) breaks both. This version adds dependency resolution and containerization option.
+
+### Ships
+
+**Dependency resolver**
+- New module: `scripts/dep_resolver.py`
+  - Reads all installed skill `requirements.txt` (or `pyproject.toml`, `Gemfile`, `package.json`)
+  - Builds a conflict graph: which skills have incompatible dependencies
+  - Attempts to find a compatible semver range for conflicting packages
+  - If no compatible range exists, flags as `UNRESOLVABLE_CONFLICT` (severity: 🔴)
+- Algorithm: uses `packaging.specifiers.SpecifierSet` for Python, similar logic for other ecosystems
+- Output: `{"conflicting_pairs": [("skill-a", "skill-b", "pydantic")], "resolution": "upgrade pydantic>=2.0 in skill-a"}`
+
+**Containerized skill execution option**
+- New config: `"skill_isolation": "none" | "venv" | "container"` (default: `none`)
+  - `none`: current behavior, skills share global Python env
+  - `venv`: each skill gets its own venv (Python only)
+  - `container`: each skill runs in isolated Docker container with its own Python version
+- When `container` mode: installer wraps each skill's SKILL.md body in a dockerfile runner
+  - Installer creates skill-specific containers on demand
+  - Skill is executed via `docker run --rm <container> <skill-code>`
+  - Removes layer/image after execution
+
+**Dependency audit command**
+- `audit.py` extended: `agent-hunter audit --deps` reports:
+  - Total unique dependencies across installed skills
+  - Conflicting packages + severity
+  - Which skills would need updating to resolve each conflict
+  - Recommendation: "Install Skill X in a separate container" or "Uninstall Skill Y"
+- Completes in ≤ 5s for 50 skills
+
+**Version pinning and compatibility matrix**
+- `registry.py` extended: for each installed skill, stores `python_version_tested`, `node_version_tested`
+- On audit: compare tested versions vs. host environment
+  - Tested on Python 3.10, host is 3.12 → 🟡 compatibility warning (may work, not guaranteed)
+  - Tested on Python 3.6, host is 3.12 → 🔴 incompatible (likely broken)
+- User can override via `config.json`: `"skip_version_checks": true`
+
+### Release gate
+- Dependency resolver correctly identifies pydantic version conflict in fixture set
+- Resolver proposes valid semver range or `UNRESOLVABLE` flag
+- Audit --deps completes in ≤ 5s for 50-skill mock dataset
+- Containerized skill execution: skill runs in isolated container and produces correct output
+- Version compatibility matrix works with Python/Node/Ruby versioning
+
+---
+
+## v0.8.0.0 · Beta — Web-of-Trust & Verified Indexing (Gap 4 Closure)
+
+**Status:** 📋 Planned
+**Target:** Week 21
+
+Robustness gap 4: GitHub Search is rate-limited and vulnerable to SEO poisoning + typo-squatting. An attacker can register `skll-deploy` (typo) or use GitHub SEO tricks to get ranked high. This version implements cryptographic verification and a curated index backend.
+
+### Ships
+
+**Cryptographic signing for verified index**
+- New module: `scripts/verify_sig.py`
+  - Verified skills in `references/VERIFIED_SKILLS.md` are signed with project maintainer's Ed25519 key
+  - Key stored in `references/TRUSTED_KEYS.pub` (ASCII-armored)
+  - On hunt: skills from verified index are verified before showing to user
+  - Signature validation: skill entry includes `signature: <base64-ed25519>`, verified against structured content
+  - Failed signature → 🔴 flag "Signature mismatch — this skill may have been tampered"
+
+**Typo-squat detection**
+- New module: `scripts/typo_detect.py`
+  - For each hunt result, compute Levenshtein distance to known-verified skills
+  - Distance ≤ 2 (typo threshold): flag as "⚠️ Similar to verified skill `XXX` — double-check you meant this one"
+  - Examples: `skill-deply` vs verified `skill-deploy`, `react-uer` vs verified `react-user`
+  - User can opt-in to block typos entirely via `config.json`: `"block_typo_results": true`
+
+**Curated index backend (alternative to GitHub Search)**
+- New data source: queries `references/CURATED_SOURCES.md` (local JSON list of trusted registries)
+  - Format: `{registry_url: str, source_type: "github-org|gh-repo|private-index", last_updated: date}`
+  - Examples:
+    - `https://api.github.com/repos/awesome-claude-skills/directory` (curated org)
+    - `https://skills-registry.example.com/api/v1/search` (private registry)
+  - Hunter consult curated sources before GitHub Search (trust tier priority)
+  - Results from curated sources get `[CURATED]` label in hunt report
+
+**SEO poisoning defense**
+- Scoring penalizes:
+  - Repos with keyword-stuffed READMEs (entropy heuristic)
+  - Repos with no code files (metadata-only)
+  - Repos with artificially high star counts + low activity (likely GitHub Star farming)
+- New finding: `ARTIFICIAL_RANKING_SIGNALS` 🟠 (flagged but not blocking)
+
+**Verified index maintenance process**
+- `CONTRIBUTING.md` updated with:
+  - How to propose a new verified skill (submit issue with self-certification)
+  - Criteria: 50+ stars, active maintenance (commit in last 60 days), passing full security scan, 2 maintainer sign-offs
+  - Process: issue → PR review → maintainer signature → merged to verified index
+- Automated: weekly GitHub Actions job runs security scan on all verified skills, alerts maintainers of any regressions
+
+**Web-of-Trust graph (advanced, documented in SECURITY.md)**
+- Optional: users can extend trust via explicit endorsements
+  - `~/.agent-hunter/trusted_authors.json`: `{"username": ["indhra", "some-trusted-dev"]}`
+  - Skills by trusted authors get `[AUTHOR_TRUSTED]` label + score bonus (0.15×)
+  - Builds a community web-of-trust without central authority
+
+### Release gate
+- Cryptographic signature validates correctly for test entry in verified index
+- Signature verification fails (with clear error) for tampered entry
+- Typo-squat detection flags `skll-deploy` as similar to `skill-deploy`
+- Curated sources query returns results correctly
+- SEO poisoning heuristic penalizes 100-star repo with 0 commits in 180 days
+- `CONTRIBUTING.md` reviewed by 2+ maintainers
+
+---
+
+## v1.0.0.0 · General Availability — Production Ready
+
+**Status:** 📋 Planned
+**Target:** Week 24
+
+This is the release that earns the 1.0.0.0 label. The tool is now hardened against:
+- Obfuscated malware (v0.6.0)
+- Poisoned SHA versions (v0.5.0)
+- Dependency conflicts (v0.7.0)
+- GitHub SEO poisoning (v0.8.0)
+
+Plus all v0.1.0–v0.4.0 features (hunt, score, audit, update, sandbox, contribute, feedback loop).
+
+### Ships
+
+**Robustness validation**
+- Full test suite: precision/recall benchmarks across 10 real projects (published in `BENCHMARKS.md`)
+- Security regression test suite: 50+ attack patterns (obfuscation, prompt injection, dependency conflicts, etc.)
+- Performance baseline: all operations meet targets (hunt ≤ 25s, audit ≤ 45s, rollback ≤ 2s)
+
+**Documentation & Governance**
+- `SPEC.md` — complete API specification + error handling matrix for all scripts
+- `SECURITY.md` — threat model, attack surface, security assumptions
+- `RECOVERY.md` — incident response playbook
+- `CONTRIBUTING.md` — process for verified skills + community governance
+- Demo GIF + video walkthrough (10 min)
+- Tutorial for non-developers: "How to find and vet skills without coding"
+
+**Integration & Deployment**
+- GitHub Actions CI: lint, test (100% pass), security pattern validation, performance benchmarks
+- `cisco-ai-defense/skill-scanner` as optional secondary scan backend (user opt-in via config)
+- Sign-off from 3+ external security reviewers (documented in `SECURITY_REVIEW.md`)
+- Public security audit results published
+
+**Verified Index Bootstrap**
+- `references/VERIFIED_SKILLS.md` — 50+ manually verified entries (seeded + first month community submissions)
+- `references/SECURITY_PATTERNS.md` — 25+ detection rules, all tested
+- `references/KNOWN_MALICIOUS.md` — 10+ documented cases from Snyk + community reports
+- `references/CURATED_SOURCES.md` — 5+ trusted registries linked
+
+### v1.0.0.0 Benchmark Targets (hard gates — release blocked if not met)
 
 | Metric | Target |
 |---|---|
 | Precision top-5 (avg across 10 projects) | ≥ 3.5 / 5 |
-| False-negative rate (known malicious set) | 0% |
+| False-negative rate (malicious set) | 0% |
 | False-positive rate (security scan) | ≤ 10% |
-| Hunt time — authenticated | ≤ 25s |
-| Hunt time — unauthenticated | ≤ 60s |
+| Obfuscation detection rate | ≥ 95% |
+| Typo-squat detection accuracy | ≥ 90% |
+| Hunt time (authenticated) | ≤ 25s |
+| Hunt time (unauthenticated) | ≤ 60s |
 | Audit time — 20 skills | ≤ 45s |
 | Rollback time | ≤ 2s |
-| Docker sandbox test execution | ≤ 10s |
+| Docker sandbox execution | ≤ 10s |
+| Dependency resolver time — 50 skills | ≤ 5s |
+| Signature verification time | ≤ 100ms |
+| Test coverage | ≥ 90% all modules |
 
-### ⚠️ User task: Record demo GIF (assign after v1.0.0 code freeze)
-> Record a GIF < 45 seconds. No setup shown — just value.
-> Tool: [vhs](https://github.com/charmbracelet/vhs) or [asciinema](https://asciinema.org/).
-> Script: open FastAPI project → trigger hunt → 6 results with trust signals appear → one selected → install command shown.
-> Replace `assets/demo-placeholder.png` with `assets/demo.gif` and update README.
+### ⚠️ Post-release tasks
+- Record demo GIF (< 45s, no setup)
+- Publish to package managers: PyPI (`pip install agent-hunter`)
+- Docker image: `docker pull indhra/agent-hunter` (optional, for users who want it containerized)
+- Set up Slack channel for security reports
+
+---
+
+## v2.0.0.0+ (Post-v1.0.0 — Future Vision)
+
+Once v1.0.0.0 ships stable, these features are candidates:
+
+| Feature | Rationale | Target |
+|---------|-----------|--------|
+| **Skill Package Manager** | Package N skills as bundles (e.g., "full-stack-dev: [react, node, postgres-helper]") | v2.0.0 |
+| **MCP Server Registry** | Dedicated registry for MCP servers (separate from SKILL.md hunt) | v2.0.0 |
+| **Automated Conflict Resolution** | Auto-suggest compatible versions + rebuild env | v2.1.0 |
+| **Telemetry (opt-in)** | Anonymized usage stats to improve scoring (requires explicit user consent + transparency) | v2.1.0 |
+| **Skill Dashboard** | Web UI for managing installed skills + viewing audit history | v2.2.0 |
+| **Fleet Management** | Deploy agent-hunter + curated skill set to team of developers | v2.3.0 |
+| **LLM Model Marketplace** | Index of Claude-compatible models + version compatibility matrix | v2.4.0 |
+| **Paid Support Tier** | Commercial support + priority CVE alerts (tool remains free/open) | v2.5.0 |
 
 ---
 
@@ -370,8 +636,8 @@ These are not "not planned." They are **never.**
 | Anti-feature | Why never |
 |---|---|
 | Auto-install without user confirmation | Trust and security. Human in the loop, always. |
-| Telemetry or usage analytics | Privacy by design. Nothing leaves without user knowledge. |
-| Paid tier or feature gating | MIT, open source, forever. |
+| Telemetry or usage analytics (non-opt-in) | Privacy by design. Nothing leaves without user knowledge. |
+| Paid tier or feature gating | MIT, open source, forever (support is where monetization happens). |
 | LLM API calls from Python scripts | Host agent does all reasoning. Scripts do I/O only. |
 | Sponsored or boosted results | Not a marketplace. Not ad-driven. |
 | Installing RED-flagged skills | Non-negotiable. RED = excluded. Count reported only. |
@@ -383,13 +649,17 @@ These are not "not planned." They are **never.**
 
 | Label | Meaning |
 |---|---|
-| `v0.1.0` | Milestone target |
+| `v0.5.0` / `v0.6.0` / ... / `v1.0.0` | Milestone target |
 | `security-pattern` | New detection rule for scanner |
 | `hunt-source` | New skill/MCP registry source |
 | `benchmark` | Precision/recall test data submission |
 | `verified-skill` | Candidate for VERIFIED_SKILLS.md |
 | `trust-tier` | Trust system improvements |
 | `breaking` | Impacts SKILL.md interface or registry schema |
+| `gap-1-sandboxing` | Runtime sandboxing & obfuscation detection |
+| `gap-2-recovery` | Safe-state recovery & rollback |
+| `gap-3-dependencies` | Dependency conflict management |
+| `gap-4-web-of-trust` | Verified indexing & typo-squat defense |
 | `good-first-issue` | Accessible for new contributors |
 
 ---

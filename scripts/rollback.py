@@ -1,21 +1,24 @@
 """
-rollback.py — Restore the registry to the last known healthy state.
+rollback.py — Restore registry and installed skills to a safe state.
 
-Command: agent-hunter rollback
+Command: agent-hunter rollback [--to <snapshot>] [--force]
 
 Use when:
     - SHA tamper detection flagged a skill after an update
     - A bad update broke the registry
     - You want to undo the last audit/update operation
+    - You suspect a skill was poisoned
 
-Rollback is instant — it restores the registry.json from the most recent
-backup written before the last audit or update operation.
+Rollback is instant — it restores registry.json and skill git SHAs.
+Pre-audit/pre-update snapshots ensure recovery points exist.
 
-No LLM calls. No network access.
+No LLM calls. No network access (only local git operations).
 """
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -25,44 +28,93 @@ from registry import Registry, BACKUPS_DIR
 
 
 def rollback(
-    to_backup: Optional[Path] = None,
+    to_snapshot: Optional[Path] = None,
     registry: Optional[Registry] = None,
     interactive: bool = True,
+    force: bool = False,
 ) -> bool:
-    """Restore registry to a previous backup state.
+    """Restore registry and installed skills to a previous snapshot state.
 
     Args:
-        to_backup: Specific backup path to restore. If None, uses the most recent.
+        to_snapshot: Specific snapshot path to restore. If None, lists available.
         registry: Registry instance. Defaults to the standard one.
         interactive: If True, prompt for confirmation before restoring.
+        force: If True, skip confirmation and diff preview.
 
     Returns:
         True if rollback succeeded, False otherwise.
     """
     reg = registry or Registry()
-    backups = reg.list_backups()
+    snapshots = reg.list_snapshots()
 
-    if not backups:
-        print("[agent-hunter] No backups available. Cannot rollback.")
-        print("               Backups are created before each audit and update.")
-        print(f"               Backup location: {BACKUPS_DIR}")
+    if not snapshots:
+        print("[agent-hunter] No snapshots available. Cannot rollback.")
+        print("               Snapshots are created before each audit and update.")
+        print(f"               Snapshot location: {BACKUPS_DIR}")
         return False
 
-    target = to_backup or backups[-1]
+    # Select target snapshot
+    if to_snapshot:
+        target_snapshot = None
+        for s in snapshots:
+            if s["path"] == to_snapshot or s["path"].name == str(to_snapshot):
+                target_snapshot = s
+                break
+        if not target_snapshot:
+            print(f"[agent-hunter] Snapshot not found: {to_snapshot}")
+            print("\n  Available snapshots:")
+            for i, snap in enumerate(snapshots, 1):
+                print(f"    {i}. {snap['path'].name} ({snap['trigger']})")
+            return False
+    else:
+        if interactive and not force:
+            # Show list and let user pick
+            print("\n[agent-hunter] Available snapshots:")
+            for i, snap in enumerate(snapshots, 1):
+                ts = datetime.fromisoformat(snap["snapshot_time"]) if snap["snapshot_time"] else None
+                ts_str = ts.strftime("%Y-%m-%d %H:%M:%S UTC") if ts else "unknown"
+                print(
+                    f"  {i}. {snap['path'].name}\n"
+                    f"     Time: {ts_str}\n"
+                    f"     Trigger: {snap['trigger']}\n"
+                )
+            
+            try:
+                choice = input("Enter snapshot number to restore (or 'q' to cancel): ").strip()
+                if choice.lower() == "q":
+                    print("[agent-hunter] Rollback cancelled.")
+                    return False
+                idx = int(choice) - 1
+                if idx < 0 or idx >= len(snapshots):
+                    print("[agent-hunter] Invalid selection.")
+                    return False
+                target_snapshot = snapshots[idx]
+            except (ValueError, EOFError):
+                print("\n[agent-hunter] Rollback cancelled (invalid input or non-interactive).")
+                return False
+        else:
+            # Use most recent snapshot
+            target_snapshot = snapshots[-1]
 
-    if not target.exists():
-        print(f"[agent-hunter] Backup not found: {target}")
+    # Validate snapshot integrity
+    is_valid, msg = reg.validate_snapshot_integrity(target_snapshot["path"])
+    if not is_valid:
+        print(f"[agent-hunter] Snapshot integrity check FAILED:")
+        print(f"  {msg}")
+        print("  Rollback aborted. This snapshot may have been corrupted.")
         return False
 
-    # Show what we're about to do
-    backup_ts = _parse_backup_timestamp(target)
-    print(f"\n[agent-hunter] Rollback target: {target.name}")
-    if backup_ts:
-        print(f"               Created at:     {backup_ts}")
-    print(f"\n  Current registry: {reg.registry_path}")
-    print(f"  Will be replaced by: {target.name}")
+    # Show what will happen
+    print(f"\n[agent-hunter] Rollback target: {target_snapshot['path'].name}")
+    if target_snapshot["snapshot_time"]:
+        ts = datetime.fromisoformat(target_snapshot["snapshot_time"])
+        print(f"               Created: {ts.strftime('%Y-%m-%d %H:%M:%S UTC')}")
+    print(f"               Trigger: {target_snapshot['trigger']}")
 
-    if interactive:
+    if interactive and not force:
+        print(f"\n  This will restore:")
+        print(f"    - Registry entries")
+        print(f"    - All installed skill git SHAs")
         try:
             confirm = input("\n  Proceed? [y/N] ").strip().lower()
         except EOFError:
@@ -72,33 +124,75 @@ def rollback(
             print("[agent-hunter] Rollback cancelled.")
             return False
 
-    # Write a snapshot of current state before overwriting (safety net)
-    if reg.registry_path.exists():
-        current_snapshot = reg.snapshot()
-        print(f"[agent-hunter] Saved current state as: {current_snapshot.name}")
+    # Save current state as a snapshot before we modify anything (safety net)
+    try:
+        if reg.registry_path.exists():
+            current_snapshot = reg.snapshot(trigger="pre_rollback")
+            print(f"[agent-hunter] Saved current state: {current_snapshot.name}")
+    except Exception as e:
+        print(f"[agent-hunter] Warning: Could not save pre-rollback snapshot: {e}")
 
-    # Restore
-    restored = reg.restore_latest() if to_backup is None else _restore_specific(reg, target)
+    # Perform rollback
+    try:
+        # Step 1: Restore registry
+        reg.restore_from_snapshot(target_snapshot["path"])
+        print("[agent-hunter] ✓ Registry restored")
 
-    if restored:
-        print(f"\n✅ Rollback complete. Registry restored from: {target.name}")
+        # Step 2: Restore skill git SHAs
+        restored_skills = _restore_skill_shas(reg)
+        for skill_name, success in restored_skills.items():
+            status = "✓" if success else "✗"
+            print(f"[agent-hunter] {status} {skill_name}")
+
+        print(f"\n✅ Rollback complete.")
         print("   Run `agent-hunter audit` to verify the restored state.")
         return True
-    else:
-        print("\n❌ Rollback failed.")
+
+    except Exception as e:
+        print(f"\n❌ Rollback failed: {e}")
+        print("   Your previous state was saved as: pre_rollback_*.json")
         return False
 
 
-def _restore_specific(registry: Registry, backup_path: Path) -> bool:
-    """Restore from a specific backup file."""
-    import shutil
-    try:
-        shutil.copy2(backup_path, registry.registry_path)
-        registry._load()
-        return True
-    except OSError as e:
-        print(f"[agent-hunter] Restore error: {e}")
-        return False
+def _restore_skill_shas(registry: Registry) -> dict[str, bool]:
+    """Restore git SHAs for all installed skills.
+
+    For each skill in the registry, run `git reset --hard <stored-sha>`
+    in the skill's installation directory.
+
+    Returns:
+        {skill_name: success_bool}
+    """
+    results = {}
+    skills_dir = Path.home() / ".claude" / "skills"
+
+    for entry in registry.all():
+        skill_name = entry.name
+        skill_path = skills_dir / skill_name
+        stored_sha = entry.git_tree_sha
+
+        if not skill_path.exists():
+            # Skill not installed locally (maybe uninstalled since snapshot)
+            results[skill_name] = True
+            continue
+
+        if not stored_sha:
+            # No SHA stored, skip
+            results[skill_name] = True
+            continue
+
+        try:
+            subprocess.run(
+                ["git", "reset", "--hard", stored_sha],
+                cwd=str(skill_path),
+                check=True,
+                capture_output=True,
+            )
+            results[skill_name] = True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            results[skill_name] = False
+
+    return results
 
 
 def _parse_backup_timestamp(path: Path) -> Optional[str]:
@@ -109,6 +203,25 @@ def _parse_backup_timestamp(path: Path) -> Optional[str]:
         return datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
     except (ValueError, OSError):
         return None
+
+
+def _restore_specific(registry, backup_path: Path) -> bool:
+    """Restore a specific backup file to the registry path.
+
+    Args:
+        registry: Registry instance to update.
+        backup_path: Path to the backup file to restore.
+
+    Returns:
+        True if successful, False on error.
+    """
+    try:
+        shutil.copy(backup_path, registry.registry_path)
+        registry._load()
+        return True
+    except (OSError, FileNotFoundError) as exc:
+        print(f"[agent-hunter] Error restoring backup: {exc}")
+        return False
 
 
 def list_backups_cmd() -> None:

@@ -43,11 +43,12 @@ from skill_parser import SkillMetadata
 # ---------------------------------------------------------------------------
 
 WEIGHTS = {
-    "stack_match":   0.30,
-    "domain_match":  0.20,
-    "star_score":    0.15,
-    "recency_score": 0.15,
-    "trust_score":   0.20,
+    "intent_match":  0.30,
+    "stack_match":   0.20,
+    "domain_match":  0.15,
+    "star_score":    0.10,
+    "recency_score": 0.10,
+    "trust_score":   0.15,
 }
 
 YAGNI_MULTIPLIERS = {
@@ -74,6 +75,7 @@ class ScoredResult:
     skill_metadata: Optional[SkillMetadata]
 
     total_score: float = 0.0
+    intent_match_score: float = 0.0
     stack_match_score: float = 0.0
     domain_match_score: float = 0.0
     star_score: float = 0.0
@@ -134,6 +136,9 @@ def _score_single(
     w = weights if weights is not None else WEIGHTS
     s = ScoredResult(hunt_result=r, skill_metadata=meta)
 
+    # --- Intent match (0.0 - 1.0) ---
+    s.intent_match_score = _compute_intent_match(r, profile)
+
     # --- Stack match (0.0 – 1.0) ---
     s.stack_match_score = _compute_stack_match(r, meta, profile)
 
@@ -154,7 +159,8 @@ def _score_single(
 
     # --- Total ---
     raw = (
-        s.stack_match_score  * w["stack_match"]
+        s.intent_match_score   * w.get("intent_match", 0.0)
+        + s.stack_match_score  * w["stack_match"]
         + s.domain_match_score * w["domain_match"]
         + s.star_score         * w["star_score"]
         + s.recency_score      * w["recency_score"]
@@ -163,6 +169,19 @@ def _score_single(
     s.total_score = min(raw * s.yagni_multiplier, 1.0)
 
     return s
+
+
+def _compute_intent_match(
+    r: HuntResult,
+    profile: ContextProfile,
+) -> float:
+    """How well does this skill match the explicit user intent?"""
+    if not getattr(profile, 'intent_keywords', None):
+        return 0.0
+
+    text = f"{r.name} {r.description} {r.repo_name} {getattr(r, 'raw_content', '')}".lower()
+    matches = sum(1 for kw in profile.intent_keywords if kw in text)
+    return min(matches / len(profile.intent_keywords), 1.0)
 
 
 def _compute_stack_match(

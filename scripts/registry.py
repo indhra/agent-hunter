@@ -14,9 +14,12 @@ No LLM calls. Local file I/O + GitHub API (SHA fetch only).
 
 from __future__ import annotations
 
+import binascii
 import json
 import shutil
+import subprocess
 import time
+import zlib
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -96,41 +99,202 @@ class Registry:
             return True
         return False
 
-    def snapshot(self) -> Path:
+    def snapshot(self, trigger: str = "manual") -> Path:
         """Write a timestamped backup of the current registry for rollback.
 
         If the registry file does not exist yet (no skills installed), writes
         an empty registry file first so the backup is well-formed.
 
-        Returns the path of the backup file.
+        Args:
+            trigger: Reason for snapshot: "pre_audit", "pre_update", "manual", etc.
+
+        Returns:
+            Path of the backup file.
         """
         BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
         if not self.registry_path.exists():
             self._save()  # write empty registry so shutil.copy2 has a source
-        ts = int(time.time())
-        backup_path = BACKUPS_DIR / f"registry_{ts}.json"
-        shutil.copy2(self.registry_path, backup_path)
-        self._prune_old_backups()
+
+        # Get current git branch (if in a git repo, else "unknown")
+        git_branch = "unknown"
+        try:
+            git_branch = (
+                subprocess.check_output(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+                .decode("utf-8")
+                .strip()
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass  # Not a git repo or git not installed
+
+        # Create snapshot with metadata + CRC32 checksum
+        registry_content = self.registry_path.read_bytes()
+        crc32_checksum = zlib.crc32(registry_content) & 0xFFFFFFFF
+        
+        snapshot_data = {
+            "snapshot_time": datetime.now(timezone.utc).isoformat(),
+            "trigger": trigger,
+            "git_branch": git_branch,
+            "crc32": f"{crc32_checksum:08x}",
+            "registry": json.loads(registry_content.decode("utf-8")),
+        }
+
+        # Use descriptive naming: pre_audit_20260503_143022.json
+        ts_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        backup_name = f"{trigger}_{ts_str}.json"
+        backup_path = BACKUPS_DIR / backup_name
+
+        backup_path.write_text(
+            json.dumps(snapshot_data, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+        self._prune_old_snapshots()
         return backup_path
 
-    def restore_latest(self) -> Optional[Path]:
-        """Restore registry from the most recent backup.
+    def list_snapshots(self) -> list[dict]:
+        """List available snapshots with metadata.
 
-        Returns the backup path used, or None if no backup exists.
+        Returns:
+            list of {path, snapshot_time, trigger, git_branch, crc32}
         """
-        backups = self._list_backups()
-        if not backups:
+        if not BACKUPS_DIR.exists():
+            return []
+        
+        snapshots = []
+        for snapshot_file in sorted(BACKUPS_DIR.glob("*.json")):
+            try:
+                data = json.loads(snapshot_file.read_text(encoding="utf-8"))
+                # Validate snapshot has required metadata (v0.5.0+)
+                if "snapshot_time" in data and "trigger" in data:
+                    snapshots.append({
+                        "path": snapshot_file,
+                        "snapshot_time": data.get("snapshot_time"),
+                        "trigger": data.get("trigger"),
+                        "git_branch": data.get("git_branch", "unknown"),
+                        "crc32": data.get("crc32"),
+                    })
+            except (json.JSONDecodeError, OSError):
+                pass  # Skip corrupted snapshots
+        return snapshots
+
+    def validate_snapshot_integrity(self, snapshot_path: Path) -> tuple[bool, str]:
+        """Validate snapshot CRC32 checksum.
+
+        Args:
+            snapshot_path: Path to snapshot file
+
+        Returns:
+            (is_valid, message)
+        """
+        try:
+            data = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            stored_crc = data.get("crc32")
+            registry_data = data.get("registry")
+
+            if not stored_crc or not registry_data:
+                return False, "Snapshot missing CRC32 or registry data"
+
+            # Recompute CRC32 of the registry content
+            registry_json = json.dumps(registry_data, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            computed_crc = zlib.crc32(registry_json) & 0xFFFFFFFF
+            computed_crc_str = f"{computed_crc:08x}"
+
+            if computed_crc_str != stored_crc:
+                return False, (
+                    f"Snapshot integrity check failed (CRC32 mismatch).\n"
+                    f"  Stored:   {stored_crc}\n"
+                    f"  Computed: {computed_crc_str}\n"
+                    f"  This snapshot may have been corrupted or tampered with."
+                )
+
+            return True, "Snapshot integrity verified"
+        except (json.JSONDecodeError, OSError, KeyError) as e:
+            return False, f"Failed to validate snapshot: {e}"
+
+    def restore_from_snapshot(self, snapshot_path: Path) -> bool:
+        """Restore registry from a snapshot file.
+
+        Args:
+            snapshot_path: Path to snapshot file
+
+        Returns:
+            True if restore succeeded, False otherwise
+
+        Raises:
+            ValueError if snapshot integrity check fails
+        """
+        is_valid, msg = self.validate_snapshot_integrity(snapshot_path)
+        if not is_valid:
+            raise ValueError(msg)
+
+        try:
+            data = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            registry_data = data.get("registry")
+
+            # Restore by writing registry data directly
+            self.registry_path.write_text(
+                json.dumps(registry_data, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            self._load()
+            return True
+        except (json.JSONDecodeError, OSError) as e:
+            raise ValueError(f"Failed to restore from snapshot: {e}")
+
+    def restore_latest(self) -> Optional[Path]:
+        """Restore registry from the most recent snapshot.
+
+        Returns the snapshot path used, or None if no snapshot exists.
+        """
+        snapshots = self.list_snapshots()
+        if not snapshots:
             return None
-        latest = backups[-1]
-        shutil.copy2(latest, self.registry_path)
-        self._load()
-        return latest
+        
+        latest = snapshots[-1]  # Newest (sorted by filename)
+        try:
+            self.restore_from_snapshot(latest["path"])
+            return latest["path"]
+        except ValueError:
+            return None
 
     def list_backups(self) -> list[Path]:
-        """Return available backup paths, oldest first."""
-        return self._list_backups()
+        """Return available backup paths (for backward compatibility).
+        
+        Use list_snapshots() for metadata-rich snapshot information.
+        """
+        return [s["path"] for s in self.list_snapshots()]
 
-    # --- Internal ---
+    def _prune_old_snapshots(self) -> None:
+        """Keep only the most recent snapshots, delete older ones."""
+        from pathlib import Path
+        config_file = Path.home() / ".agent-hunter" / "config.json"
+        max_snapshots = 30  # default
+        retention_days = 90  # default
+
+        if config_file.exists():
+            try:
+                config = json.loads(config_file.read_text(encoding="utf-8"))
+                max_snapshots = config.get("max_snapshots_kept", 30)
+                retention_days = config.get("snapshot_retention_days", 90)
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        snapshots = sorted(BACKUPS_DIR.glob("*.json"))
+        
+        # Delete old by count
+        for old in snapshots[:-max_snapshots]:
+            try:
+                old.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+        # Delete old by age
+        cutoff_time = datetime.now(timezone.utc).timestamp() - (retention_days * 86400)
+        for snapshot_file in BACKUPS_DIR.glob("*.json"):
+            if snapshot_file.stat().st_mtime < cutoff_time:
+                try:
+                    snapshot_file.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
     def _ensure_dir(self) -> None:
         self.registry_path.parent.mkdir(parents=True, exist_ok=True)
@@ -158,16 +322,6 @@ class Registry:
             json.dumps(data, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-
-    def _list_backups(self) -> list[Path]:
-        if not BACKUPS_DIR.exists():
-            return []
-        return sorted(BACKUPS_DIR.glob("registry_*.json"))
-
-    def _prune_old_backups(self) -> None:
-        backups = self._list_backups()
-        for old in backups[:-MAX_BACKUPS]:
-            old.unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------

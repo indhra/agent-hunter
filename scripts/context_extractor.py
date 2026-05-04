@@ -89,6 +89,7 @@ class SkillUsage:
 class ContextProfile:
     tech_stack: list[str] = field(default_factory=list)      # all detected tech
     domain_tags: list[str] = field(default_factory=list)      # inferred domains
+    intent_keywords: list[str] = field(default_factory=list)  # dynamic user intent
     active_domains: list[str] = field(default_factory=list)   # commits in last 7d
     recent_domains: list[str] = field(default_factory=list)   # commits in last 30d
     dormant_domains: list[str] = field(default_factory=list)  # no commits in 90+d
@@ -101,7 +102,7 @@ class ContextProfile:
 # Extractor
 # ---------------------------------------------------------------------------
 
-def extract_context(project_root: str | Path) -> ContextProfile:
+def extract_context(project_root: str | Path, intent: str | None = None) -> ContextProfile:
     """Extract tech signal keywords from a project directory.
 
     Reads: CLAUDE.md, AGENTS.md, requirements.txt, pyproject.toml,
@@ -109,6 +110,7 @@ def extract_context(project_root: str | Path) -> ContextProfile:
 
     Args:
         project_root: Path to the project root directory.
+        intent: Optional user intent string to focus the search.
 
     Returns:
         ContextProfile with tech_stack, domain_tags, and activity buckets.
@@ -116,6 +118,11 @@ def extract_context(project_root: str | Path) -> ContextProfile:
     root = Path(project_root).resolve()
     profile = ContextProfile()
     all_signals: set[str] = set()
+
+    if intent:
+        # Extract alphanumeric words from intent, lowercase, ignore short words
+        intent_words = [w.lower() for w in re.findall(r'[a-zA-Z0-9]+', intent) if len(w) > 2]
+        profile.intent_keywords = intent_words
 
     # --- Read dependency files ---
     dep_files = [

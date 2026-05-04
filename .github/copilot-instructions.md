@@ -50,14 +50,8 @@ context_extractor → hunter → security_scan (per result) → scorer → repor
 - `sandbox.py` — complete (subprocess mode; Docker is a v0.3.0 stub)
 - `scaffold.py` — complete
 
-### Needs work (primary focus for v0.1.0)
-- **`hunter.py`** — partial. Missing:
-  1. `_passes_prefilter()` is stubbed — needs real GitHub repo metadata fetch (stars, last_commit_date)
-  2. `_fetch_skill_content()` doesn't exist — needs to fetch raw SKILL.md content from GitHub raw URL
-  3. No pagination (currently takes only first 30 results)
-  4. MCP server query building needs improvement
 
-### Missing entirely (needed for v0.1.0 end-to-end)
+### Fully implemented (do not rewrite unless fixing a bug)
 - **`scripts/main.py`** — the CLI entry point that wires all scripts together
   - Commands: `hunt`, `audit`, `rollback`, `context`, `scaffold`, `update`
   - Should call the other scripts in sequence
@@ -130,60 +124,15 @@ All 50 tests must pass before any commit.
 
 ---
 
-## What to implement next (v0.1.0 sprint)
+## What to implement next (v0.5.0+ sprint / Real World QA)
 
-### Task 1: Complete `hunter.py` pre-filter (most critical)
+The core pipeline is fully built out and passing tests.
+Before writing new features (like Docker sandboxing or cryptography), your main assignment is:
+1. Try using the tool exactly as a user would (`agent-hunter hunt`).
+2. Identify bugs or friction in the end-to-end user flow.
+3. Polish the distribution and installation process so it's a 1-liner to run.
 
-`_passes_prefilter()` needs to fetch repo metadata from GitHub API and check:
-- `stars >= config.min_stars` (default: 10)
-- `last_commit_date > (today - config.max_age_days)` (default: 180 days)
-- Tech keyword present in SKILL.md body (fetch raw content and check)
-- Repo has code files (check `language` from GitHub repo object)
-
-The GitHub Search API returns repo metadata in the `repository` object.
-Also add `_fetch_skill_content(html_url)` to fetch raw SKILL.md content:
-- Convert `github.com/owner/repo/blob/main/SKILL.md` → `raw.githubusercontent.com/owner/repo/main/SKILL.md`
-- Store in `HuntResult.raw_content` — consumed by `security_scan.py` and `skill_parser.py`
-
-Note: `hunter.py` has already been partially updated (pagination added). Check current state before editing.
-
-### Task 2: Create `scripts/main.py`
-
-The CLI entry point. Orchestrates the full scan → confirm → act pipeline.
-
-```python
-# Usage:
-# python scripts/main.py scan [project_root]    ← full flow: hunt + scan + score + report + confirm + act
-# python scripts/main.py audit
-# python scripts/main.py rollback [--backup <file>]
-# python scripts/main.py context [project_root]
-# python scripts/main.py scaffold <name>
-# python scripts/main.py install <owner> <repo>
-# python scripts/main.py remove <skill_name>
-# python scripts/main.py enable <skill_name>
-```
-
-The `scan` command flow:
-1. `context_extractor.extract_context(root)` → ContextProfile
-2. `Hunter().hunt(profile)` → list[HuntResult]
-3. For each result: `security_scan.scan_skill(result.raw_content)` → ScanResult
-4. `scorer.score_results(results, profile)` → list[ScoredResult]
-5. `reporter.render_hunt_report(scored, scan_results)` → terminal output + markdown file
-6. `installer.build_action_list(top_results, scan_results, installed, dangerous)` → list[PendingAction]
-7. Print action summary (Steps 7–8 in SKILL.md)
-8. Wait for user input (`input("Proceed? [y/N]: ")`)
-9. If yes: `Installer().execute_actions(actions)` → list[ActionResult]
-
-### Task 3: Add test for `installer.py`
-
-Create `tests/test_installer.py`. Test:
-- `install()` with `dry_run=True` returns success without touching filesystem
-- `uninstall()` removes the directory
-- `disable()` renames `skill-name` → `_skill-name`
-- `enable()` renames back
-- `build_action_list()` excludes RED results, excludes already-installed
-
----
+Do not start implementing advanced roadmap tasks (v0.6.0+) until the v0.4.0 core is verified by real users in real environments.
 
 ## GitHub API notes
 

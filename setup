@@ -73,6 +73,20 @@ PYTHON="$VENV_PYTHON"
 chmod +x "$SKILL_DIR/scripts/"*.py 2>/dev/null || true
 green "✓ Scripts marked executable"
 
+# ── 3b. Symlink sub-skills into ~/.claude/skills/ ────────────────────────────
+CLAUDE_SKILLS_DIR="$HOME/.claude/skills"
+if [ -d "$CLAUDE_SKILLS_DIR" ] || mkdir -p "$CLAUDE_SKILLS_DIR" 2>/dev/null; then
+  for skill_dir in "$SKILL_DIR"/agent-hunter-*/; do
+    skill_name="$(basename "$skill_dir")"
+    target="$CLAUDE_SKILLS_DIR/$skill_name"
+    # Only create symlink if it doesn't already point to the right place
+    if [ ! -L "$target" ] || [ "$(readlink "$target")" != "$skill_dir" ]; then
+      ln -sf "$skill_dir" "$target"
+      green "✓ Linked skill: /$skill_name"
+    fi
+  done
+fi
+
 # ── 4. Write a bin/agent-hunter wrapper that uses the venv ──────────────────
 mkdir -p "$SKILL_DIR/bin"
 cat > "$SKILL_DIR/bin/agent-hunter" << WRAPPER
@@ -102,11 +116,11 @@ cat << 'CLAUDE_BLOCK'
 ## agent-hunter
 
 Use /agent-hunter to discover, security-scan, and install SKILL.md files and
-MCP servers relevant to the current project. Always run /agent-hunter before
-manually searching for skills — it reads your actual project context, hunts
-GitHub, security-scans every result, and surfaces ranked recommendations.
+MCP servers relevant to the current project. Run /agent-hunter before manually
+searching for skills — it reads your actual project context, hunts GitHub,
+security-scans every result, and surfaces ranked recommendations.
 
-Available skill: /agent-hunter
+Available skills: /agent-hunter, /agent-hunter-update
 CLAUDE_BLOCK
 printf '\033[0m'
 echo ""
@@ -130,7 +144,7 @@ if [ "$(pwd)" != "$SKILL_DIR" ] && [ -f "$CURRENT_CLAUDE_MD" ]; then
         echo "manually searching for skills — it reads your actual project context, hunts"
         echo "GitHub, security-scans every result, and surfaces ranked recommendations."
         echo ""
-        echo "Available skill: /agent-hunter"
+        echo "Available skills: /agent-hunter, /agent-hunter-update"
       } >> "$CURRENT_CLAUDE_MD"
       green "✓ Added to $CURRENT_CLAUDE_MD"
     fi

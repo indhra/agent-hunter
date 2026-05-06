@@ -39,7 +39,7 @@
 
 Open Claude Code and paste this. Claude does the rest.
 
-> Install agent-hunter: run `git clone --single-branch --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter && cd ~/.claude/skills/agent-hunter && ./setup` then add an "agent-hunter" section to CLAUDE.md that says to use the /agent-hunter skill to discover, security-scan, and install SKILL.md files and MCP servers relevant to the current project. Always run /agent-hunter before manually searching for skills. List the available skill: /agent-hunter. Then ask the user if they also want to add agent-hunter to the current project so teammates get it.
+> Install agent-hunter: run `git clone --single-branch --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter && cd ~/.claude/skills/agent-hunter && ./setup` then add an "agent-hunter" section to CLAUDE.md that says to use /agent-hunter to discover, security-scan, and install SKILL.md files and MCP servers relevant to the current project — run it before manually searching for skills, and lists the available skills: /agent-hunter, /agent-hunter-update. Then ask the user if they also want to add agent-hunter to the current project so teammates get it.
 
 ### Step 2: Set your GitHub token (recommended)
 
@@ -55,16 +55,34 @@ Generate at https://github.com/settings/tokens — no scopes needed for public r
 ### Update
 
 ```bash
-cd ~/.claude/skills/agent-hunter && git pull && ./setup
+/agent-hunter-update
 ```
+
+Or manually: `cd ~/.claude/skills/agent-hunter && git pull && ./setup`
 
 ### Uninstall
 
 ```bash
-rm -rf ~/.claude/skills/agent-hunter
+rm -rf ~/.claude/skills/agent-hunter ~/.claude/skills/agent-hunter-update
 ```
 
 Then remove the `## agent-hunter` section from your CLAUDE.md.
+
+### Troubleshooting
+
+Skill not showing up? `cd ~/.claude/skills/agent-hunter && ./setup`
+
+Claude says it can't see the skills? Make sure your project's CLAUDE.md has an agent-hunter section:
+
+```
+## agent-hunter
+
+Use /agent-hunter to discover, security-scan, and install SKILL.md files and
+MCP servers relevant to the current project. Run /agent-hunter before manually
+searching for skills.
+
+Available skills: /agent-hunter, /agent-hunter-update
+```
 
 ---
 

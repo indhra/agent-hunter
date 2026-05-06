@@ -5,6 +5,7 @@ Tests for main.py — CLI dispatcher, command dispatch, config loading, error pa
 from __future__ import annotations
 
 import sys
+import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -740,6 +741,11 @@ class TestListInstalledSkills:
 
 
 class TestPromptConfirmActions:
+    @pytest.fixture(autouse=True)
+    def _force_tty(self, monkeypatch):
+        """Make stdin appear to be a TTY so interactive prompt is reached."""
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
     def test_user_says_yes_returns_all_actions(self, monkeypatch):
         from installer import PendingAction
 
@@ -854,6 +860,11 @@ class TestPromptConfirmActions:
 
 
 class TestCmdHuntWithConfirmation:
+    @pytest.fixture(autouse=True)
+    def _force_tty(self, monkeypatch):
+        """Make stdin appear to be a TTY so interactive prompt is reached."""
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
     def test_hunt_with_user_confirmation_yes_executes_install(self, tmp_path, monkeypatch, capsys):
         (tmp_path / "requirements.txt").write_text("fastapi\n")
 
@@ -1043,6 +1054,11 @@ class TestCmdHuntWithConfirmation:
 
 class TestEdgeCases:
     """Comprehensive edge case testing for robustness."""
+
+    @pytest.fixture(autouse=True)
+    def _force_tty(self, monkeypatch):
+        """Make stdin appear to be a TTY so interactive prompt is reached."""
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
 
     def test_prompt_all_actions_skipped_returns_empty(self, monkeypatch):
         """User skips all actions → returns empty list."""
@@ -1445,6 +1461,11 @@ class TestGetDangerousInstalled:
 
 
 class TestPromptConfirmActionsEdgeCases:
+    @pytest.fixture(autouse=True)
+    def _force_tty(self, monkeypatch):
+        """Make stdin appear to be a TTY so interactive prompt is reached."""
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
     def _make_install_action(self, name="skill-a", reason=None):
         a = MagicMock()
         a.action = "install"
@@ -1534,6 +1555,11 @@ class TestPromptConfirmActionsEdgeCases:
 
 
 class TestCmdHuntActionExecution:
+    @pytest.fixture(autouse=True)
+    def _force_tty(self, monkeypatch):
+        """Make stdin appear to be a TTY so interactive prompt is reached."""
+        monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+
     def _setup(self, tmp_path):
         (tmp_path / "requirements.txt").write_text("fastapi\n")
         from hunter import HuntResult
@@ -1675,3 +1701,171 @@ class TestLoadConfigCorruptDefaults:
         assert config == {}
         out = capsys.readouterr().out
         assert "Warning" in out
+
+
+# ---------------------------------------------------------------------------
+# --yes and --print-actions flag tests
+# ---------------------------------------------------------------------------
+
+
+class TestHuntFlags:
+    """Tests for --yes (auto-confirm) and --print-actions (JSON output) flags."""
+
+    def _setup_mocks(self, tmp_path, monkeypatch):
+        (tmp_path / "requirements.txt").write_text("fastapi\n")
+        from hunter import HuntResult
+        from scorer import ScoredResult
+        from security_scan import ScanResult
+        from installer import PendingAction
+
+        mock_result = HuntResult(
+            name="fastapi-skill",
+            repo_url="https://github.com/o/fastapi-skill",
+            stars=200,
+            result_type="skill",
+            trust_tier="raw",
+            raw_content="# SKILL\nfastapi helper",
+        )
+        mock_scored = ScoredResult(hunt_result=mock_result, skill_metadata=None, total_score=0.7)
+        mock_action = PendingAction(
+            action="install",
+            skill_name="fastapi-skill",
+            repo_url="https://github.com/o/fastapi-skill",
+            owner="o",
+            repo="fastapi-skill",
+            reason="score 0.70",
+        )
+        return mock_result, mock_scored, ScanResult(severity="GREEN"), mock_action
+
+    def test_yes_flag_skips_confirmation(self, tmp_path, monkeypatch, capsys):
+        """--yes flag should auto-confirm without calling input()."""
+        mock_result, mock_scored, mock_scan, mock_action = self._setup_mocks(tmp_path, monkeypatch)
+        input_called = []
+
+        def fail_if_called(_):
+            input_called.append(True)
+            return "n"
+
+        monkeypatch.setattr("builtins.input", fail_if_called)
+
+        from installer import ActionResult
+        success = ActionResult(action="install", skill_name="fastapi-skill", success=True, message="OK")
+
+        with (
+            patch("main.Hunter") as mh,
+            patch("main.scan_skill") as ms,
+            patch("main.score_results") as msc,
+            patch("main.render_hunt_report"),
+            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+            patch("main.Installer") as mi,
+        ):
+            mh.return_value.hunt.return_value = [mock_result]
+            ms.return_value = mock_scan
+            msc.return_value = [mock_scored]
+            mi.return_value.execute_actions.return_value = [success]
+            code = run(["hunt", str(tmp_path), "--yes"])
+
+        assert code == 0
+        assert not input_called, "--yes should not call input()"
+        out = capsys.readouterr().out
+        assert "Auto-confirmed" in out
+
+    def test_print_actions_outputs_json(self, tmp_path, monkeypatch, capsys):
+        """--print-actions should print JSON and exit 0 without executing."""
+        mock_result, mock_scored, mock_scan, mock_action = self._setup_mocks(tmp_path, monkeypatch)
+
+        with (
+            patch("main.Hunter") as mh,
+            patch("main.scan_skill") as ms,
+            patch("main.score_results") as msc,
+            patch("main.render_hunt_report"),
+            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+            patch("main.Installer") as mi,
+        ):
+            mh.return_value.hunt.return_value = [mock_result]
+            ms.return_value = mock_scan
+            msc.return_value = [mock_scored]
+            code = run(["hunt", str(tmp_path), "--print-actions"])
+
+        assert code == 0
+        # Installer.execute_actions should NOT have been called
+        mi.return_value.execute_actions.assert_not_called()
+
+    def test_print_actions_json_is_valid(self, tmp_path, monkeypatch, capsys):
+        """--print-actions stdout must be parseable JSON with pending_actions key."""
+        import json as json_mod
+        mock_result, mock_scored, mock_scan, mock_action = self._setup_mocks(tmp_path, monkeypatch)
+
+        with (
+            patch("main.Hunter") as mh,
+            patch("main.scan_skill") as ms,
+            patch("main.score_results") as msc,
+            patch("main.render_hunt_report"),
+            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+        ):
+            mh.return_value.hunt.return_value = [mock_result]
+            ms.return_value = mock_scan
+            msc.return_value = [mock_scored]
+            run(["hunt", str(tmp_path), "--print-actions"])
+
+        out = capsys.readouterr().out
+        # Extract the JSON portion (after progress lines)
+        json_start = out.find("{")
+        assert json_start != -1, f"No JSON found in output:\n{out}"
+        data = json_mod.loads(out[json_start:])
+        assert "pending_actions" in data
+        assert len(data["pending_actions"]) == 1
+        assert data["pending_actions"][0]["action"] == "install"
+        assert data["pending_actions"][0]["skill_name"] == "fastapi-skill"
+
+    def test_print_actions_no_actions_returns_0(self, tmp_path, monkeypatch, capsys):
+        """--print-actions with no pending actions returns 0 with empty list."""
+        import json as json_mod
+        mock_result, mock_scored, mock_scan, _ = self._setup_mocks(tmp_path, monkeypatch)
+
+        with (
+            patch("main.Hunter") as mh,
+            patch("main.scan_skill") as ms,
+            patch("main.score_results") as msc,
+            patch("main.render_hunt_report"),
+            patch("main.build_action_list", return_value=[]),
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+        ):
+            mh.return_value.hunt.return_value = [mock_result]
+            ms.return_value = mock_scan
+            msc.return_value = [mock_scored]
+            code = run(["hunt", str(tmp_path), "--print-actions"])
+
+        # No actions → "No new actions" path, returns 0
+        assert code == 0
+
+    def test_yes_and_print_actions_together_prefers_print_actions(self, tmp_path, monkeypatch, capsys):
+        """When both --yes and --print-actions are given, --print-actions takes precedence."""
+        import json as json_mod
+        mock_result, mock_scored, mock_scan, mock_action = self._setup_mocks(tmp_path, monkeypatch)
+
+        with (
+            patch("main.Hunter") as mh,
+            patch("main.scan_skill") as ms,
+            patch("main.score_results") as msc,
+            patch("main.render_hunt_report"),
+            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+            patch("main.Installer") as mi,
+        ):
+            mh.return_value.hunt.return_value = [mock_result]
+            ms.return_value = mock_scan
+            msc.return_value = [mock_scored]
+            code = run(["hunt", str(tmp_path), "--yes", "--print-actions"])
+
+        # --print-actions exits before execute_actions
+        mi.return_value.execute_actions.assert_not_called()
+        assert code == 0

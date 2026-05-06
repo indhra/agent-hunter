@@ -141,8 +141,14 @@ def _get_dangerous_installed() -> list[str]:
     return dangerous
 
 
-def _prompt_confirm_actions(actions: list[PendingAction]) -> list[PendingAction]:
+def _prompt_confirm_actions(
+    actions: list[PendingAction], *, auto_yes: bool = False
+) -> list[PendingAction]:
     """Display action summary and ask user for confirmation.
+
+    Args:
+        actions: Pending install/disable actions to confirm.
+        auto_yes: When True, skip the prompt and confirm all actions.
 
     Returns:
         List of confirmed PendingAction items (may be subset if user skips some).
@@ -172,6 +178,11 @@ def _prompt_confirm_actions(actions: list[PendingAction]) -> list[PendingAction]
     print("\n  Note: YELLOW skills are included — review security findings")
     print("  above before confirming. You can remove any from the list.")
     print("\n" + "─" * 70)
+
+    # --yes flag or non-interactive stdin: auto-confirm all
+    if auto_yes or not sys.stdin.isatty():
+        print("  Auto-confirmed (--yes or non-interactive mode).")
+        return actions
 
     # Get user input
     response = input("  Proceed? [y/N] or type numbers to skip (e.g. '1,3'): ").strip().lower()
@@ -204,21 +215,31 @@ def _prompt_confirm_actions(actions: list[PendingAction]) -> list[PendingAction]
 def cmd_hunt(args: list[str]) -> int:
     """Run the full hunt pipeline.
 
+    Flags:
+        --yes            Skip confirmation prompt and execute all actions.
+        --print-actions  Print pending actions as JSON to stdout, then exit 0.
+                         SKILL.md reads this output to present confirmation in chat.
+
     Returns:
         0 on success with results, 1 if no results or error.
     """
     project_root = "."
     intent = None
+    yes = "--yes" in args
+    print_actions = "--print-actions" in args
+
+    # Remove flag tokens before positional parsing
+    positional = [a for a in args if a not in ("--yes", "--print-actions")]
 
     # Simple explicit argument parsing
-    if args:
-        if args[0] != "--intent":
-            project_root = args[0]
+    if positional:
+        if positional[0] != "--intent":
+            project_root = positional[0]
 
         try:
-            intent_idx = args.index("--intent")
-            if intent_idx + 1 < len(args):
-                intent = args[intent_idx + 1]
+            intent_idx = positional.index("--intent")
+            if intent_idx + 1 < len(positional):
+                intent = positional[intent_idx + 1]
         except ValueError:
             pass
 
@@ -340,8 +361,25 @@ def cmd_hunt(args: list[str]) -> int:
         print("[agent-hunter] No new actions to take. All recommendations are already installed.")
         return 0
 
-    # --- Step 8: Ask for confirmation ---
-    confirmed_actions = _prompt_confirm_actions(actions)
+    # --- Step 8: Confirm actions ---
+    if print_actions:
+        # SKILL.md mode: print JSON for the LLM to read, then exit without executing.
+        # SKILL.md presents this list in chat and calls installer directly.
+        output = {
+            "pending_actions": [
+                {
+                    "action": a.action,
+                    "skill_name": a.skill_name,
+                    "repo_url": a.repo_url,
+                    "reason": a.reason,
+                }
+                for a in actions
+            ]
+        }
+        print(json.dumps(output, indent=2))
+        return 0
+
+    confirmed_actions = _prompt_confirm_actions(actions, auto_yes=yes)
 
     if not confirmed_actions:
         print("[agent-hunter] No actions confirmed. Exiting.")

@@ -264,11 +264,25 @@ Save the report:
 
 ## Step 7 — Build Action Summary and Ask for Confirmation
 
-After showing the report, build the action list and ask the user to confirm ONCE before acting.
+After showing the report, get the pending action list from the pipeline and present it in chat.
+The Python CLI handles the action list construction; SKILL.md handles the UX confirmation.
 
-Call `scripts/installer.py build_action_list` or construct it yourself from the scan results.
+**Get the action list as JSON (no prompt, no blocking):**
+```bash
+~/.claude/skills/agent-hunter/bin/hunt . --print-actions
+```
 
-**Format the action summary like this:**
+This outputs JSON like:
+```json
+{
+  "pending_actions": [
+    {"action": "install", "skill_name": "my-skill", "repo_url": "owner/repo", "reason": "..."},
+    {"action": "disable", "skill_name": "bad-skill", "repo_url": "", "reason": "RED security scan"}
+  ]
+}
+```
+
+**Format the action summary in chat:**
 
 ```
 ──────────────────────────────────────────────────────────────────
@@ -305,13 +319,10 @@ If the user excludes items (e.g. "skip 2,3"): remove those from the action list,
 
 ## Step 8 — Execute Actions
 
-After user confirms, execute the action list:
+After user confirms, execute each action by calling the installer directly (not `hunt --yes`).
+This gives the user's `y/n` in chat full control — the Python side never grabs stdin.
 
-```bash
-python scripts/installer.py <action> <args>
-```
-
-For each action in sequence:
+For each confirmed action in sequence:
 - **install**: `~/.claude/skills/agent-hunter/bin/installer install <owner> <repo> [--sha <sha>]`
 - **disable**: `~/.claude/skills/agent-hunter/bin/installer disable <skill_name>`
 - **rollback**: `~/.claude/skills/agent-hunter/bin/installer rollback <owner> <repo> <sha>`

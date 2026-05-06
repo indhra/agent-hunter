@@ -205,7 +205,21 @@ def cmd_hunt(args: list[str]) -> int:
     Returns:
         0 on success with results, 1 if no results or error.
     """
-    project_root = args[0] if args else "."
+    project_root = "."
+    intent = None
+    
+    # Simple explicit argument parsing
+    if args:
+        if args[0] != "--intent":
+            project_root = args[0]
+        
+        try:
+            intent_idx = args.index("--intent")
+            if intent_idx + 1 < len(args):
+                intent = args[intent_idx + 1]
+        except ValueError:
+            pass
+
     root_path = Path(project_root).resolve()
 
     if not root_path.exists():
@@ -217,8 +231,11 @@ def cmd_hunt(args: list[str]) -> int:
 
     # --- Extract context ---
     print(f"[agent-hunter] Extracting context from: {root_path}")
+    if intent:
+        print(f"[agent-hunter] Custom intent provided: '{intent}'")
+        
     try:
-        profile = extract_context(root_path)
+        profile = extract_context(root_path, intent=intent)
     except Exception as exc:
         print(f"[agent-hunter] Context extraction failed: {exc}")
         return 1

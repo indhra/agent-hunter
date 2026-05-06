@@ -431,6 +431,50 @@ Robustness gap 1: Obfuscated malware bypasses static analysis. Minor code obfusc
 
 ---
 
+## v0.6.5.0 · Beta — VS Code Copilot Adapter
+
+**Status:** 📋 Planned
+**Target:** Week 18 (parallel with v0.7.0 work)
+
+**Primary platform:** Claude Code. VS Code GitHub Copilot uses a different skill-loading
+mechanism (`.github/copilot-instructions.md`, GitHub Copilot extensions, `@workspace`
+context). This adapter bridges the gap.
+
+### Ships
+
+**Adapter layer**
+- `scripts/vscode_adapter.py` — reads VS Code workspace context:
+  - `.github/copilot-instructions.md` instead of CLAUDE.md
+  - `settings.json` for active extensions + language config
+  - No `~/.claude/sessions/` equivalent; uses `.vscode/` metadata
+- Output: same `ProjectContext` datatype as `context_extractor.py` — plugs into the
+  existing hunter → scan → score → report pipeline unchanged
+- `bin/vscode-context-extract` — thin wrapper calling the adapter
+
+**Install target differences**
+- Claude Code: `~/.claude/skills/<name>/SKILL.md`
+- VS Code Copilot: `.github/copilot-instructions.md` injection (skill content inlined)
+  or GitHub Copilot extension marketplace entry for MCP servers
+- `installer.py` gains `--target vscode` flag; handles both install targets
+
+**Limitations (documented)**
+- VS Code Copilot does not support slash commands natively; `/agent-hunter` becomes
+  a Copilot Chat `@workspace /agent-hunter` style invocation
+- SKILL.md brain model does not run in VS Code Copilot; results are displayed as
+  Copilot Chat output only (no multi-step orchestration)
+- Full feature parity with Claude Code not planned — adapter ships the hunt + report;
+  orchestration remains Claude Code exclusive
+
+### Release gate
+- `vscode-context-extract .` produces a `ProjectContext` identical in schema to the
+  Claude Code path
+- `hunt . --target vscode` runs end-to-end on a sample TypeScript/Node repo and
+  produces a ranked report
+- `--target vscode` install writes the correct output file (copilot-instructions.md)
+  without clobbering existing content
+
+---
+
 ## v0.7.0.0 · Beta — Dependency Conflict Management (Gap 3 Closure)
 
 **Status:** 📋 Planned

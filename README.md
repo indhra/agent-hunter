@@ -26,6 +26,7 @@
   <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-61afef" alt="MIT License"/></a>
   <a href="https://github.com/indhra/agent-hunter/issues"><img src="https://img.shields.io/github/issues/indhra/agent-hunter?color=e06c75" alt="Issues"/></a>
   <img src="https://img.shields.io/badge/claude-native-e5c07b" alt="Claude Native"/>
+  <img src="https://img.shields.io/badge/platform-Claude%20Code-e5c07b" alt="Claude Code"/>
   <img src="https://img.shields.io/badge/privacy-no%20telemetry-98c379" alt="No Telemetry"/>
 </p>
 
@@ -33,7 +34,9 @@
 
 ## Install — 30 seconds
 
-**Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code), Git, Python 3.10+
+**Platform:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (primary). VS Code Copilot adapter planned for v0.6.0.
+
+**Requirements:** Claude Code, Git, Python 3.10+
 
 ### Step 1: Install on your machine
 
@@ -362,9 +365,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 See [ROADMAP.md](./ROADMAP.md) for the full versioned plan.
 
-**Now:** v0.1.0 Alpha — core hunt, security scan, Claude-native
-**Next:** v0.2.0 — MCP hunting, audit, SHA tracking, rollback, sandbox, trust tiers
-**Then:** v0.3.0 — conflict detection, dependency awareness, scaffold, runtime sandbox
+**Now:** v0.4.0 — core pipeline, security scan, Claude Code native, slash commands
+**Next:** v0.5.0 — slash command activation polish, npm MCP discovery, VERIFIED_SKILLS seeding
+**Then:** v0.6.0 — VS Code Copilot adapter (different skill-loading mechanism)
 **GA:** v1.0.0 — benchmarked, CVE integration, production-ready, demo recorded
 
 ---

@@ -1,7 +1,7 @@
 ---
 name: "agent-hunter"
 description: "Proactively hunts for relevant SKILL.md files and MCP servers that match the current project's tech stack. Security-scans every result. Prevents reinventing existing tools. Context-aware. Security-scanned. Self-evolving."
-version: "0.1.0"
+version: "0.4.0"
 license: "MIT"
 author: "Indhra Kiranu N A"
 compatibility:
@@ -121,64 +121,49 @@ This prevents a newly-discovered unvetted skill from taking over agent-hunter's 
 
 ---
 
-## Step 1 — Extract Project Context
+## Step 1 — Autonomous Intent Extraction & Hunt Execution
+
+When the user gives a new prompt or feature request, autonomously formulate an intent string (e.g. "migrate to postgres").
 
 Run:
 ```bash
-python scripts/context_extractor.py .
+python scripts/main.py hunt . --intent "<intent_string>"
 ```
 
-This reads: `CLAUDE.md`, `requirements.txt`, `pyproject.toml`, `package.json`, `Cargo.toml`, `git log --oneline -50`.
+This orchestrated command reads dependency files and appends the dynamic intent string into the GitHub search query. The script handles context extraction, hunting, security scanning, scoring, and registry updates in one action.
 
-The script prints extracted signals to stdout. Show them to the user.
+The script prints extracted signals and the final scored table to stdout. Show the results to the user.
 
-If context extraction fails (no supported files found), tell the user:
-> "I couldn't find dependency files or CLAUDE.md. I'll do a broader hunt based on what I can
-> observe from our current session."
+If context extraction fails (no supported files found) or rate limits apply, follow the CLI output instructions.
 
 ---
 
-## Step 2 — Hunt for Skills and MCP Servers
+## Step 2 — Read Scan & Score Output
 
-Run:
-```bash
-python scripts/hunter.py .
-```
+The `main.py hunt` command abstracts away step-by-step scripts. It queries the GitHub Search API for SKILL.md files matching your stack and intent.
 
-This queries GitHub Search API for SKILL.md files and MCP server configs matching your tech stack.
+**If user config/env lacks GITHUB_TOKEN**, tell them to set it.
 
-**If GITHUB_TOKEN is not set**, warn the user:
-> "No GITHUB_TOKEN found. Hunting without authentication: limited to 60 requests/hour.
-> Set GITHUB_TOKEN for 5,000 requests/hour:
-> export GITHUB_TOKEN=your_token_here"
-
-**Trust tier order (consult in this order):**
+**Trust tier order (shown in the table):**
 1. **Verified** — entries in `references/VERIFIED_SKILLS.md`. Show as `[VERIFIED]`.
 2. **Community-reviewed** — coming in v0.2.1. Show as `[COMMUNITY]`.
 3. **Raw GitHub** — unvetted search results. Show as `[RAW]`. Apply higher scrutiny.
 
 ---
 
-## Step 3 — Security Scan Every Result
+## Step 3 — Security Scan Integration
 
 **Non-negotiable: NEVER show a result without scanning it first.**
 
-For each result from Step 2:
-
-```bash
-python scripts/security_scan.py <path_to_SKILL.md>
-```
-
-Or, if you have the raw content, pass it directly to `scan_skill()`.
+The `main.py hunt` command automatically runs `security_scan.py` for every result. It respects the following severity rules:
 
 **Severity rules (hard):**
-- 🔴 **RED** — EXCLUDE from results entirely. Count only. Do not show the skill.
-  Tell the user at the bottom of the report: "N result(s) were blocked by security scan."
-- 🟡 **YELLOW** — INCLUDE with a prominent warning. Explain what was flagged. Let user decide.
-- 🟢 **GREEN** — Include normally.
+- 🔴 **RED** — EXCLUDED from results entirely. Count only. Do not show the skill.
+  The script will report: "N result(s) were blocked by security scan."
+- 🟡 **YELLOW** — INCLUDED with a prominent warning. Explain what was flagged. Let user decide.
+- 🟢 **GREEN** — Included normally.
 
-**Never rationalize showing a RED result.** If the security scan says RED, it does not appear
-in the results, no matter how relevant it seems. Full stop.
+**Never rationalize showing a RED result.** If the script blocked it, do not attempt to bypass it to show it. Full stop.
 
 ---
 

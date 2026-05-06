@@ -31,6 +31,43 @@
 
 ---
 
+## Install — 30 seconds
+
+**Requirements:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code), Git, Python 3.10+
+
+### Step 1: Install on your machine
+
+Open Claude Code and paste this. Claude does the rest.
+
+> Install agent-hunter: run `git clone --single-branch --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter && cd ~/.claude/skills/agent-hunter && ./setup` then add an "agent-hunter" section to CLAUDE.md that says to use the /agent-hunter skill to discover, security-scan, and install SKILL.md files and MCP servers relevant to the current project. Always run /agent-hunter before manually searching for skills. List the available skill: /agent-hunter. Then ask the user if they also want to add agent-hunter to the current project so teammates get it.
+
+### Step 2: Set your GitHub token (recommended)
+
+Without a token: 60 GitHub API requests/hour. With a token: 5,000/hour.
+
+```bash
+export GITHUB_TOKEN=your_token_here
+# or add to ~/.zshrc / ~/.bashrc for persistence
+```
+
+Generate at https://github.com/settings/tokens — no scopes needed for public repo search.
+
+### Update
+
+```bash
+cd ~/.claude/skills/agent-hunter && git pull && ./setup
+```
+
+### Uninstall
+
+```bash
+rm -rf ~/.claude/skills/agent-hunter
+```
+
+Then remove the `## agent-hunter` section from your CLAUDE.md.
+
+---
+
 ## The Problem
 
 The SKILL.md ecosystem has **400,000+ skills**. [13% are malicious](https://snyk.io/articles/skill-md-shell-access/). [46% are duplicates](https://olshansky.info/posts/2026-02-28-signal-vs-noise-in-the-skills-ecosystem). Every other discovery tool sends you into that noise unprotected, and none of them know what you're actually building.

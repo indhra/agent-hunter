@@ -64,3 +64,4 @@ pytest-cache-files-*/
 # Project specific
 hunt_report_*.md
 .agent-hunter/
+.venv/

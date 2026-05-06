@@ -101,13 +101,13 @@ class TestRollbackNoBackups:
         result = rollback(registry=mock_reg, interactive=False)
         assert result is False
         out = capsys.readouterr().out
-        assert "No backups" in out
+        assert "No snapshots" in out
 
     def test_prints_backup_location_hint(self, tmp_path, capsys):
         mock_reg = _mock_registry(tmp_path, backups=[])
         rollback(registry=mock_reg, interactive=False)
         out = capsys.readouterr().out
-        assert "Backup location" in out
+        assert "Snapshot location" in out
 
 
 # ---------------------------------------------------------------------------
@@ -233,7 +233,7 @@ class TestRollbackSpecificBackup:
 
         # Pass the old backup explicitly — restore_latest should NOT be called
         with patch("rollback._restore_specific", return_value=True) as mock_specific:
-            result = rollback(to_backup=old_backup, registry=mock_reg, interactive=False)
+            result = rollback(to_snapshot=old_backup, registry=mock_reg, interactive=False)
 
         assert result is True
         mock_specific.assert_called_once_with(mock_reg, old_backup)
@@ -252,7 +252,7 @@ class TestListBackupsCmd:
         with patch("rollback.Registry", return_value=mock_reg):
             list_backups_cmd()
         out = capsys.readouterr().out
-        assert "No backups" in out
+        assert "No snapshots" in out
 
     def test_prints_backup_filenames(self, tmp_path, capsys):
         backup = _make_backup(tmp_path)

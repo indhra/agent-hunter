@@ -22,6 +22,9 @@ dev = ["pre-commit", "ruff", "pytest", "pytest-cov"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "setup: integration tests for the ./setup installer script (may take 30-60s on first run)",
+]
 
 [tool.ruff]
 line-length = 100

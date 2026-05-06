@@ -14,11 +14,8 @@ No LLM calls. Local file I/O + GitHub API (SHA fetch only).
 
 from __future__ import annotations
 
-import binascii
 import json
-import shutil
 import subprocess
-import time
 import zlib
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -40,24 +37,26 @@ MAX_BACKUPS = 10
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class RegistryEntry:
     name: str
     repo_url: str
     install_path: str
     version: str = ""
-    git_tree_sha: str = ""          # stored at install time for tamper detection
+    git_tree_sha: str = ""  # stored at install time for tamper detection
     license: str = ""
     trust_tier: str = "raw"
     installed_at: str = ""
     last_audit_at: str = ""
-    audit_status: str = "unknown"   # "healthy", "update_available", "tampered", "security_issue"
+    audit_status: str = "unknown"  # "healthy", "update_available", "tampered", "security_issue"
     notes: str = ""
 
 
 # ---------------------------------------------------------------------------
 # Registry class
 # ---------------------------------------------------------------------------
+
 
 class Registry:
     """agent-hunter local skill registry."""
@@ -129,7 +128,7 @@ class Registry:
         # Create snapshot with metadata + CRC32 checksum
         registry_content = self.registry_path.read_bytes()
         crc32_checksum = zlib.crc32(registry_content) & 0xFFFFFFFF
-        
+
         snapshot_data = {
             "snapshot_time": datetime.now(timezone.utc).isoformat(),
             "trigger": trigger,
@@ -158,20 +157,22 @@ class Registry:
         """
         if not BACKUPS_DIR.exists():
             return []
-        
+
         snapshots = []
         for snapshot_file in sorted(BACKUPS_DIR.glob("*.json")):
             try:
                 data = json.loads(snapshot_file.read_text(encoding="utf-8"))
                 # Validate snapshot has required metadata (v0.5.0+)
                 if "snapshot_time" in data and "trigger" in data:
-                    snapshots.append({
-                        "path": snapshot_file,
-                        "snapshot_time": data.get("snapshot_time"),
-                        "trigger": data.get("trigger"),
-                        "git_branch": data.get("git_branch", "unknown"),
-                        "crc32": data.get("crc32"),
-                    })
+                    snapshots.append(
+                        {
+                            "path": snapshot_file,
+                            "snapshot_time": data.get("snapshot_time"),
+                            "trigger": data.get("trigger"),
+                            "git_branch": data.get("git_branch", "unknown"),
+                            "crc32": data.get("crc32"),
+                        }
+                    )
             except (json.JSONDecodeError, OSError):
                 pass  # Skip corrupted snapshots
         return snapshots
@@ -194,7 +195,9 @@ class Registry:
                 return False, "Snapshot missing CRC32 or registry data"
 
             # Recompute CRC32 of the registry content
-            registry_json = json.dumps(registry_data, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+            registry_json = json.dumps(
+                registry_data, separators=(",", ":"), ensure_ascii=False
+            ).encode("utf-8")
             computed_crc = zlib.crc32(registry_json) & 0xFFFFFFFF
             computed_crc_str = f"{computed_crc:08x}"
 
@@ -248,7 +251,7 @@ class Registry:
         snapshots = self.list_snapshots()
         if not snapshots:
             return None
-        
+
         latest = snapshots[-1]  # Newest (sorted by filename)
         try:
             self.restore_from_snapshot(latest["path"])
@@ -258,7 +261,7 @@ class Registry:
 
     def list_backups(self) -> list[Path]:
         """Return available backup paths (for backward compatibility).
-        
+
         Use list_snapshots() for metadata-rich snapshot information.
         """
         return [s["path"] for s in self.list_snapshots()]
@@ -266,6 +269,7 @@ class Registry:
     def _prune_old_snapshots(self) -> None:
         """Keep only the most recent snapshots, delete older ones."""
         from pathlib import Path
+
         config_file = Path.home() / ".agent-hunter" / "config.json"
         max_snapshots = 30  # default
         retention_days = 90  # default
@@ -279,7 +283,7 @@ class Registry:
                 pass
 
         snapshots = sorted(BACKUPS_DIR.glob("*.json"))
-        
+
         # Delete old by count
         for old in snapshots[:-max_snapshots]:
             try:
@@ -306,8 +310,7 @@ class Registry:
         try:
             raw = json.loads(self.registry_path.read_text(encoding="utf-8"))
             self._entries = {
-                url: RegistryEntry(**entry)
-                for url, entry in raw.get("entries", {}).items()
+                url: RegistryEntry(**entry) for url, entry in raw.get("entries", {}).items()
             }
         except (json.JSONDecodeError, TypeError, KeyError):
             self._entries = {}
@@ -327,6 +330,7 @@ class Registry:
 # ---------------------------------------------------------------------------
 # SHA tamper detection
 # ---------------------------------------------------------------------------
+
 
 def check_sha_tamper(entry: RegistryEntry, token: Optional[str] = None) -> tuple[bool, str]:
     """Compare stored SHA against current remote SHA.
@@ -367,6 +371,7 @@ def _fetch_remote_sha(repo_url: str, token: Optional[str] = None) -> Optional[st
     """
     try:
         import requests
+
         # Convert https://github.com/owner/repo to API call
         parts = repo_url.rstrip("/").split("/")
         if len(parts) < 2:
@@ -400,6 +405,10 @@ if __name__ == "__main__":  # pragma: no cover
 
     print(f"Registry: {len(entries)} skill(s)\n")
     for e in entries:
-        status_icon = {"healthy": "🟢", "update_available": "🟡",
-                       "tampered": "🔴", "security_issue": "🔴"}.get(e.audit_status, "⚪")
+        status_icon = {
+            "healthy": "🟢",
+            "update_available": "🟡",
+            "tampered": "🔴",
+            "security_issue": "🔴",
+        }.get(e.audit_status, "⚪")
         print(f"  {status_icon}  {e.name:<30} {e.version:<10} {e.trust_tier}")

@@ -59,6 +59,7 @@ from skill_parser import parse_skill_content, SkillMetadata  # noqa: E402
 from audit import Auditor  # noqa: E402
 from installer import Installer, build_action_list, PendingAction  # noqa: E402
 from update import SkillUpdater  # noqa: E402
+from registry import Registry  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +104,7 @@ def _deep_merge(base: dict, override: dict) -> dict:
 # Helpers for hunt command (confirm + execute actions)
 # ---------------------------------------------------------------------------
 
+
 def _list_installed_skills() -> set[str]:
     """Return set of currently installed skill directory names."""
     skills_dir = Path.home() / ".claude" / "skills"
@@ -113,21 +115,21 @@ def _list_installed_skills() -> set[str]:
 
 def _get_dangerous_installed() -> list[str]:
     """Return names of installed skills that are currently RED-flagged.
-    
+
     Queries the registry for each installed skill to check if it was
     last-scanned as RED.
     """
     from registry import Registry
-    
+
     installed = _list_installed_skills()
     registry = Registry()
     dangerous = []
-    
+
     for skill_name in installed:
         # Skip disabled skills (those starting with _)
         if skill_name.startswith("_"):
             continue
-        
+
         # Look up in registry by repo name to get latest scan severity
         entries = registry.all()
         for entry in entries:
@@ -136,45 +138,45 @@ def _get_dangerous_installed() -> list[str]:
                 if entry.audit_status == "security_issue":
                     dangerous.append(skill_name)
                 break
-    
+
     return dangerous
 
 
 def _prompt_confirm_actions(actions: list[PendingAction]) -> list[PendingAction]:
     """Display action summary and ask user for confirmation.
-    
+
     Returns:
         List of confirmed PendingAction items (may be subset if user skips some).
     """
     if not actions:
         return []
-    
+
     print("\n" + "─" * 70)
     print("  READY TO ACT — here's what I'll do:")
     print("─" * 70)
-    
+
     installs = [a for a in actions if a.action == "install"]
     disables = [a for a in actions if a.action == "disable"]
-    
+
     if installs:
         print(f"\n  INSTALL  ({len(installs)} skills → ~/.claude/skills/)")
         for i, act in enumerate(installs, 1):
             print(f"    {i}. {act.skill_name:40} {act.repo_url}")
             if act.reason:
                 print(f"       ({act.reason})")
-    
+
     if disables:
         print(f"\n  DISABLE  ({len(disables)} dangerous skill(s) — soft-disable, reversible)")
         for i, act in enumerate(disables, 1):
             print(f"    {i}. {act.skill_name:40} {act.reason}")
-    
+
     print("\n  Note: YELLOW skills are included — review security findings")
     print("  above before confirming. You can remove any from the list.")
     print("\n" + "─" * 70)
-    
+
     # Get user input
     response = input("  Proceed? [y/N] or type numbers to skip (e.g. '1,3'): ").strip().lower()
-    
+
     if response in ("y", "yes"):
         return actions
     elif response in ("n", "no", ""):
@@ -199,6 +201,7 @@ def _prompt_confirm_actions(actions: list[PendingAction]) -> list[PendingAction]
 # Command: hunt
 # ---------------------------------------------------------------------------
 
+
 def cmd_hunt(args: list[str]) -> int:
     """Run the full hunt pipeline.
 
@@ -207,12 +210,12 @@ def cmd_hunt(args: list[str]) -> int:
     """
     project_root = "."
     intent = None
-    
+
     # Simple explicit argument parsing
     if args:
         if args[0] != "--intent":
             project_root = args[0]
-        
+
         try:
             intent_idx = args.index("--intent")
             if intent_idx + 1 < len(args):
@@ -233,7 +236,7 @@ def cmd_hunt(args: list[str]) -> int:
     print(f"[agent-hunter] Extracting context from: {root_path}")
     if intent:
         print(f"[agent-hunter] Custom intent provided: '{intent}'")
-        
+
     try:
         profile = extract_context(root_path, intent=intent)
     except Exception as exc:
@@ -250,7 +253,9 @@ def cmd_hunt(args: list[str]) -> int:
     # --- Hunt GitHub ---
     github_token = os.environ.get("GITHUB_TOKEN")
     if not github_token:
-        print("[agent-hunter] Note: GITHUB_TOKEN not set — using unauthenticated rate limit (60/hr).")
+        print(
+            "[agent-hunter] Note: GITHUB_TOKEN not set — using unauthenticated rate limit (60/hr)."
+        )
 
     hunter = Hunter(
         github_token=github_token,
@@ -309,17 +314,21 @@ def cmd_hunt(args: list[str]) -> int:
         top_n=top_n,
     )
 
-    visible = [s for s in scored if scan_results.get(s.hunt_result.repo_url, ScanResult()).severity != "RED"]
-    
+    visible = [
+        s
+        for s in scored
+        if scan_results.get(s.hunt_result.repo_url, ScanResult()).severity != "RED"
+    ]
+
     # --- Build, confirm, and execute actions (Step 7-9 in SKILL.md) ---
     if not visible:
         return 1
-    
+
     print("\n[agent-hunter] Step 7: Building action list...\n")
-    
+
     installed_names = _list_installed_skills()
     dangerous_installed = _get_dangerous_installed()
-    
+
     # Build action list from top N visible results + dangerous installed
     actions = build_action_list(
         top_results=visible[:top_n],
@@ -327,39 +336,40 @@ def cmd_hunt(args: list[str]) -> int:
         installed_names=installed_names,
         dangerous_installed=dangerous_installed,
     )
-    
+
     if not actions:
         print("[agent-hunter] No new actions to take. All recommendations are already installed.")
         return 0
-    
+
     # --- Step 8: Ask for confirmation ---
     confirmed_actions = _prompt_confirm_actions(actions)
-    
+
     if not confirmed_actions:
         print("[agent-hunter] No actions confirmed. Exiting.")
         return 1
-    
+
     # --- Step 9: Execute confirmed actions ---
     print("\n[agent-hunter] Executing confirmed actions...\n")
     installer = Installer()
     results = installer.execute_actions(confirmed_actions)
-    
+
     # Summary
     successful = sum(1 for r in results if r.success)
     failed = len(results) - successful
-    
+
     print("\n" + "─" * 70)
     print(f"  Summary: {successful}/{len(results)} action(s) succeeded")
     if failed > 0:
         print(f"  ⚠️  {failed} action(s) failed — review messages above")
     print("─" * 70 + "\n")
-    
+
     return 0 if failed == 0 else 1
 
 
 # ---------------------------------------------------------------------------
 # Command: context
 # ---------------------------------------------------------------------------
+
 
 def cmd_context(args: list[str]) -> int:
     """Show the context profile that agent-hunter sees for the project."""
@@ -405,11 +415,14 @@ def cmd_context(args: list[str]) -> int:
 # Command: audit
 # ---------------------------------------------------------------------------
 
+
 def cmd_audit(_args: list[str]) -> int:
     """Run the full audit on all installed skills.
-    
+
     Creates a pre-audit snapshot before running audit (v0.5.0+).
     """
+    from registry import Registry
+
     try:
         # Create pre-audit snapshot for safe recovery (v0.5.0)
         reg = Registry()
@@ -428,6 +441,7 @@ def cmd_audit(_args: list[str]) -> int:
 # Command: rollback
 # ---------------------------------------------------------------------------
 
+
 def cmd_rollback(_args: list[str]) -> int:
     """Restore registry to last known good state."""
     try:
@@ -441,6 +455,7 @@ def cmd_rollback(_args: list[str]) -> int:
 # ---------------------------------------------------------------------------
 # Command: scaffold
 # ---------------------------------------------------------------------------
+
 
 def cmd_scaffold(args: list[str]) -> int:
     """Generate a SKILL.md stub for a new skill."""
@@ -463,6 +478,7 @@ def cmd_scaffold(args: list[str]) -> int:
 # ---------------------------------------------------------------------------
 # Command: install
 # ---------------------------------------------------------------------------
+
 
 def cmd_install(args: list[str]) -> int:
     """Install a skill directly by GitHub owner/repo."""
@@ -489,6 +505,7 @@ def cmd_install(args: list[str]) -> int:
 # Command: remove
 # ---------------------------------------------------------------------------
 
+
 def cmd_remove(args: list[str]) -> int:
     """Permanently remove an installed skill."""
     if not args:
@@ -513,6 +530,7 @@ def cmd_remove(args: list[str]) -> int:
 # ---------------------------------------------------------------------------
 # Command: enable
 # ---------------------------------------------------------------------------
+
 
 def cmd_enable(args: list[str]) -> int:
     """Re-enable a disabled (_prefixed) skill."""
@@ -539,11 +557,15 @@ def cmd_enable(args: list[str]) -> int:
 # Command: update
 # ---------------------------------------------------------------------------
 
+
 def cmd_update(args: list[str]) -> int:
     """Update installed skills interactively.
-    
+
     Creates a pre-update snapshot before running updates (v0.5.0+).
     """
+    from registry import Registry
+    from update import SkillUpdater
+
     skill_name = args[0] if args else None
     try:
         # Create pre-update snapshot for safe recovery (v0.5.0)
@@ -563,45 +585,46 @@ def cmd_update(args: list[str]) -> int:
 # Command: contribute
 # ---------------------------------------------------------------------------
 
+
 def cmd_contribute(args: list[str]) -> int:
     """Contribute an installed skill to the verified index (v0.4.0).
-    
+
     Validates the skill, runs security scan, validates frontmatter,
     and opens a GitHub issue with pre-filled template.
-    
+
     Usage: agent-hunter contribute <skill_name>
     """
     if not args:
         print("[agent-hunter] Error: contribute requires a skill name.")
         print("  Usage: agent-hunter contribute <skill_name>")
         return 1
-    
+
     skill_name = args[0]
-    
+
     try:
         from pathlib import Path
         from security_scan import scan_skill
         from skill_parser import parse_skill_content
         from registry import Registry
         import subprocess
-        
+
         # Check if skill is installed
         skill_path = Path.home() / ".claude" / "skills" / skill_name
         if not skill_path.exists():
             print(f"[agent-hunter] Error: Skill '{skill_name}' not found in ~/.claude/skills/")
             return 1
-        
+
         skill_file = skill_path / "SKILL.md"
         if not skill_file.exists():
             print(f"[agent-hunter] Error: {skill_file} not found")
             return 1
-        
+
         # Read skill content
         content = skill_file.read_text(encoding="utf-8", errors="ignore")
-        
+
         # Run security scan
         scan_result = scan_skill(content=content, repo_url="")
-        
+
         if scan_result.severity == "RED":
             print(f"[agent-hunter] Error: Security scan FAILED for '{skill_name}'")
             print("  RED findings prevent contribution:")
@@ -609,22 +632,24 @@ def cmd_contribute(args: list[str]) -> int:
                 if finding.severity == "RED":
                     print(f"    - {finding.description}")
             return 1
-        
+
         # Validate YAML frontmatter
         try:
             parsed = parse_skill_content(content)
         except Exception as e:
             print(f"[agent-hunter] Error: Invalid SKILL.md frontmatter: {e}")
             return 1
-        
+
         # Check required fields in raw frontmatter
         required_fields = {"name", "version", "trigger", "domain_tags"}
         available_fields = set(parsed.raw_frontmatter.keys())
         missing = required_fields - available_fields
         if missing:
-            print(f"[agent-hunter] Error: Missing required fields in SKILL.md: {', '.join(sorted(missing))}")
+            print(
+                f"[agent-hunter] Error: Missing required fields in SKILL.md: {', '.join(sorted(missing))}"
+            )
             return 1
-        
+
         # Get registry info if available
         registry_info = ""
         try:
@@ -635,14 +660,14 @@ def cmd_contribute(args: list[str]) -> int:
                     break
         except Exception:
             pass
-        
+
         # Build issue template
         template_path = Path(__file__).parent.parent / "assets" / "contribute_template.md"
         if template_path.exists():
             template = template_path.read_text(encoding="utf-8")
         else:
             template = _default_contribute_template()
-        
+
         # Fill template
         filled_issue = template.format(
             skill_name=skill_name,
@@ -651,26 +676,31 @@ def cmd_contribute(args: list[str]) -> int:
             findings_summary=_summarize_findings(scan_result),
             version=parsed.version or "N/A",
         )
-        
+
         issue_title = f"Contribute: {skill_name}"
         issue_body = filled_issue
-        
+
         # Try to use GitHub CLI
         try:
             # Check if gh is available
             subprocess.run(["which", "gh"], check=True, capture_output=True)
-            
+
             # Create issue via GitHub CLI
             cmd = [
-                "gh", "issue", "create",
-                "--repo", "indhra/agent-hunter",
-                "--title", issue_title,
-                "--body", issue_body,
+                "gh",
+                "issue",
+                "create",
+                "--repo",
+                "indhra/agent-hunter",
+                "--title",
+                issue_title,
+                "--body",
+                issue_body,
             ]
             result = subprocess.run(cmd, capture_output=True, text=True)
             if result.returncode == 0:
                 # Extract issue URL from output
-                output_lines = result.stdout.strip().split('\n')
+                output_lines = result.stdout.strip().split("\n")
                 print("[agent-hunter] ✅ Contribution issue created!")
                 print(f"  {output_lines[-1] if output_lines else 'See GitHub for the issue'}")
                 return 0
@@ -692,7 +722,7 @@ def cmd_contribute(args: list[str]) -> int:
             print("=" * 60)
             print("Post this to: https://github.com/indhra/agent-hunter/issues/new")
             return 0
-    
+
     except Exception as e:
         print(f"[agent-hunter] Contribute failed: {e}")
         return 1
@@ -702,16 +732,16 @@ def _summarize_findings(scan_result) -> str:
     """Summarize security scan findings."""
     if not scan_result.findings:
         return "No findings"
-    
+
     red_count = sum(1 for f in scan_result.findings if f.severity == "RED")
     yellow_count = sum(1 for f in scan_result.findings if f.severity == "YELLOW")
-    
+
     summary = []
     if red_count > 0:
         summary.append(f"🔴 {red_count} RED")
     if yellow_count > 0:
         summary.append(f"🟡 {yellow_count} YELLOW")
-    
+
     return ", ".join(summary) if summary else "No findings"
 
 
@@ -793,25 +823,26 @@ def cmd_help(_args: list[str]) -> int:
 # ---------------------------------------------------------------------------
 
 _COMMANDS: dict[str, object] = {
-    "hunt":     cmd_hunt,
-    "audit":    cmd_audit,
+    "hunt": cmd_hunt,
+    "audit": cmd_audit,
     "rollback": cmd_rollback,
-    "context":  cmd_context,
+    "context": cmd_context,
     "scaffold": cmd_scaffold,
-    "install":  cmd_install,
-    "remove":   cmd_remove,
-    "enable":   cmd_enable,
-    "update":   cmd_update,
+    "install": cmd_install,
+    "remove": cmd_remove,
+    "enable": cmd_enable,
+    "update": cmd_update,
     "contribute": cmd_contribute,
-    "help":     cmd_help,
-    "--help":   cmd_help,
-    "-h":       cmd_help,
+    "help": cmd_help,
+    "--help": cmd_help,
+    "-h": cmd_help,
 }
 
 
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
+
 
 def main(argv: list[str] | None = None) -> int:
     """Parse command line and dispatch to the appropriate handler.

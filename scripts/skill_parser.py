@@ -26,6 +26,7 @@ import yaml
 # Exceptions
 # ---------------------------------------------------------------------------
 
+
 class SkillParseError(Exception):
     """Raised when a SKILL.md file cannot be parsed."""
 
@@ -34,10 +35,11 @@ class SkillParseError(Exception):
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class McpDependency:
-    type: str                # e.g. "mcp_server"
-    value: str               # e.g. "github.com/owner/mcp-server"
+    type: str  # e.g. "mcp_server"
+    value: str  # e.g. "github.com/owner/mcp-server"
     description: str = ""
     transport: str = "stdio"
 
@@ -45,12 +47,13 @@ class McpDependency:
 @dataclass
 class SkillDependency:
     """A skill that agent-hunter can delegate to if installed and trusted."""
-    name: str                          # expected directory name in ~/.claude/skills/
-    repo: str                          # "owner/repo" on GitHub
-    role: str                          # e.g. "security_scan_delegate", "secondary_scanner"
+
+    name: str  # expected directory name in ~/.claude/skills/
+    repo: str  # "owner/repo" on GitHub
+    role: str  # e.g. "security_scan_delegate", "secondary_scanner"
     min_trust_tier: str = "community"  # minimum required tier: "verified", "community", "raw"
-    optional: bool = True              # if False, abort when not satisfied
-    fallback: str = "none"             # label for built-in fallback ("built_in_scanner", "none", etc.)
+    optional: bool = True  # if False, abort when not satisfied
+    fallback: str = "none"  # label for built-in fallback ("built_in_scanner", "none", etc.)
 
 
 # Trust tier ordering (higher = more trusted)
@@ -60,11 +63,12 @@ TRUST_TIER_ORDER: dict[str, int] = {"verified": 3, "community": 2, "raw": 1}
 @dataclass
 class ResolvedDep:
     """Result of resolving one SkillDependency against installed skills."""
+
     dep: SkillDependency
-    status: str            # "satisfied" | "not_installed" | "trust_insufficient" | "disabled"
+    status: str  # "satisfied" | "not_installed" | "trust_insufficient" | "disabled"
     skill_path: Path | None
-    trust_tier: str        # actual tier of the installed skill, or "" if not found
-    use_fallback: bool     # True unless status == "satisfied"
+    trust_tier: str  # actual tier of the installed skill, or "" if not found
+    use_fallback: bool  # True unless status == "satisfied"
 
 
 @dataclass
@@ -78,7 +82,7 @@ class SkillMetadata:
     skill_dependencies: list[SkillDependency] = field(default_factory=list)
     compatibility: dict[str, Any] = field(default_factory=dict)
     triggers: list[str] = field(default_factory=list)
-    body: str = ""           # raw SKILL.md body (after frontmatter)
+    body: str = ""  # raw SKILL.md body (after frontmatter)
     raw_frontmatter: dict[str, Any] = field(default_factory=dict)
     has_frontmatter: bool = False
 
@@ -87,7 +91,7 @@ class SkillMetadata:
 # Parser
 # ---------------------------------------------------------------------------
 
-FRONTMATTER_PATTERN = re.compile(r'^---\s*\n(.*?)\n---\s*\n', re.DOTALL)
+FRONTMATTER_PATTERN = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def parse_skill(path: str | Path) -> SkillMetadata:
@@ -138,7 +142,7 @@ def parse_skill_content(content: str) -> SkillMetadata:
 
     meta.has_frontmatter = True
     frontmatter_str = match.group(1)
-    meta.body = content[match.end():].strip()
+    meta.body = content[match.end() :].strip()
 
     try:
         raw = yaml.safe_load(frontmatter_str) or {}
@@ -192,7 +196,7 @@ def parse_skill_content(content: str) -> SkillMetadata:
 _VERIFIED_SKILLS_PATH = Path(__file__).parent.parent / "references" / "VERIFIED_SKILLS.md"
 _SKILLS_DIR = Path.home() / ".claude" / "skills"
 _VERIFIED_REPO_PATTERN = re.compile(
-    r'\*\*Repo:\*\*\s*https://github\.com/([\w.\-]+/[\w.\-]+)', re.IGNORECASE
+    r"\*\*Repo:\*\*\s*https://github\.com/([\w.\-]+/[\w.\-]+)", re.IGNORECASE
 )
 
 
@@ -270,8 +274,10 @@ def _resolve_one(
 
         if disabled_path.exists() and disabled_path.is_dir():
             return ResolvedDep(
-                dep=dep, status="disabled",
-                skill_path=disabled_path, trust_tier="",
+                dep=dep,
+                status="disabled",
+                skill_path=disabled_path,
+                trust_tier="",
                 use_fallback=True,
             )
 
@@ -281,19 +287,25 @@ def _resolve_one(
             actual = TRUST_TIER_ORDER.get(tier, 1)
             if actual >= required:
                 return ResolvedDep(
-                    dep=dep, status="satisfied",
-                    skill_path=active_path, trust_tier=tier,
+                    dep=dep,
+                    status="satisfied",
+                    skill_path=active_path,
+                    trust_tier=tier,
                     use_fallback=False,
                 )
             return ResolvedDep(
-                dep=dep, status="trust_insufficient",
-                skill_path=active_path, trust_tier=tier,
+                dep=dep,
+                status="trust_insufficient",
+                skill_path=active_path,
+                trust_tier=tier,
                 use_fallback=True,
             )
 
     return ResolvedDep(
-        dep=dep, status="not_installed",
-        skill_path=None, trust_tier="",
+        dep=dep,
+        status="not_installed",
+        skill_path=None,
+        trust_tier="",
         use_fallback=True,
     )
 
@@ -328,27 +340,35 @@ if __name__ == "__main__":  # pragma: no cover
     elif len(sys.argv) == 2:
         try:
             skill = parse_skill(sys.argv[1])
-            print(json.dumps({
-                "name": skill.name,
-                "description": skill.description,
-                "version": skill.version,
-                "license": skill.license,
-                "author": skill.author,
-                "has_frontmatter": skill.has_frontmatter,
-                "triggers": skill.triggers,
-                "mcp_dependencies": [
-                    {"type": d.type, "value": d.value, "transport": d.transport}
-                    for d in skill.mcp_dependencies
-                ],
-                "skill_dependencies": [
+            print(
+                json.dumps(
                     {
-                        "name": d.name, "repo": d.repo, "role": d.role,
-                        "min_trust_tier": d.min_trust_tier,
-                        "optional": d.optional, "fallback": d.fallback,
-                    }
-                    for d in skill.skill_dependencies
-                ],
-            }, indent=2))
+                        "name": skill.name,
+                        "description": skill.description,
+                        "version": skill.version,
+                        "license": skill.license,
+                        "author": skill.author,
+                        "has_frontmatter": skill.has_frontmatter,
+                        "triggers": skill.triggers,
+                        "mcp_dependencies": [
+                            {"type": d.type, "value": d.value, "transport": d.transport}
+                            for d in skill.mcp_dependencies
+                        ],
+                        "skill_dependencies": [
+                            {
+                                "name": d.name,
+                                "repo": d.repo,
+                                "role": d.role,
+                                "min_trust_tier": d.min_trust_tier,
+                                "optional": d.optional,
+                                "fallback": d.fallback,
+                            }
+                            for d in skill.skill_dependencies
+                        ],
+                    },
+                    indent=2,
+                )
+            )
         except (SkillParseError, FileNotFoundError) as e:
             print(f"ERROR: {e}", file=sys.stderr)
             sys.exit(1)

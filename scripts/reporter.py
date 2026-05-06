@@ -25,15 +25,15 @@ from security_scan import ScanResult
 REPORTS_DIR = Path.home() / ".agent-hunter" / "reports"
 
 SEVERITY_ICONS = {
-    "GREEN":  "🟢",
+    "GREEN": "🟢",
     "YELLOW": "🟡",
-    "RED":    "🔴",
+    "RED": "🔴",
 }
 
 TRUST_LABELS = {
-    "verified":  "[VERIFIED]",
+    "verified": "[VERIFIED]",
     "community": "[COMMUNITY]",
-    "raw":       "[RAW]",
+    "raw": "[RAW]",
 }
 
 
@@ -41,9 +41,10 @@ TRUST_LABELS = {
 # Main report function
 # ---------------------------------------------------------------------------
 
+
 def render_hunt_report(
     scored_results: list[ScoredResult],
-    scan_results: dict[str, ScanResult],   # keyed by repo_url
+    scan_results: dict[str, ScanResult],  # keyed by repo_url
     project_root: str = "",
     top_n: int = 5,
     save_markdown: bool = True,
@@ -57,9 +58,10 @@ def render_hunt_report(
         top_n: How many top results to show.
         save_markdown: Whether to save a markdown report file.
     """
-    top = [r for r in scored_results if _include_in_report(r, scan_results)] [:top_n]
+    top = [r for r in scored_results if _include_in_report(r, scan_results)][:top_n]
     red_count = sum(
-        1 for r in scored_results
+        1
+        for r in scored_results
         if scan_results.get(r.hunt_result.repo_url, ScanResult()).severity == "RED"
     )
 
@@ -73,6 +75,7 @@ def render_hunt_report(
 # ---------------------------------------------------------------------------
 # Terminal output
 # ---------------------------------------------------------------------------
+
 
 def _print_terminal(
     results: list[ScoredResult],
@@ -138,6 +141,7 @@ def _include_in_report(s: ScoredResult, scan_results: dict[str, ScanResult]) -> 
 # Markdown report
 # ---------------------------------------------------------------------------
 
+
 def _save_markdown(
     results: list[ScoredResult],
     scan_results: dict[str, ScanResult],
@@ -174,7 +178,9 @@ def _save_markdown(
             lines.extend(_markdown_result(s, scan_results))
 
     if red_count > 0:
-        lines.append(f"\n---\n\n## Blocked Results\n\n{red_count} result(s) failed security scan and were excluded.\n")
+        lines.append(
+            f"\n---\n\n## Blocked Results\n\n{red_count} result(s) failed security scan and were excluded.\n"
+        )
 
     path.write_text("\n".join(lines), encoding="utf-8")
     return path

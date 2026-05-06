@@ -71,14 +71,16 @@ def rollback(
             # Show list and let user pick
             print("\n[agent-hunter] Available snapshots:")
             for i, snap in enumerate(snapshots, 1):
-                ts = datetime.fromisoformat(snap["snapshot_time"]) if snap["snapshot_time"] else None
+                ts = (
+                    datetime.fromisoformat(snap["snapshot_time"]) if snap["snapshot_time"] else None
+                )
                 ts_str = ts.strftime("%Y-%m-%d %H:%M:%S UTC") if ts else "unknown"
                 print(
                     f"  {i}. {snap['path'].name}\n"
                     f"     Time: {ts_str}\n"
                     f"     Trigger: {snap['trigger']}\n"
                 )
-            
+
             try:
                 choice = input("Enter snapshot number to restore (or 'q' to cancel): ").strip()
                 if choice.lower() == "q":
@@ -99,7 +101,7 @@ def rollback(
     # Validate snapshot integrity
     is_valid, msg = reg.validate_snapshot_integrity(target_snapshot["path"])
     if not is_valid:
-        print(f"[agent-hunter] Snapshot integrity check FAILED:")
+        print("[agent-hunter] Snapshot integrity check FAILED:")
         print(f"  {msg}")
         print("  Rollback aborted. This snapshot may have been corrupted.")
         return False
@@ -112,9 +114,9 @@ def rollback(
     print(f"               Trigger: {target_snapshot['trigger']}")
 
     if interactive and not force:
-        print(f"\n  This will restore:")
-        print(f"    - Registry entries")
-        print(f"    - All installed skill git SHAs")
+        print("\n  This will restore:")
+        print("    - Registry entries")
+        print("    - All installed skill git SHAs")
         try:
             confirm = input("\n  Proceed? [y/N] ").strip().lower()
         except EOFError:
@@ -144,7 +146,7 @@ def rollback(
             status = "✓" if success else "✗"
             print(f"[agent-hunter] {status} {skill_name}")
 
-        print(f"\n✅ Rollback complete.")
+        print("\n✅ Rollback complete.")
         print("   Run `agent-hunter audit` to verify the restored state.")
         return True
 
@@ -247,7 +249,9 @@ def list_backups_cmd() -> None:
 if __name__ == "__main__":  # pragma: no cover
     import argparse
 
-    parser = argparse.ArgumentParser(description="Rollback agent-hunter registry to a previous state")
+    parser = argparse.ArgumentParser(
+        description="Rollback agent-hunter registry to a previous state"
+    )
     parser.add_argument("--backup", help="Specific backup filename to restore", default=None)
     parser.add_argument("--list", action="store_true", help="List available backups")
     parser.add_argument("--yes", "-y", action="store_true", help="Skip confirmation prompt")

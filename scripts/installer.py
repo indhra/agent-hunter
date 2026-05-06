@@ -52,13 +52,14 @@ INSTALL_LOG = Path.home() / ".agent-hunter" / "install_log.jsonl"
 GH_AVAILABLE = shutil.which("gh") is not None
 
 # Allowlist: alphanumeric, hyphens, underscores, dots. No path separators.
-_SAFE_SKILL_NAME = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_\-\.]{0,63}$')
-_SAFE_OWNER_REPO = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_\-\.]{0,99}$')
+_SAFE_SKILL_NAME = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-\.]{0,63}$")
+_SAFE_OWNER_REPO = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-\.]{0,99}$")
 
 
 # ---------------------------------------------------------------------------
 # Exceptions
 # ---------------------------------------------------------------------------
+
 
 class InstallerError(Exception):
     """Raised when an install/uninstall/rollback action fails."""
@@ -76,24 +77,23 @@ def _validate_skill_name(skill_name: str) -> None:
 def _validate_owner_repo(value: str, label: str) -> None:
     """Raise InstallerError if owner or repo contains path traversal characters."""
     if not _SAFE_OWNER_REPO.match(value):
-        raise InstallerError(
-            f"Invalid {label} {value!r}. Must be a valid GitHub identifier."
-        )
+        raise InstallerError(f"Invalid {label} {value!r}. Must be a valid GitHub identifier.")
 
 
 # ---------------------------------------------------------------------------
 # Action dataclass (for confirmation summary)
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class PendingAction:
-    action: str          # "install", "uninstall", "disable", "rollback"
+    action: str  # "install", "uninstall", "disable", "rollback"
     skill_name: str
     repo_url: str = ""
     owner: str = ""
     repo: str = ""
     sha: str = ""
-    reason: str = ""     # why this action is recommended
+    reason: str = ""  # why this action is recommended
 
 
 @dataclass
@@ -108,6 +108,7 @@ class ActionResult:
 # ---------------------------------------------------------------------------
 # Installer class
 # ---------------------------------------------------------------------------
+
 
 class Installer:
     """Executes install/uninstall/rollback actions on ~/.claude/skills/."""
@@ -156,14 +157,18 @@ class Installer:
 
         if self.dry_run:
             return ActionResult(
-                action="install", skill_name=skill_name, success=True,
-                message=f"[dry-run] Would install {owner}/{repo} → {target_dir}"
+                action="install",
+                skill_name=skill_name,
+                success=True,
+                message=f"[dry-run] Would install {owner}/{repo} → {target_dir}",
             )
 
         if target_dir.exists():
             return ActionResult(
-                action="install", skill_name=skill_name, success=False,
-                error=f"Already installed at {target_dir}. Run `agent-hunter update` to update."
+                action="install",
+                skill_name=skill_name,
+                success=False,
+                error=f"Already installed at {target_dir}. Run `agent-hunter update` to update.",
             )
 
         if GH_AVAILABLE:
@@ -187,14 +192,18 @@ class Installer:
 
         if self.dry_run:
             return ActionResult(
-                action="uninstall", skill_name=skill_name, success=True,
-                message=f"[dry-run] Would remove {target_dir}"
+                action="uninstall",
+                skill_name=skill_name,
+                success=True,
+                message=f"[dry-run] Would remove {target_dir}",
             )
 
         if not target_dir.exists():
             return ActionResult(
-                action="uninstall", skill_name=skill_name, success=False,
-                error=f"Skill not found at {target_dir}"
+                action="uninstall",
+                skill_name=skill_name,
+                success=False,
+                error=f"Skill not found at {target_dir}",
             )
 
         try:
@@ -204,13 +213,17 @@ class Installer:
             if repo_url:
                 self.registry.remove(repo_url)
             return ActionResult(
-                action="uninstall", skill_name=skill_name, success=True,
-                message=f"Removed {target_dir}"
+                action="uninstall",
+                skill_name=skill_name,
+                success=True,
+                message=f"Removed {target_dir}",
             )
         except OSError as exc:
             return ActionResult(
-                action="uninstall", skill_name=skill_name, success=False,
-                error=f"Failed to remove {target_dir}: {exc}"
+                action="uninstall",
+                skill_name=skill_name,
+                success=False,
+                error=f"Failed to remove {target_dir}: {exc}",
             )
 
     def disable(self, skill_name: str) -> ActionResult:
@@ -233,26 +246,34 @@ class Installer:
 
         if self.dry_run:
             return ActionResult(
-                action="disable", skill_name=skill_name, success=True,
-                message=f"[dry-run] Would rename {target_dir} → {disabled_dir}"
+                action="disable",
+                skill_name=skill_name,
+                success=True,
+                message=f"[dry-run] Would rename {target_dir} → {disabled_dir}",
             )
 
         if not target_dir.exists():
             return ActionResult(
-                action="disable", skill_name=skill_name, success=False,
-                error=f"Skill not found at {target_dir}"
+                action="disable",
+                skill_name=skill_name,
+                success=False,
+                error=f"Skill not found at {target_dir}",
             )
 
         try:
             target_dir.rename(disabled_dir)
             return ActionResult(
-                action="disable", skill_name=skill_name, success=True,
-                message=f"Disabled: {skill_name} → _{skill_name} (use `agent-hunter enable {skill_name}` to re-enable)"
+                action="disable",
+                skill_name=skill_name,
+                success=True,
+                message=f"Disabled: {skill_name} → _{skill_name} (use `agent-hunter enable {skill_name}` to re-enable)",
             )
         except OSError as exc:
             return ActionResult(
-                action="disable", skill_name=skill_name, success=False,
-                error=f"Failed to disable {skill_name}: {exc}"
+                action="disable",
+                skill_name=skill_name,
+                success=False,
+                error=f"Failed to disable {skill_name}: {exc}",
             )
 
     def enable(self, skill_name: str) -> ActionResult:
@@ -265,20 +286,26 @@ class Installer:
 
         if not disabled_dir.exists():
             return ActionResult(
-                action="enable", skill_name=skill_name, success=False,
-                error=f"Disabled skill not found at {disabled_dir}"
+                action="enable",
+                skill_name=skill_name,
+                success=False,
+                error=f"Disabled skill not found at {disabled_dir}",
             )
 
         try:
             disabled_dir.rename(target_dir)
             return ActionResult(
-                action="enable", skill_name=skill_name, success=True,
-                message=f"Re-enabled: _{skill_name} → {skill_name}"
+                action="enable",
+                skill_name=skill_name,
+                success=True,
+                message=f"Re-enabled: _{skill_name} → {skill_name}",
             )
         except OSError as exc:
             return ActionResult(
-                action="enable", skill_name=skill_name, success=False,
-                error=f"Failed to enable {skill_name}: {exc}"
+                action="enable",
+                skill_name=skill_name,
+                success=False,
+                error=f"Failed to enable {skill_name}: {exc}",
             )
 
     def rollback_to_sha(
@@ -309,29 +336,37 @@ class Installer:
 
         if self.dry_run:
             return ActionResult(
-                action="rollback", skill_name=skill_name, success=True,
-                message=f"[dry-run] Would rollback {owner}/{repo} → SHA {sha[:12]}"
+                action="rollback",
+                skill_name=skill_name,
+                success=True,
+                message=f"[dry-run] Would rollback {owner}/{repo} → SHA {sha[:12]}",
             )
 
         # Uninstall current version first
         uninstall_result = self.uninstall(skill_name)
         if not uninstall_result.success:
             return ActionResult(
-                action="rollback", skill_name=skill_name, success=False,
-                error=f"Rollback failed at uninstall step: {uninstall_result.error}"
+                action="rollback",
+                skill_name=skill_name,
+                success=False,
+                error=f"Rollback failed at uninstall step: {uninstall_result.error}",
             )
 
         # Re-install pinned to SHA
         install_result = self.install(owner, repo, skill_name, pin_sha=sha)
         if not install_result.success:
             return ActionResult(
-                action="rollback", skill_name=skill_name, success=False,
-                error=f"Rollback failed at re-install step: {install_result.error}"
+                action="rollback",
+                skill_name=skill_name,
+                success=False,
+                error=f"Rollback failed at re-install step: {install_result.error}",
             )
 
         return ActionResult(
-            action="rollback", skill_name=skill_name, success=True,
-            message=f"Rolled back {skill_name} to SHA {sha[:12]}"
+            action="rollback",
+            skill_name=skill_name,
+            success=True,
+            message=f"Rolled back {skill_name} to SHA {sha[:12]}",
         )
 
     # -------------------------------------------------------------------
@@ -363,8 +398,10 @@ class Installer:
                 )
             else:
                 result = ActionResult(
-                    action=action.action, skill_name=action.skill_name, success=False,
-                    error=f"Unknown action: {action.action}"
+                    action=action.action,
+                    skill_name=action.skill_name,
+                    success=False,
+                    error=f"Unknown action: {action.action}",
                 )
             results.append(result)
             self._print_result(result)
@@ -391,8 +428,10 @@ class Installer:
             proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             if proc.returncode == 0:
                 return ActionResult(
-                    action="install", skill_name=skill_name, success=True,
-                    message=f"Installed {owner}/{repo} via gh skill install"
+                    action="install",
+                    skill_name=skill_name,
+                    success=True,
+                    message=f"Installed {owner}/{repo} via gh skill install",
                 )
             else:
                 # gh failed — try git clone fallback
@@ -412,39 +451,51 @@ class Installer:
         try:
             proc = subprocess.run(
                 ["git", "clone", "--depth", "1", clone_url, str(target_dir)],
-                capture_output=True, text=True, timeout=60,
+                capture_output=True,
+                text=True,
+                timeout=60,
             )
             if proc.returncode != 0:
                 return ActionResult(
-                    action="install", skill_name=skill_name, success=False,
-                    error=f"git clone failed: {proc.stderr.strip()}"
+                    action="install",
+                    skill_name=skill_name,
+                    success=False,
+                    error=f"git clone failed: {proc.stderr.strip()}",
                 )
 
             if pin_sha:
                 # Fetch the specific SHA and reset to it
                 subprocess.run(
-                    ["git", "fetch", "--unshallow"],
-                    cwd=target_dir, capture_output=True, timeout=60
+                    ["git", "fetch", "--unshallow"], cwd=target_dir, capture_output=True, timeout=60
                 )
                 proc2 = subprocess.run(
                     ["git", "checkout", pin_sha],
-                    cwd=target_dir, capture_output=True, text=True, timeout=30
+                    cwd=target_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
                 )
                 if proc2.returncode != 0:
                     return ActionResult(
-                        action="install", skill_name=skill_name, success=False,
-                        error=f"Could not pin to SHA {pin_sha}: {proc2.stderr.strip()}"
+                        action="install",
+                        skill_name=skill_name,
+                        success=False,
+                        error=f"Could not pin to SHA {pin_sha}: {proc2.stderr.strip()}",
                     )
 
             return ActionResult(
-                action="install", skill_name=skill_name, success=True,
-                message=f"Installed {owner}/{repo} to {target_dir}"
+                action="install",
+                skill_name=skill_name,
+                success=True,
+                message=f"Installed {owner}/{repo} to {target_dir}",
             )
 
         except subprocess.TimeoutExpired:
             return ActionResult(
-                action="install", skill_name=skill_name, success=False,
-                error="git clone timed out after 60s"
+                action="install",
+                skill_name=skill_name,
+                success=False,
+                error="git clone timed out after 60s",
             )
 
     # -------------------------------------------------------------------
@@ -484,9 +535,10 @@ class Installer:
 # Convenience: build action list from scan results
 # ---------------------------------------------------------------------------
 
+
 def build_action_list(
-    top_results,        # list[ScoredResult] from scorer.py
-    scan_results: dict, # repo_url → ScanResult from security_scan.py
+    top_results,  # list[ScoredResult] from scorer.py
+    scan_results: dict,  # repo_url → ScanResult from security_scan.py
     installed_names: set[str],
     dangerous_installed: list[str],
 ) -> list[PendingAction]:
@@ -512,23 +564,27 @@ def build_action_list(
             continue  # never install RED
         if r.repo_name in installed_names:
             continue  # already installed
-        actions.append(PendingAction(
-            action="install",
-            skill_name=r.repo_name,
-            repo_url=r.repo_url,
-            owner=r.owner,
-            repo=r.repo_name,
-            sha=r.git_tree_sha,
-            reason=f"Score {s.total_score:.2f} — {s.explanation or 'matches your stack'}",
-        ))
+        actions.append(
+            PendingAction(
+                action="install",
+                skill_name=r.repo_name,
+                repo_url=r.repo_url,
+                owner=r.owner,
+                repo=r.repo_name,
+                sha=r.git_tree_sha,
+                reason=f"Score {s.total_score:.2f} — {s.explanation or 'matches your stack'}",
+            )
+        )
 
     # Disable dangerous installed skills (RED flagged in audit)
     for skill_name in dangerous_installed:
-        actions.append(PendingAction(
-            action="disable",  # disable (reversible) rather than uninstall (destructive)
-            skill_name=skill_name,
-            reason="🔴 Failed security scan — disabled for safety",
-        ))
+        actions.append(
+            PendingAction(
+                action="disable",  # disable (reversible) rather than uninstall (destructive)
+                skill_name=skill_name,
+                reason="🔴 Failed security scan — disabled for safety",
+            )
+        )
 
     return actions
 

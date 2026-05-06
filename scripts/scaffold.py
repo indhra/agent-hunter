@@ -102,9 +102,9 @@ def _fill_template(template: str, name: str, profile: ContextProfile, author: st
 def _slugify(name: str) -> str:
     """Convert name to kebab-case slug."""
     name = name.lower().strip()
-    name = re.sub(r'[^\w\s-]', '', name)
-    name = re.sub(r'[\s_]+', '-', name)
-    return name.strip('-')
+    name = re.sub(r"[^\w\s-]", "", name)
+    name = re.sub(r"[\s_]+", "-", name)
+    return name.strip("-")
 
 
 # Minimal fallback template if assets/skill_stub_template.md is missing

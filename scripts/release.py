@@ -147,7 +147,7 @@ Examples:
     if not args.skip_github:
         create_github_release(args.version, notes)
 
-    print(f"\n✨ Release complete! Users will see updates at:")
+    print("\n✨ Release complete! Users will see updates at:")
     print(f"   https://github.com/indhra/agent-hunter/releases/tag/v{args.version}")
 
 

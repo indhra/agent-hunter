@@ -48,6 +48,7 @@ RATE_LIMIT_BACKOFF_SECONDS = 60
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class HuntResult:
     name: str = ""
@@ -61,13 +62,13 @@ class HuntResult:
     repo_name: str = ""
     license: str = ""
     contributors_count: int = 0
-    result_type: str = "skill"           # "skill" or "mcp"
-    trust_tier: str = "raw"             # "verified", "community", "raw"
+    result_type: str = "skill"  # "skill" or "mcp"
+    trust_tier: str = "raw"  # "verified", "community", "raw"
     git_tree_sha: str = ""
-    raw_content: str = ""               # raw SKILL.md/mcp.json content
+    raw_content: str = ""  # raw SKILL.md/mcp.json content
     # MCP-specific fields
-    mcp_transport_type: str = ""        # "stdio", "sse", "http" (MCP only)
-    mcp_install_command: str = ""       # e.g., "npx @mcp/server-name" (MCP only)
+    mcp_transport_type: str = ""  # "stdio", "sse", "http" (MCP only)
+    mcp_install_command: str = ""  # e.g., "npx @mcp/server-name" (MCP only)
     mcp_capabilities: list[str] = None  # ["resources", "tools", "prompts"] (MCP only)
 
     def __post_init__(self) -> None:
@@ -78,6 +79,7 @@ class HuntResult:
 # ---------------------------------------------------------------------------
 # Main hunter
 # ---------------------------------------------------------------------------
+
 
 class Hunter:
     """GitHub skill and MCP server hunter."""
@@ -141,10 +143,10 @@ class Hunter:
         queries = []
 
         # Intent-driven queries (Highest priority if present)
-        if hasattr(profile, 'intent_keywords') and profile.intent_keywords:
+        if hasattr(profile, "intent_keywords") and profile.intent_keywords:
             intent_q = " ".join(profile.intent_keywords)
             queries.append((f"filename:SKILL.md {intent_q}", "skill"))
-            if getattr(self, 'include_mcp', False):
+            if getattr(self, "include_mcp", False):
                 queries.append((f"filename:mcp.json {intent_q}", "mcp"))
 
         # Per-technology skill queries
@@ -222,7 +224,9 @@ class Hunter:
 
             if resp.status_code == 429:
                 wait = int(resp.headers.get("Retry-After", RATE_LIMIT_BACKOFF_SECONDS))
-                print(f"[agent-hunter] Rate limited searching. Waiting {wait}s (attempt {attempt+1}/3)...")
+                print(
+                    f"[agent-hunter] Rate limited searching. Waiting {wait}s (attempt {attempt + 1}/3)..."
+                )
                 time.sleep(wait)
                 continue
 
@@ -282,7 +286,9 @@ class Hunter:
                 try:
                     pushed_at = datetime.fromisoformat(pushed_at_str.rstrip("Z"))
                     r.last_commit_date = pushed_at
-                    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=self.max_age_days)
+                    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(
+                        days=self.max_age_days
+                    )
                     if pushed_at < cutoff:
                         return False
                 except ValueError:
@@ -455,9 +461,7 @@ class Hunter:
 # Utilities
 # ---------------------------------------------------------------------------
 
-_GITHUB_BLOB_RE = re.compile(
-    r"^https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$"
-)
+_GITHUB_BLOB_RE = re.compile(r"^https://github\.com/([^/]+)/([^/]+)/blob/([^/]+)/(.+)$")
 
 
 def _to_raw_url(html_url: str) -> Optional[str]:

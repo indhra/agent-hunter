@@ -43,31 +43,32 @@ from skill_parser import SkillMetadata
 # ---------------------------------------------------------------------------
 
 WEIGHTS = {
-    "intent_match":  0.30,
-    "stack_match":   0.20,
-    "domain_match":  0.15,
-    "star_score":    0.10,
+    "intent_match": 0.30,
+    "stack_match": 0.20,
+    "domain_match": 0.15,
+    "star_score": 0.10,
     "recency_score": 0.10,
-    "trust_score":   0.15,
+    "trust_score": 0.15,
 }
 
 YAGNI_MULTIPLIERS = {
-    "active":  2.0,
-    "recent":  1.0,
+    "active": 2.0,
+    "recent": 1.0,
     "dormant": 0.5,
     "unknown": 1.0,
 }
 
 TRUST_TIER_SCORES = {
-    "verified":  1.0,
+    "verified": 1.0,
     "community": 0.7,
-    "raw":       0.4,
+    "raw": 0.4,
 }
 
 
 # ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
+
 
 @dataclass
 class ScoredResult:
@@ -83,12 +84,13 @@ class ScoredResult:
     trust_score: float = 0.0
     yagni_multiplier: float = 1.0
 
-    explanation: str = ""   # "why this for you" sentence, set by host agent
+    explanation: str = ""  # "why this for you" sentence, set by host agent
 
 
 # ---------------------------------------------------------------------------
 # Scorer
 # ---------------------------------------------------------------------------
+
 
 def score_results(
     results: list[HuntResult],
@@ -159,12 +161,12 @@ def _score_single(
 
     # --- Total ---
     raw = (
-        s.intent_match_score   * w.get("intent_match", 0.0)
-        + s.stack_match_score  * w["stack_match"]
+        s.intent_match_score * w.get("intent_match", 0.0)
+        + s.stack_match_score * w["stack_match"]
         + s.domain_match_score * w["domain_match"]
-        + s.star_score         * w["star_score"]
-        + s.recency_score      * w["recency_score"]
-        + s.trust_score        * w["trust_score"]
+        + s.star_score * w["star_score"]
+        + s.recency_score * w["recency_score"]
+        + s.trust_score * w["trust_score"]
     )
     s.total_score = min(raw * s.yagni_multiplier, 1.0)
 
@@ -176,7 +178,7 @@ def _compute_intent_match(
     profile: ContextProfile,
 ) -> float:
     """How well does this skill match the explicit user intent?"""
-    if not getattr(profile, 'intent_keywords', None):
+    if not getattr(profile, "intent_keywords", None):
         return 0.0
 
     text = f"{r.name} {r.description} {r.repo_name} {getattr(r, 'raw_content', '')}".lower()
@@ -247,19 +249,19 @@ def _compute_recency(r: HuntResult) -> float:
 def _compute_yagni(r: HuntResult, profile: ContextProfile) -> float:
     """
     YAGNI multiplier: reward skills matching domains actively in use.
-    
+
     Also checks install_log.jsonl to detect dormant installed skills
     (installed >30 days ago with 0 session mentions) and apply the
     dormant multiplier. This closes Gap 3: install_log → scorer feedback.
     """
     text = f"{r.name} {r.repo_name}".lower()
-    
+
     # First: check git activity signals (existing logic)
     if any(t in text for t in profile.active_domains):
         return YAGNI_MULTIPLIERS["active"]
     if any(t in text for t in profile.recent_domains):
         return YAGNI_MULTIPLIERS["recent"]
-    
+
     # Second: check if this skill is installed AND dormant (new feedback loop)
     install_status = _check_installed_skill_usage(r.name, profile)
     if install_status == "dormant":
@@ -267,18 +269,18 @@ def _compute_yagni(r: HuntResult, profile: ContextProfile) -> float:
     elif install_status == "active":
         # Boost active installed skills (up to 1.1× cap)
         return min(1.1, YAGNI_MULTIPLIERS["recent"])
-    
+
     # Third: check dormant git domains (existing logic)
     if profile.dormant_domains and any(t in text for t in profile.dormant_domains):
         return YAGNI_MULTIPLIERS["dormant"]
-    
+
     return YAGNI_MULTIPLIERS["unknown"]
 
 
 def _check_installed_skill_usage(skill_name: str, profile: ContextProfile) -> Optional[str]:
     """
     Check if a skill is installed and whether it's been used recently.
-    
+
     Returns:
         "dormant":  installed >30d ago, 0 session mentions
         "active":   installed, has session mentions in last 30d
@@ -287,7 +289,7 @@ def _check_installed_skill_usage(skill_name: str, profile: ContextProfile) -> Op
     install_log_path = Path.home() / ".agent-hunter" / "install_log.jsonl"
     if not install_log_path.exists():
         return None
-    
+
     try:
         install_history = {}
         with open(install_log_path) as f:
@@ -306,29 +308,29 @@ def _check_installed_skill_usage(skill_name: str, profile: ContextProfile) -> Op
                     continue
     except OSError:
         return None
-    
+
     # If skill isn't in install_log, it's not installed
     if skill_name.lower() not in install_history:
         return None
-    
+
     installed_at = install_history[skill_name.lower()]
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     if isinstance(installed_at, datetime) and installed_at.tzinfo:
         installed_at = installed_at.replace(tzinfo=None)
-    
+
     days_since_install = (now - installed_at).days
-    
+
     # Check session mentions
     session_skills_dict = {s.skill_name.lower(): s for s in profile.session_skills}
     skill_session = session_skills_dict.get(skill_name.lower())
-    
+
     # Dormant if installed >30d ago AND no recent session mentions
     if days_since_install > 30:
         if not skill_session or skill_session.mention_count == 0:
             return "dormant"
-    
+
     # Active if there are recent session mentions
     if skill_session and skill_session.mention_count > 0:
         return "active"
-    
+
     return None

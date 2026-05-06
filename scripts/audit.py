@@ -37,6 +37,7 @@ from context_extractor import _extract_session_skills
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class AuditEntryResult:
     entry: RegistryEntry
@@ -66,6 +67,7 @@ class AuditReport:
 # ---------------------------------------------------------------------------
 # Main auditor
 # ---------------------------------------------------------------------------
+
 
 class Auditor:
     """Runs the full audit pipeline on all installed skills."""
@@ -126,7 +128,7 @@ class Auditor:
             install_path = Path(entry.install_path)
             if install_path.exists():
                 local_content = install_path.read_text(encoding="utf-8", errors="ignore")
-                result.update_available = (local_content != remote_content)
+                result.update_available = local_content != remote_content
         else:
             # Fallback: scan locally installed if we can't fetch remote
             install_path = Path(entry.install_path)
@@ -134,7 +136,9 @@ class Auditor:
                 content = install_path.read_text(encoding="utf-8", errors="ignore")
                 result.scan_result = scan_skill(content=content, repo_url=entry.repo_url)
             else:
-                result.scan_result = ScanResult(scan_error=f"Install path not found: {entry.install_path}")
+                result.scan_result = ScanResult(
+                    scan_error=f"Install path not found: {entry.install_path}"
+                )
 
         # --- License check ---
         result.license_issue = _check_license_compat(entry.license)
@@ -249,16 +253,16 @@ def _check_license_compat(skill_license: str) -> Optional[str]:
 
 def _check_dormant_skill(skill_name: str, threshold_days: int = 30) -> tuple[bool, int]:
     """Check if a skill is dormant (installed >threshold_days with 0 session mentions).
-    
+
     Returns: (is_dormant, days_since_install)
     """
     install_log_path = Path.home() / ".agent-hunter" / "install_log.jsonl"
     if not install_log_path.exists():
         return False, 0
-    
+
     install_ts = None
     try:
-        for line in install_log_path.read_text().strip().split('\n'):
+        for line in install_log_path.read_text().strip().split("\n"):
             if not line.strip():
                 continue
             entry = json.loads(line)
@@ -267,21 +271,21 @@ def _check_dormant_skill(skill_name: str, threshold_days: int = 30) -> tuple[boo
                 break
     except (json.JSONDecodeError, ValueError):
         return False, 0
-    
+
     if not install_ts:
         return False, 0
-    
+
     # Normalize install_ts to UTC if naive
     if install_ts.tzinfo is None:
         install_ts = install_ts.replace(tzinfo=timezone.utc)
-    
+
     now = datetime.now(timezone.utc)
     days_since = (now - install_ts).days
-    
+
     # Check for recent session mentions
     session_skills = _extract_session_skills()
     has_recent_mention = any(s.skill_name == skill_name for s in session_skills)
-    
+
     is_dormant = (days_since > threshold_days) and not has_recent_mention
     return is_dormant, days_since
 

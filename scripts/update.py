@@ -28,6 +28,7 @@ from audit import Auditor
 # Data model
 # ---------------------------------------------------------------------------
 
+
 class UpdateRequest:
     """Represents a request to update a skill."""
 
@@ -46,6 +47,7 @@ class UpdateRequest:
 # ---------------------------------------------------------------------------
 # Main updater
 # ---------------------------------------------------------------------------
+
 
 class SkillUpdater:
     """Manages skill updates with user confirmation."""
@@ -103,8 +105,8 @@ class SkillUpdater:
         print(f"{'═' * 70}\n")
 
         # Show a brief summary of changes
-        local_lines = request.local_content.count('\n')
-        remote_lines = request.remote_content.count('\n')
+        local_lines = request.local_content.count("\n")
+        remote_lines = request.remote_content.count("\n")
         print(f"  Local version:  {local_lines} lines")
         print(f"  Remote version: {remote_lines} lines")
         if remote_lines > local_lines:
@@ -148,9 +150,7 @@ class SkillUpdater:
             print(f"  ❌ Update failed: {e}")
             return False
 
-    def run_interactive_update(
-        self, skill_name: Optional[str] = None
-    ) -> tuple[int, int]:
+    def run_interactive_update(self, skill_name: Optional[str] = None) -> tuple[int, int]:
         """Run interactive update workflow.
 
         Args:
@@ -191,19 +191,20 @@ class SkillUpdater:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _extract_version(content: str) -> Optional[str]:
     """Extract version from SKILL.md YAML frontmatter only."""
-    lines = content.split('\n')
+    lines = content.split("\n")
     in_frontmatter = False
     for line in lines:
-        if line.startswith('---'):
+        if line.startswith("---"):
             if not in_frontmatter:
                 in_frontmatter = True
                 continue
             else:
                 break  # end of frontmatter
-        if in_frontmatter and line.startswith('version:'):
-            return line.split(':', 1)[1].strip().strip('"\'')
+        if in_frontmatter and line.startswith("version:"):
+            return line.split(":", 1)[1].strip().strip("\"'")
     return None
 
 

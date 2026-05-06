@@ -40,10 +40,19 @@ from typing import Optional
 
 # Environment variable names to mask in subprocess mode
 ENV_VARS_TO_MASK = [
-    "GITHUB_TOKEN", "ANTHROPIC_API_KEY", "OPENAI_API_KEY",
-    "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN",
-    "DATABASE_URL", "SECRET_KEY", "PRIVATE_KEY", "AUTH_TOKEN",
-    "SLACK_TOKEN", "DISCORD_TOKEN", "TELEGRAM_TOKEN",
+    "GITHUB_TOKEN",
+    "ANTHROPIC_API_KEY",
+    "OPENAI_API_KEY",
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN",
+    "DATABASE_URL",
+    "SECRET_KEY",
+    "PRIVATE_KEY",
+    "AUTH_TOKEN",
+    "SLACK_TOKEN",
+    "DISCORD_TOKEN",
+    "TELEGRAM_TOKEN",
 ]
 
 SANDBOX_TIMEOUT_SECONDS = 5
@@ -53,9 +62,10 @@ SANDBOX_TIMEOUT_SECONDS = 5
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SandboxResult:
-    mode: str = "none"                   # "subprocess", "docker", "none"
+    mode: str = "none"  # "subprocess", "docker", "none"
     returncode: Optional[int] = None
     stdout: str = ""
     stderr: str = ""
@@ -68,15 +78,14 @@ class SandboxResult:
     @property
     def is_suspicious(self) -> bool:
         return bool(
-            self.env_vars_accessed
-            or self.network_calls_detected
-            or self.file_writes_outside_cwd
+            self.env_vars_accessed or self.network_calls_detected or self.file_writes_outside_cwd
         )
 
 
 # ---------------------------------------------------------------------------
 # Subprocess sandbox (v0.2.0)
 # ---------------------------------------------------------------------------
+
 
 def run_in_subprocess(
     script_path: str | Path,
@@ -118,7 +127,7 @@ def run_in_subprocess(
                 timeout=timeout,
             )
             result.returncode = proc.returncode
-            result.stdout = proc.stdout[:2000]   # limit output
+            result.stdout = proc.stdout[:2000]  # limit output
             result.stderr = proc.stderr[:2000]
 
             # Check if masked tokens appear in output (exfiltration attempt)
@@ -156,6 +165,7 @@ def _detect_masked_token_reads(output: str) -> list[str]:
 # Docker sandbox (v0.3.0 — stub)
 # ---------------------------------------------------------------------------
 
+
 def run_in_docker(
     script_path: str | Path,
     timeout: int = SANDBOX_TIMEOUT_SECONDS,
@@ -179,6 +189,7 @@ def run_in_docker(
 # ---------------------------------------------------------------------------
 # Factory
 # ---------------------------------------------------------------------------
+
 
 def sandbox_run(
     script_path: str | Path,

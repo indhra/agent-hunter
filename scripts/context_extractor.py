@@ -36,39 +36,134 @@ from pathlib import Path
 
 TECH_ALLOWLIST: set[str] = {
     # Python web
-    "fastapi", "django", "flask", "starlette", "tornado", "aiohttp", "sanic",
+    "fastapi",
+    "django",
+    "flask",
+    "starlette",
+    "tornado",
+    "aiohttp",
+    "sanic",
     # Python data / ML
-    "pandas", "numpy", "scipy", "sklearn", "scikit-learn", "pytorch", "tensorflow",
-    "keras", "xgboost", "lightgbm", "polars", "dask", "ray", "mlflow", "wandb",
-    "huggingface", "transformers", "langchain", "llamaindex", "pydantic",
+    "pandas",
+    "numpy",
+    "scipy",
+    "sklearn",
+    "scikit-learn",
+    "pytorch",
+    "tensorflow",
+    "keras",
+    "xgboost",
+    "lightgbm",
+    "polars",
+    "dask",
+    "ray",
+    "mlflow",
+    "wandb",
+    "huggingface",
+    "transformers",
+    "langchain",
+    "llamaindex",
+    "pydantic",
     # Python infra
-    "celery", "redis", "sqlalchemy", "alembic", "asyncpg", "psycopg2", "pymongo",
-    "elasticsearch", "kafka", "rabbitmq", "boto3", "aws", "gcp", "azure",
+    "celery",
+    "redis",
+    "sqlalchemy",
+    "alembic",
+    "asyncpg",
+    "psycopg2",
+    "pymongo",
+    "elasticsearch",
+    "kafka",
+    "rabbitmq",
+    "boto3",
+    "aws",
+    "gcp",
+    "azure",
     # Python testing / tooling
-    "pytest", "unittest", "hypothesis", "mypy", "ruff", "black", "isort",
+    "pytest",
+    "unittest",
+    "hypothesis",
+    "mypy",
+    "ruff",
+    "black",
+    "isort",
     # Node / JS
-    "react", "nextjs", "next.js", "vue", "nuxt", "angular", "svelte",
-    "express", "fastify", "nestjs", "graphql", "apollo", "prisma",
-    "typescript", "javascript", "node", "nodejs", "bun", "deno",
+    "react",
+    "nextjs",
+    "next.js",
+    "vue",
+    "nuxt",
+    "angular",
+    "svelte",
+    "express",
+    "fastify",
+    "nestjs",
+    "graphql",
+    "apollo",
+    "prisma",
+    "typescript",
+    "javascript",
+    "node",
+    "nodejs",
+    "bun",
+    "deno",
     # Databases
-    "postgres", "postgresql", "mysql", "sqlite", "mongodb", "dynamodb",
-    "cassandra", "clickhouse", "bigquery", "snowflake", "supabase",
+    "postgres",
+    "postgresql",
+    "mysql",
+    "sqlite",
+    "mongodb",
+    "dynamodb",
+    "cassandra",
+    "clickhouse",
+    "bigquery",
+    "snowflake",
+    "supabase",
     # Infrastructure
-    "docker", "kubernetes", "k8s", "terraform", "pulumi", "ansible",
-    "nginx", "caddy", "traefik", "cloudflare",
+    "docker",
+    "kubernetes",
+    "k8s",
+    "terraform",
+    "pulumi",
+    "ansible",
+    "nginx",
+    "caddy",
+    "traefik",
+    "cloudflare",
     # Languages
-    "python", "rust", "go", "golang", "java", "kotlin", "swift",
-    "ruby", "elixir", "haskell", "c++", "cpp",
+    "python",
+    "rust",
+    "go",
+    "golang",
+    "java",
+    "kotlin",
+    "swift",
+    "ruby",
+    "elixir",
+    "haskell",
+    "c++",
+    "cpp",
     # CI / DevOps
-    "github-actions", "circleci", "gitlab-ci", "jenkins", "argocd",
+    "github-actions",
+    "circleci",
+    "gitlab-ci",
+    "jenkins",
+    "argocd",
     # AI / Agent
-    "claude", "openai", "anthropic", "gemini", "ollama", "langchain",
-    "mcp", "agentskills", "skill.md",
+    "claude",
+    "openai",
+    "anthropic",
+    "gemini",
+    "ollama",
+    "langchain",
+    "mcp",
+    "agentskills",
+    "skill.md",
 }
 
 # Pattern: word boundary around each allowlisted term (case-insensitive)
 _ALLOWLIST_PATTERN = re.compile(
-    r'\b(' + '|'.join(re.escape(t) for t in sorted(TECH_ALLOWLIST, key=len, reverse=True)) + r')\b',
+    r"\b(" + "|".join(re.escape(t) for t in sorted(TECH_ALLOWLIST, key=len, reverse=True)) + r")\b",
     re.IGNORECASE,
 )
 
@@ -77,9 +172,11 @@ _ALLOWLIST_PATTERN = re.compile(
 # Data model
 # ---------------------------------------------------------------------------
 
+
 @dataclass
 class SkillUsage:
     """Track a skill's usage: when last invoked and how many times."""
+
     skill_name: str
     last_seen: datetime
     mention_count: int
@@ -87,13 +184,13 @@ class SkillUsage:
 
 @dataclass
 class ContextProfile:
-    tech_stack: list[str] = field(default_factory=list)      # all detected tech
-    domain_tags: list[str] = field(default_factory=list)      # inferred domains
+    tech_stack: list[str] = field(default_factory=list)  # all detected tech
+    domain_tags: list[str] = field(default_factory=list)  # inferred domains
     intent_keywords: list[str] = field(default_factory=list)  # dynamic user intent
-    active_domains: list[str] = field(default_factory=list)   # commits in last 7d
-    recent_domains: list[str] = field(default_factory=list)   # commits in last 30d
+    active_domains: list[str] = field(default_factory=list)  # commits in last 7d
+    recent_domains: list[str] = field(default_factory=list)  # commits in last 30d
     dormant_domains: list[str] = field(default_factory=list)  # no commits in 90+d
-    sources_read: list[str] = field(default_factory=list)     # files that were read
+    sources_read: list[str] = field(default_factory=list)  # files that were read
     extraction_warnings: list[str] = field(default_factory=list)
     session_skills: list[SkillUsage] = field(default_factory=list)  # recently invoked skills
 
@@ -101,6 +198,7 @@ class ContextProfile:
 # ---------------------------------------------------------------------------
 # Extractor
 # ---------------------------------------------------------------------------
+
 
 def extract_context(project_root: str | Path, intent: str | None = None) -> ContextProfile:
     """Extract tech signal keywords from a project directory.
@@ -121,13 +219,18 @@ def extract_context(project_root: str | Path, intent: str | None = None) -> Cont
 
     if intent:
         # Extract alphanumeric words from intent, lowercase, ignore short words
-        intent_words = [w.lower() for w in re.findall(r'[a-zA-Z0-9]+', intent) if len(w) > 2]
+        intent_words = [w.lower() for w in re.findall(r"[a-zA-Z0-9]+", intent) if len(w) > 2]
         profile.intent_keywords = intent_words
 
     # --- Read dependency files ---
     dep_files = [
-        "requirements.txt", "requirements-dev.txt", "requirements-test.txt",
-        "pyproject.toml", "package.json", "Cargo.toml", "go.mod",
+        "requirements.txt",
+        "requirements-dev.txt",
+        "requirements-test.txt",
+        "pyproject.toml",
+        "package.json",
+        "Cargo.toml",
+        "go.mod",
     ]
     for fname in dep_files:
         fpath = root / fname
@@ -155,9 +258,15 @@ def extract_context(project_root: str | Path, intent: str | None = None) -> Cont
     profile.domain_tags = _infer_domain_tags(all_signals)
 
     # Bucket by git activity
-    profile.active_domains = [t for t in profile.tech_stack if t in git_activity.get("active", set())]
-    profile.recent_domains = [t for t in profile.tech_stack if t in git_activity.get("recent", set())]
-    profile.dormant_domains = [t for t in profile.tech_stack if t in git_activity.get("dormant", set())]
+    profile.active_domains = [
+        t for t in profile.tech_stack if t in git_activity.get("active", set())
+    ]
+    profile.recent_domains = [
+        t for t in profile.tech_stack if t in git_activity.get("recent", set())
+    ]
+    profile.dormant_domains = [
+        t for t in profile.tech_stack if t in git_activity.get("dormant", set())
+    ]
 
     # Extract recently invoked skills from ~/.claude/sessions/ (v0.1.5)
     profile.session_skills = _extract_session_skills()
@@ -176,22 +285,22 @@ def extract_context(project_root: str | Path, intent: str | None = None) -> Cont
 def _extract_session_skills() -> list[SkillUsage]:
     """
     Extract recently invoked skills from ~/.claude/sessions/.
-    
+
     Reads session metadata files and aggregates skill mentions from
     the last 30 days. Returns list of SkillUsage sorted by most recent.
-    
+
     Privacy: Only skill names are extracted — no file paths, no commands.
-    
+
     Returns:
         List of SkillUsage objects sorted by last_seen (most recent first).
     """
     sessions_dir = Path.home() / ".claude" / "sessions"
     if not sessions_dir.exists():
         return []
-    
+
     skill_mentions: dict[str, dict] = {}  # {skill_name: {last_seen, mention_count}}
     cutoff = datetime.now() - timedelta(days=30)
-    
+
     try:
         for session_file in sessions_dir.glob("*.json"):
             try:
@@ -208,7 +317,7 @@ def _extract_session_skills() -> list[SkillUsage]:
                         if skill_name and not skill_name.startswith("."):
                             ts_ms = data.get("updatedAt", 0)
                             ts = datetime.fromtimestamp(ts_ms / 1000.0)
-                            
+
                             if ts >= cutoff:
                                 if skill_name not in skill_mentions:
                                     skill_mentions[skill_name] = {
@@ -225,7 +334,7 @@ def _extract_session_skills() -> list[SkillUsage]:
     except OSError:
         # Sessions directory might not be readable
         pass
-    
+
     # Convert to SkillUsage list, sorted by most recent first
     results = [
         SkillUsage(

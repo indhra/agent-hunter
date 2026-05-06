@@ -119,7 +119,6 @@ def _get_dangerous_installed() -> list[str]:
     Queries the registry for each installed skill to check if it was
     last-scanned as RED.
     """
-    from registry import Registry
 
     installed = _list_installed_skills()
     registry = Registry()
@@ -421,7 +420,6 @@ def cmd_audit(_args: list[str]) -> int:
 
     Creates a pre-audit snapshot before running audit (v0.5.0+).
     """
-    from registry import Registry
 
     try:
         # Create pre-audit snapshot for safe recovery (v0.5.0)
@@ -563,8 +561,6 @@ def cmd_update(args: list[str]) -> int:
 
     Creates a pre-update snapshot before running updates (v0.5.0+).
     """
-    from registry import Registry
-    from update import SkillUpdater
 
     skill_name = args[0] if args else None
     try:

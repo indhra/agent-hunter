@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -24,6 +25,7 @@ from rollback import _parse_backup_timestamp, rollback, list_backups_cmd, _resto
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _mock_registry(tmp_path: Path, backups: list[Path]) -> MagicMock:
     """Return a mocked Registry with controlled backup list and registry path."""
     mock_reg = MagicMock()
@@ -31,7 +33,21 @@ def _mock_registry(tmp_path: Path, backups: list[Path]) -> MagicMock:
     mock_reg.list_backups.return_value = backups
     mock_reg.snapshot.return_value = tmp_path / "current_snapshot.json"
     mock_reg.restore_latest.return_value = True
+    mock_reg.restore_from_snapshot.return_value = True
+    mock_reg.validate_snapshot_integrity.return_value = (True, "Snapshot valid")
     mock_reg._load.return_value = None
+    
+    # Mock list_snapshots to return proper snapshot dicts
+    snapshots = [
+        {
+            "path": backup,
+            "snapshot_time": datetime.now(timezone.utc).isoformat(),
+            "trigger": "pre-hunt"
+        }
+        for backup in backups
+    ]
+    mock_reg.list_snapshots.return_value = snapshots
+    
     return mock_reg
 
 
@@ -50,6 +66,7 @@ def _make_backup(tmp_path: Path, ts_offset: int = 0) -> Path:
 # ---------------------------------------------------------------------------
 # _parse_backup_timestamp
 # ---------------------------------------------------------------------------
+
 
 class TestParseBackupTimestamp:
     def test_valid_timestamp_returns_string(self, tmp_path):
@@ -77,6 +94,7 @@ class TestParseBackupTimestamp:
 # rollback() — no backups
 # ---------------------------------------------------------------------------
 
+
 class TestRollbackNoBackups:
     def test_returns_false_when_no_backups(self, tmp_path, capsys):
         mock_reg = _mock_registry(tmp_path, backups=[])
@@ -96,6 +114,7 @@ class TestRollbackNoBackups:
 # rollback() — backup not found on disk
 # ---------------------------------------------------------------------------
 
+
 class TestRollbackMissingFile:
     def test_returns_false_when_backup_file_missing(self, tmp_path, capsys):
         missing = tmp_path / "registry_9999999.json"
@@ -109,6 +128,7 @@ class TestRollbackMissingFile:
 # ---------------------------------------------------------------------------
 # rollback() — non-interactive (no prompt)
 # ---------------------------------------------------------------------------
+
 
 class TestRollbackNonInteractive:
     def test_returns_true_on_successful_restore(self, tmp_path):
@@ -145,6 +165,7 @@ class TestRollbackNonInteractive:
 # ---------------------------------------------------------------------------
 # rollback() — interactive prompt
 # ---------------------------------------------------------------------------
+
 
 class TestRollbackInteractive:
     def test_y_proceeds_with_restore(self, tmp_path):
@@ -200,6 +221,7 @@ class TestRollbackInteractive:
 # rollback() — specific backup restore
 # ---------------------------------------------------------------------------
 
+
 class TestRollbackSpecificBackup:
     def test_restores_specific_backup_not_latest(self, tmp_path):
         old_backup = _make_backup(tmp_path, ts_offset=3600)
@@ -221,6 +243,7 @@ class TestRollbackSpecificBackup:
 # ---------------------------------------------------------------------------
 # list_backups_cmd
 # ---------------------------------------------------------------------------
+
 
 class TestListBackupsCmd:
     def test_prints_no_backups_message(self, capsys):
@@ -244,6 +267,7 @@ class TestListBackupsCmd:
 # ---------------------------------------------------------------------------
 # _restore_specific — direct tests
 # ---------------------------------------------------------------------------
+
 
 class TestRestoreSpecific:
     def test_restore_specific_succeeds(self, tmp_path):
@@ -322,6 +346,7 @@ class TestRestoreSpecific:
 # rollback() — output messages and warnings
 # ---------------------------------------------------------------------------
 
+
 class TestRollbackOutputMessages:
     def test_shows_backup_timestamp_when_available(self, tmp_path, capsys):
         """Verify rollback shows the creation timestamp of the backup."""
@@ -356,7 +381,7 @@ class TestRollbackOutputMessages:
         _write_registry(tmp_path / "registry.json")
         mock_reg = _mock_registry(tmp_path, backups=[backup])
         mock_reg.registry_path = tmp_path / "registry.json"
-        mock_reg.restore_latest.return_value = False
+        mock_reg.restore_from_snapshot.return_value = False
 
         rollback(registry=mock_reg, interactive=False)
         out = capsys.readouterr().out
@@ -367,6 +392,7 @@ class TestRollbackOutputMessages:
 # ---------------------------------------------------------------------------
 # rollback() — edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestRollbackEdgeCases:
     def test_handles_registry_path_not_existing(self, tmp_path):

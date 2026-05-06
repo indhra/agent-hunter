@@ -246,7 +246,17 @@ class TestClaudeMdBlock:
     def test_block_mentions_security_scan(self, setup_result):
         result, _ = setup_result
         out = _strip_ansi(result.stdout)
-        assert "security-scan" in out or "security scan" in out
+        # The block now focuses on proactive invocation routing rather than
+        # listing features. Check for the routing trigger language.
+        assert "proactively" in out or "security-scan" in out or "security scan" in out
+
+    def test_block_contains_routing_triggers(self, setup_result):
+        result, _ = setup_result
+        out = _strip_ansi(result.stdout)
+        triggers = ["proactively", "from scratch", "new project", "search GitHub"]
+        assert any(t in out for t in triggers), (
+            f"No routing trigger found in printed CLAUDE.md block. Expected one of {triggers}."
+        )
 
     def test_auto_append_skipped_when_in_skill_dir(self, fake_home):
         """When run FROM the skill dir itself, the interactive append is skipped."""

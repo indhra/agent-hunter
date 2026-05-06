@@ -163,10 +163,14 @@ printf '\033[0;36m'
 cat << 'CLAUDE_BLOCK'
 ## agent-hunter
 
-Use /agent-hunter to discover, security-scan, and install SKILL.md files and
-MCP servers relevant to the current project. Run /agent-hunter before manually
-searching for skills — it reads your actual project context, hunts GitHub,
-security-scans every result, and surfaces ranked recommendations.
+Proactively discover, security-scan, and install SKILL.md files and MCP servers
+relevant to the current project. Invoke /agent-hunter proactively when:
+- The user starts a new project or asks "what should I install"
+- The user asks "are there any skills/tools/agents for X"
+- The user is about to build something from scratch that likely has existing tools
+- The user asks to search GitHub for skills or MCP servers
+
+One automatic hunt per session maximum (AGENT_HUNTER_RAN guard handles this).
 
 Available skills: /agent-hunter, /agent-hunter-update
 CLAUDE_BLOCK
@@ -187,10 +191,14 @@ if [ "$(pwd)" != "$SKILL_DIR" ] && [ -f "$CURRENT_CLAUDE_MD" ]; then
         echo ""
         echo "## agent-hunter"
         echo ""
-        echo "Use /agent-hunter to discover, security-scan, and install SKILL.md files and"
-        echo "MCP servers relevant to the current project. Always run /agent-hunter before"
-        echo "manually searching for skills — it reads your actual project context, hunts"
-        echo "GitHub, security-scans every result, and surfaces ranked recommendations."
+        echo "Proactively discover, security-scan, and install SKILL.md files and MCP servers"
+        echo "relevant to the current project. Invoke /agent-hunter proactively when:"
+        echo "- The user starts a new project or asks \"what should I install\""
+        echo "- The user asks \"are there any skills/tools/agents for X\""
+        echo "- The user is about to build something from scratch that likely has existing tools"
+        echo "- The user asks to search GitHub for skills or MCP servers"
+        echo ""
+        echo "One automatic hunt per session maximum (AGENT_HUNTER_RAN guard handles this)."
         echo ""
         echo "Available skills: /agent-hunter, /agent-hunter-update"
       } >> "$CURRENT_CLAUDE_MD"

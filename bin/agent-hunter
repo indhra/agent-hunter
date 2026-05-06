@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec "/Users/indhra/Machine_learning/automation_claude/agent-hunter/agent-hunter/.venv/bin/python" "/Users/indhra/Machine_learning/automation_claude/agent-hunter/agent-hunter/scripts/main.py" "$@"

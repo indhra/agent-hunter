@@ -1,0 +1,30 @@
+repos:
+  # Ruff: fast Python linter + formatter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Standard hygiene hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: debug-statements      # catches leftover breakpoint() / pdb
+
+  # Run tests (fast: only on changed test files)
+  - repo: local
+    hooks:
+      - id: pytest
+        name: pytest (fast)
+        entry: python3 -m pytest tests/ -x -q --tb=short
+        language: system
+        pass_filenames: false
+        always_run: false
+        types: [python]

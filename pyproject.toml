@@ -17,6 +17,9 @@ dependencies = [
 [project.scripts]
 agent-hunter = "scripts.main:main"
 
+[project.optional-dependencies]
+dev = ["pre-commit", "ruff", "pytest", "pytest-cov"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 

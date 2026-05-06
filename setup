@@ -119,7 +119,41 @@ else
   yellow "⚠  Self-check failed — see above for details"
 fi
 
-# ── 5. Print the CLAUDE.md block ─────────────────────────────────────────────
+# ── 5. Inject into global ~/.claude/CLAUDE.md ───────────────────────────────
+GLOBAL_CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+_AH_MARKER="agent-hunter"
+
+# Ensure the global CLAUDE.md exists
+if [ ! -f "$GLOBAL_CLAUDE_MD" ]; then
+  mkdir -p "$(dirname "$GLOBAL_CLAUDE_MD")"
+  touch "$GLOBAL_CLAUDE_MD"
+  green "✓ Created $GLOBAL_CLAUDE_MD"
+fi
+
+if grep -q "$_AH_MARKER" "$GLOBAL_CLAUDE_MD" 2>/dev/null; then
+  green "✓ agent-hunter already in $GLOBAL_CLAUDE_MD"
+else
+  # Append the agent-hunter skill registration block
+  cat >> "$GLOBAL_CLAUDE_MD" << 'GLOBAL_BLOCK'
+
+## agent-hunter
+
+Proactively discover, security-scan, and install SKILL.md files and MCP servers
+relevant to the current project. Invoke /agent-hunter proactively when:
+- The user starts a new project or asks "what should I install"
+- The user asks "are there any skills/tools/agents for X"
+- The user is about to build something from scratch that likely has existing tools
+- The user asks to search GitHub for skills or MCP servers
+
+One automatic hunt per session maximum (AGENT_HUNTER_RAN guard handles this).
+
+Available skills: /agent-hunter, /agent-hunter-update
+GLOBAL_BLOCK
+  green "✓ Registered agent-hunter in $GLOBAL_CLAUDE_MD"
+  green "  /agent-hunter is now available in every Claude Code session"
+fi
+
+# ── 5b. Print the CLAUDE.md block ────────────────────────────────────────────
 echo ""
 bold "Setup complete."
 echo ""

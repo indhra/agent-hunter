@@ -315,3 +315,66 @@ class TestPythonVersionGuard:
         assert result.returncode != 0, (
             "setup should fail when no Python 3.10+ is available, but it exited 0"
         )
+
+
+# ── global CLAUDE.md injection ────────────────────────────────────────────────
+
+
+class TestGlobalClaudeMdInjection:
+    """setup must write agent-hunter into ~/.claude/CLAUDE.md (the global file
+    that Claude Code reads in every session, not just project-level files).
+    """
+
+    def test_global_claude_md_written(self, fake_home):
+        """After a fresh install, ~/.claude/CLAUDE.md contains the agent-hunter block."""
+        _run_setup(fake_home)
+        global_md = fake_home / ".claude" / "CLAUDE.md"
+        assert global_md.exists(), "~/.claude/CLAUDE.md was not created by setup"
+        content = global_md.read_text()
+        assert "agent-hunter" in content, (
+            f"'agent-hunter' not found in ~/.claude/CLAUDE.md:\n{content}"
+        )
+
+    def test_global_claude_md_lists_skills(self, fake_home):
+        """The injected block lists both /agent-hunter and /agent-hunter-update."""
+        _run_setup(fake_home)
+        content = (fake_home / ".claude" / "CLAUDE.md").read_text()
+        assert "/agent-hunter" in content
+        assert "/agent-hunter-update" in content
+
+    def test_global_claude_md_contains_routing_triggers(self, fake_home):
+        """The injected block has proactive routing language so Claude invokes it automatically."""
+        _run_setup(fake_home)
+        content = (fake_home / ".claude" / "CLAUDE.md").read_text()
+        # At least one trigger phrase must be present
+        triggers = ["proactively", "new project", "from scratch", "search GitHub"]
+        assert any(t in content for t in triggers), (
+            f"No routing trigger found in ~/.claude/CLAUDE.md. Expected one of {triggers}.\n{content}"
+        )
+
+    def test_global_claude_md_idempotent(self, fake_home):
+        """Running setup twice does not duplicate the agent-hunter block."""
+        _run_setup(fake_home)
+        _run_setup(fake_home)
+        content = (fake_home / ".claude" / "CLAUDE.md").read_text()
+        # Count how many times the section header appears
+        count = content.count("## agent-hunter")
+        assert count == 1, (
+            f"'## agent-hunter' appeared {count} times in ~/.claude/CLAUDE.md "
+            f"after two setup runs (expected 1):\n{content}"
+        )
+
+    def test_global_claude_md_created_if_missing(self, fake_home):
+        """setup creates ~/.claude/CLAUDE.md even if it didn't exist before."""
+        global_md = fake_home / ".claude" / "CLAUDE.md"
+        assert not global_md.exists(), "Pre-condition: file should not exist yet"
+        _run_setup(fake_home)
+        assert global_md.exists(), "~/.claude/CLAUDE.md was not created"
+
+    def test_setup_output_confirms_global_injection(self, fake_home):
+        """setup prints a success message when it writes ~/.claude/CLAUDE.md."""
+        result = _run_setup(fake_home)
+        out = _strip_ansi(result.stdout)
+        assert "Registered agent-hunter" in out or "agent-hunter already in" in out, (
+            f"No confirmation of global CLAUDE.md injection in setup output:\n{out}"
+        )

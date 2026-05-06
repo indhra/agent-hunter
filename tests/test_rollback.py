@@ -36,18 +36,18 @@ def _mock_registry(tmp_path: Path, backups: list[Path]) -> MagicMock:
     mock_reg.restore_from_snapshot.return_value = True
     mock_reg.validate_snapshot_integrity.return_value = (True, "Snapshot valid")
     mock_reg._load.return_value = None
-    
+
     # Mock list_snapshots to return proper snapshot dicts
     snapshots = [
         {
             "path": backup,
             "snapshot_time": datetime.now(timezone.utc).isoformat(),
-            "trigger": "pre-hunt"
+            "trigger": "pre-hunt",
         }
         for backup in backups
     ]
     mock_reg.list_snapshots.return_value = snapshots
-    
+
     return mock_reg
 
 
@@ -136,7 +136,7 @@ class TestRollbackNonInteractive:
         _write_registry(tmp_path / "registry.json")
         mock_reg = _mock_registry(tmp_path, backups=[backup])
         mock_reg.registry_path = tmp_path / "registry.json"
-        mock_reg.restore_latest.return_value = True
+        mock_reg.restore_from_snapshot.return_value = True
 
         result = rollback(registry=mock_reg, interactive=False)
         assert result is True
@@ -145,7 +145,7 @@ class TestRollbackNonInteractive:
         backup = _make_backup(tmp_path)
         _write_registry(tmp_path / "registry.json")
         mock_reg = _mock_registry(tmp_path, backups=[backup])
-        mock_reg.restore_latest.return_value = False
+        mock_reg.restore_from_snapshot.return_value = False
 
         result = rollback(registry=mock_reg, interactive=False)
         assert result is False
@@ -367,7 +367,7 @@ class TestRollbackOutputMessages:
         _write_registry(tmp_path / "registry.json")
         mock_reg = _mock_registry(tmp_path, backups=[backup])
         mock_reg.registry_path = tmp_path / "registry.json"
-        mock_reg.restore_latest.return_value = True
+        mock_reg.restore_from_snapshot.return_value = True
 
         rollback(registry=mock_reg, interactive=False)
         out = capsys.readouterr().out

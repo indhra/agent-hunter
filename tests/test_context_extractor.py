@@ -8,7 +8,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from context_extractor import extract_context, TECH_ALLOWLIST, SkillUsage, _extract_session_skills, _extract_from_git_log, _infer_domain_tags
+from context_extractor import (
+    extract_context,
+    TECH_ALLOWLIST,
+    SkillUsage,
+    _extract_session_skills,
+    _extract_from_git_log,
+    _infer_domain_tags,
+)
 
 
 class TestSignalExtraction:
@@ -102,7 +109,7 @@ class TestSessionSkillsExtraction:
         monkeypatch.setenv("HOME", str(tmp_path))
 
         now_ms = int(datetime.now().timestamp() * 1000)
-        
+
         # Create a session file with skill in cwd
         session_data = {
             "pid": 12345,
@@ -146,7 +153,7 @@ class TestSessionSkillsExtraction:
 
         skills = _extract_session_skills()
         skill_names = [s.skill_name for s in skills]
-        
+
         assert "recent-skill" in skill_names
         assert "old-skill" not in skill_names
 
@@ -180,7 +187,7 @@ class TestSessionSkillsExtraction:
         monkeypatch.setenv("HOME", str(tmp_path))
 
         now = datetime.now()
-        
+
         for i, skill_name in enumerate(["skill-a", "skill-b", "skill-c"]):
             ts_ms = int((now - timedelta(days=i)).timestamp() * 1000)
             session = {
@@ -188,7 +195,7 @@ class TestSessionSkillsExtraction:
                 "cwd": str(tmp_path / ".claude" / "skills" / skill_name / "file.py"),
                 "updatedAt": ts_ms,
             }
-            (sessions_dir / f"{1000+i}.json").write_text(json.dumps(session))
+            (sessions_dir / f"{1000 + i}.json").write_text(json.dumps(session))
 
         skills = _extract_session_skills()
         # skill-a is most recent (0 days ago), skill-c is oldest (2 days ago)
@@ -201,6 +208,7 @@ class TestSessionSkillsExtraction:
 # _extract_session_skills: OSError in outer glob
 # ---------------------------------------------------------------------------
 
+
 class TestExtractSessionSkillsOSError:
     def test_oserror_in_sessions_glob_returns_empty(self, tmp_path, monkeypatch):
         """OSError while iterating sessions dir should be caught and return []."""
@@ -210,6 +218,7 @@ class TestExtractSessionSkillsOSError:
 
         # Patch glob to raise OSError
         from unittest.mock import patch
+
         with patch("context_extractor.Path.home", return_value=tmp_path):
             with patch.object(type(sessions_dir), "glob", side_effect=OSError("permission denied")):
                 skills = _extract_session_skills()
@@ -241,6 +250,7 @@ class TestExtractSessionSkillsOSError:
 # ---------------------------------------------------------------------------
 # _extract_from_git_log: parsing commits
 # ---------------------------------------------------------------------------
+
 
 class TestExtractFromGitLog:
     def test_active_commits_classified_correctly(self, tmp_path):
@@ -304,6 +314,7 @@ class TestExtractFromGitLog:
     def test_nonzero_returncode_returns_empty(self, tmp_path):
         """Non-zero exit from git log should return empty signals + activity."""
         from unittest.mock import patch, MagicMock
+
         mock_result = MagicMock()
         mock_result.returncode = 128  # not a git repo
         mock_result.stdout = ""
@@ -316,6 +327,7 @@ class TestExtractFromGitLog:
         """TimeoutExpired should be caught and return empty."""
         import subprocess
         from unittest.mock import patch
+
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["git"], 10)):
             signals, activity = _extract_from_git_log(tmp_path)
         assert signals == set()
@@ -324,6 +336,7 @@ class TestExtractFromGitLog:
     def test_git_not_found_returns_empty(self, tmp_path):
         """FileNotFoundError (git not installed) should return empty."""
         from unittest.mock import patch
+
         with patch("subprocess.run", side_effect=FileNotFoundError("git not found")):
             signals, activity = _extract_from_git_log(tmp_path)
         assert signals == set()
@@ -332,6 +345,7 @@ class TestExtractFromGitLog:
     def test_malformed_line_skipped(self, tmp_path):
         """Lines with fewer than 4 parts should be skipped gracefully."""
         from unittest.mock import patch, MagicMock
+
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "bad line\n"  # only 2 parts
@@ -342,6 +356,7 @@ class TestExtractFromGitLog:
     def test_bad_date_line_skipped(self, tmp_path):
         """Lines with invalid date format should be skipped gracefully."""
         from unittest.mock import patch, MagicMock
+
         mock_result = MagicMock()
         mock_result.returncode = 0
         mock_result.stdout = "not-a-date 00:00:00 +0000 fastapi service\n"
@@ -354,6 +369,7 @@ class TestExtractFromGitLog:
 # ---------------------------------------------------------------------------
 # _infer_domain_tags: domain mapping
 # ---------------------------------------------------------------------------
+
 
 class TestInferDomainTags:
     def test_known_domain_detected(self):

@@ -281,7 +281,7 @@ agent-hunter audit > audit_report_$(date +%Y%m%d).txt
 - [ ] **Isolate**: Run `agent-hunter disable <skill-name>` to quarantine the skill
 - [ ] **Snapshot**: Before any changes, note the current snapshot via `agent-hunter rollback --list`
 - [ ] **Audit**: Run `agent-hunter audit` and review all findings (especially RED)
-- [ ] **Decide**: 
+- [ ] **Decide**:
   - [ ] False alarm? Re-enable with `agent-hunter enable`
   - [ ] Real threat? Remove with `agent-hunter remove` and save findings
 - [ ] **Investigate**: Run `agent-hunter context` to understand what the skill has access to

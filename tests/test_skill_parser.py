@@ -116,6 +116,7 @@ class TestParsing:
 # Skill dependency parsing
 # ---------------------------------------------------------------------------
 
+
 class TestSkillDependencyParsing:
     def test_skill_dependencies_parsed(self):
         meta = parse_skill_content(VALID_SKILL)
@@ -274,9 +275,7 @@ class TestResolveSkillDependencies:
         skills_dir = tmp_path / "skills"
         (skills_dir / "skill-scanner").mkdir(parents=True)
         verified_md = tmp_path / "VERIFIED_SKILLS.md"
-        verified_md.write_text(
-            "- **Repo:** https://github.com/cisco-ai-defense/skill-scanner\n"
-        )
+        verified_md.write_text("- **Repo:** https://github.com/cisco-ai-defense/skill-scanner\n")
 
         results = resolve_skill_dependencies(
             [SKILL_DEP_SCANNER],

@@ -30,6 +30,7 @@ from security_scan import ScanResult
 # Integration: Audit → Update → Rollback workflow
 # ---------------------------------------------------------------------------
 
+
 class TestFullUpdateWorkflow:
     """End-to-end: skill has update, audit detects it, user updates, rollback works."""
 
@@ -146,7 +147,9 @@ class TestAuditDetectsMultipleIssues:
 
         # Mock: update available + security issue (no tamper)
         with patch("audit.check_sha_tamper", return_value=(False, "ok")):
-            with patch.object(auditor, "_fetch_remote_skill_content", return_value="different content"):
+            with patch.object(
+                auditor, "_fetch_remote_skill_content", return_value="different content"
+            ):
                 with patch("audit.scan_skill") as mock_scan:
                     mock_scan.return_value = ScanResult(severity="RED")
                     result = auditor._audit_entry(entry)

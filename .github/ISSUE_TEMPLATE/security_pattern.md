@@ -21,7 +21,7 @@ This template is for contributing **new detection rules** for the security scann
 
 ## Real-world source
 
-<!-- Where did you encounter this? CVE ID, blog post URL, your own incident, research paper. 
+<!-- Where did you encounter this? CVE ID, blog post URL, your own incident, research paper.
      Do not submit patterns you invented without seeing them in the wild. -->
 
 ## Proposed detection pattern (regex or heuristic)

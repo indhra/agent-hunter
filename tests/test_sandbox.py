@@ -27,6 +27,7 @@ from sandbox import (
 # _build_masked_env
 # ---------------------------------------------------------------------------
 
+
 class TestBuildMaskedEnv:
     def test_sensitive_vars_are_masked(self):
         with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_real_secret_here"}):
@@ -40,13 +41,17 @@ class TestBuildMaskedEnv:
 
     def test_missing_sensitive_var_not_injected(self):
         # If GITHUB_TOKEN isn't set, it should not be added by masking
-        env_without_token = {k: v for k, v in __import__("os").environ.items() if k != "GITHUB_TOKEN"}
+        env_without_token = {
+            k: v for k, v in __import__("os").environ.items() if k != "GITHUB_TOKEN"
+        }
         with patch("os.environ", env_without_token):
             env = _build_masked_env()
         # Should not contain GITHUB_TOKEN if it wasn't there originally
         # (masking only replaces existing vars)
         if "GITHUB_TOKEN" not in __import__("os").environ:
-            assert "GITHUB_TOKEN" not in env or env["GITHUB_TOKEN"] == "***MASKED_BY_AGENT_HUNTER***"
+            assert (
+                "GITHUB_TOKEN" not in env or env["GITHUB_TOKEN"] == "***MASKED_BY_AGENT_HUNTER***"
+            )
 
     def test_all_listed_vars_in_mask_list(self):
         # All ENV_VARS_TO_MASK are recognized strings
@@ -58,6 +63,7 @@ class TestBuildMaskedEnv:
 # ---------------------------------------------------------------------------
 # _detect_masked_token_reads
 # ---------------------------------------------------------------------------
+
 
 class TestDetectMaskedTokenReads:
     def test_detects_masked_sentinel_in_output(self):
@@ -77,6 +83,7 @@ class TestDetectMaskedTokenReads:
 # ---------------------------------------------------------------------------
 # run_in_subprocess — clean scripts
 # ---------------------------------------------------------------------------
+
 
 class TestRunInSubprocessClean:
     def test_clean_script_succeeds(self, tmp_path):
@@ -118,13 +125,12 @@ class TestRunInSubprocessClean:
 # run_in_subprocess — env masking verification
 # ---------------------------------------------------------------------------
 
+
 class TestRunInSubprocessEnvMasking:
     def test_masked_token_not_leaked_in_stdout(self, tmp_path):
         """A script printing GITHUB_TOKEN should get the masked value, not the real one."""
         script = tmp_path / "print_token.py"
-        script.write_text(
-            "import os\nprint(os.environ.get('GITHUB_TOKEN', 'NOT_SET'))\n"
-        )
+        script.write_text("import os\nprint(os.environ.get('GITHUB_TOKEN', 'NOT_SET'))\n")
         with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_supersecrettoken1234"}):
             result = run_in_subprocess(script)
 
@@ -135,9 +141,7 @@ class TestRunInSubprocessEnvMasking:
     def test_masked_sentinel_triggers_suspicion(self, tmp_path):
         """A script that outputs the masked sentinel is flagged as suspicious."""
         script = tmp_path / "exfil.py"
-        script.write_text(
-            "import os\ntoken = os.environ.get('GITHUB_TOKEN', '')\nprint(token)\n"
-        )
+        script.write_text("import os\ntoken = os.environ.get('GITHUB_TOKEN', '')\nprint(token)\n")
         with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_anytokenvalue"}):
             result = run_in_subprocess(script)
 
@@ -150,6 +154,7 @@ class TestRunInSubprocessEnvMasking:
 # ---------------------------------------------------------------------------
 # run_in_subprocess — timeout
 # ---------------------------------------------------------------------------
+
 
 class TestRunInSubprocessTimeout:
     def test_timeout_kills_script(self, tmp_path):
@@ -170,6 +175,7 @@ class TestRunInSubprocessTimeout:
 # run_in_docker — stub
 # ---------------------------------------------------------------------------
 
+
 class TestRunInDockerStub:
     def test_returns_error_not_implemented(self, tmp_path):
         script = tmp_path / "s.py"
@@ -183,6 +189,7 @@ class TestRunInDockerStub:
 # ---------------------------------------------------------------------------
 # sandbox_run — factory dispatch
 # ---------------------------------------------------------------------------
+
 
 class TestSandboxRunFactory:
     def test_subprocess_mode_dispatches_correctly(self, tmp_path):
@@ -214,6 +221,7 @@ class TestSandboxRunFactory:
 # ---------------------------------------------------------------------------
 # run_in_subprocess: TimeoutExpired + OSError paths (lines 130-131)
 # ---------------------------------------------------------------------------
+
 
 class TestRunInSubprocessErrors:
     def test_timeout_expired_sets_timed_out(self, tmp_path):

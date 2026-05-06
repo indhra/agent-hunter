@@ -14,7 +14,13 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from hunter import HuntResult  # noqa: E402
-from reporter import _include_in_report, _print_terminal, _save_markdown, _score_bar, render_hunt_report  # noqa: E402
+from reporter import (
+    _include_in_report,
+    _print_terminal,
+    _save_markdown,
+    _score_bar,
+    render_hunt_report,
+)  # noqa: E402
 from scorer import ScoredResult  # noqa: E402
 from security_scan import ScanFinding, ScanResult  # noqa: E402
 
@@ -22,6 +28,7 @@ from security_scan import ScanFinding, ScanResult  # noqa: E402
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_scored(
     repo_name: str = "test-skill",
@@ -51,22 +58,31 @@ def _green_scan() -> ScanResult:
 
 
 def _red_scan() -> ScanResult:
-    return ScanResult(severity="RED", findings=[
-        ScanFinding(pattern_id="SP-001", severity="RED",
-                    description="Prompt injection", location="body")
-    ])
+    return ScanResult(
+        severity="RED",
+        findings=[
+            ScanFinding(
+                pattern_id="SP-001", severity="RED", description="Prompt injection", location="body"
+            )
+        ],
+    )
 
 
 def _yellow_scan() -> ScanResult:
-    return ScanResult(severity="YELLOW", findings=[
-        ScanFinding(pattern_id="SP-007", severity="YELLOW",
-                    description="Env access", location="body")
-    ])
+    return ScanResult(
+        severity="YELLOW",
+        findings=[
+            ScanFinding(
+                pattern_id="SP-007", severity="YELLOW", description="Env access", location="body"
+            )
+        ],
+    )
 
 
 # ---------------------------------------------------------------------------
 # _include_in_report() — the critical RED exclusion rule
 # ---------------------------------------------------------------------------
+
 
 class TestIncludeInReport:
     """RED results must NEVER appear in the main report (count only)."""
@@ -96,6 +112,7 @@ class TestIncludeInReport:
 # ---------------------------------------------------------------------------
 # _print_terminal()
 # ---------------------------------------------------------------------------
+
 
 class TestPrintTerminal:
     def _capture_output(self, results, scan_results, red_count=0, project_root=""):
@@ -153,6 +170,7 @@ class TestPrintTerminal:
 # _save_markdown()
 # ---------------------------------------------------------------------------
 
+
 class TestSaveMarkdown:
     def test_creates_markdown_file(self, tmp_path):
         s = _make_scored("myrepo")
@@ -196,6 +214,7 @@ class TestSaveMarkdown:
 # _score_bar
 # ---------------------------------------------------------------------------
 
+
 class TestScoreBar:
     def test_full_score_all_filled(self):
         bar = _score_bar(1.0, width=10)
@@ -217,6 +236,7 @@ class TestScoreBar:
 # _print_terminal: no results branch (lines 60-70)
 # ---------------------------------------------------------------------------
 
+
 class TestPrintTerminalNoResults:
     def test_no_results_prints_tip(self, capsys):
         """Empty results list should print 'No results found' with a tip."""
@@ -235,6 +255,7 @@ class TestPrintTerminalNoResults:
 # ---------------------------------------------------------------------------
 # render_hunt_report: save_markdown path (lines 109 + save path)
 # ---------------------------------------------------------------------------
+
 
 class TestRenderHuntReportMarkdown:
     def test_save_markdown_creates_file(self, tmp_path, capsys):
@@ -264,6 +285,7 @@ class TestRenderHuntReportMarkdown:
 # ---------------------------------------------------------------------------
 # _markdown_result: MCP-specific fields (lines 172-174, 201-204, 207, 211)
 # ---------------------------------------------------------------------------
+
 
 class TestMarkdownResultMCP:
     def test_mcp_result_includes_transport(self, tmp_path):
@@ -341,7 +363,12 @@ class TestMarkdownResultMCP:
             repo_name="my-skill",
             owner="o",
         )
-        s = ScoredResult(hunt_result=r, skill_metadata=None, total_score=0.8, explanation="High relevance to your stack")
+        s = ScoredResult(
+            hunt_result=r,
+            skill_metadata=None,
+            total_score=0.8,
+            explanation="High relevance to your stack",
+        )
         scan = {r.repo_url: _green_scan()}
 
         with patch("reporter.REPORTS_DIR", tmp_path):
@@ -353,6 +380,7 @@ class TestMarkdownResultMCP:
     def test_scan_findings_in_markdown(self, tmp_path):
         """Scan findings on a YELLOW result should appear in the markdown."""
         from security_scan import ScanFinding
+
         r = HuntResult(
             name="yellow-skill",
             repo_url="https://github.com/o/yellow-skill",
@@ -362,12 +390,18 @@ class TestMarkdownResultMCP:
             repo_name="yellow-skill",
             owner="o",
         )
-        finding = ScanFinding(severity="YELLOW", pattern_id="eval_use", description="Suspicious eval use", location="body")
+        finding = ScanFinding(
+            severity="YELLOW",
+            pattern_id="eval_use",
+            description="Suspicious eval use",
+            location="body",
+        )
         yellow_scan = ScanResult(severity="YELLOW", findings=[finding])
         s = ScoredResult(hunt_result=r, skill_metadata=None, total_score=0.5)
         scan = {r.repo_url: yellow_scan}
 
         # _print_terminal includes findings
         import io  # noqa: F401
+
         _print_terminal([s], scan, 0, ".")
         # Just confirm it doesn't raise

@@ -318,13 +318,13 @@ allowlist_coverage: 100%
 def extract_context(project_root: str) -> ContextProfile:
     """
     Extract tech signal keywords from project.
-    
+
     Args:
         project_root: Path to project root
-        
+
     Returns:
         ContextProfile: {tech_stack: list[str], frameworks: list, languages: list}
-        
+
     Raises:
         ContextExtractionError: if project_root doesn't exist or is unreadable
     """
@@ -349,14 +349,14 @@ class Hunter:
     def hunt(self, profile: ContextProfile, config: Dict) -> list[HuntResult]:
         """
         Search GitHub + curated sources for relevant skills.
-        
+
         Args:
             profile: Extracted context (tech_stack, etc.)
             config: Config dict (min_stars, max_age_days, etc.)
-            
+
         Returns:
             list[HuntResult]: ranked by prefilter pass rate
-            
+
         Raises:
             HunterError: if all queries fail
         """
@@ -390,13 +390,13 @@ class Hunter:
 def scan_skill(raw_content: str) -> ScanResult:
     """
     Scan SKILL.md for security issues.
-    
+
     Args:
         raw_content: Raw SKILL.md content from GitHub
-        
+
     Returns:
         ScanResult: {id, findings: list[ScanFinding]}
-        
+
     Raises:
         ScanError: if scan crashes (e.g., invalid YAML)
     """
@@ -442,7 +442,7 @@ def score_results(
 ) -> list[ScoredResult]:
     """
     Score results using 4-signal formula + YAGNI multiplier.
-    
+
     Returns:
         list[ScoredResult]: sorted by final_score descending
     """
@@ -508,10 +508,10 @@ def build_action_list(
 ) -> list[PendingAction]:
     """
     Build list of actions (install/disable) for user confirmation.
-    
+
     Args:
         dangerous: If True, include DISABLE actions for RED-flagged installed skills
-        
+
     Returns:
         list[PendingAction]: [install/disable/enable/uninstall actions]
     """
@@ -519,13 +519,13 @@ def build_action_list(
 def execute_actions(actions: list[PendingAction], dry_run: bool = False) -> list[ActionResult]:
     """
     Execute install/disable/enable/uninstall actions.
-    
+
     Args:
         dry_run: If True, skip filesystem changes, print what would happen
-        
+
     Returns:
         list[ActionResult]: per-action success/failure status
-        
+
     Raises:
         InstallerError: if any action fails (rolls back all prior actions)
     """
@@ -570,19 +570,19 @@ class PendingAction:
 class Registry:
     def read(self) -> Dict:
         """Load registry from ~/.agent-hunter/registry.json"""
-        
+
     def write(self, data: Dict) -> None:
         """Save registry to ~/.agent-hunter/registry.json"""
-        
+
     def snapshot(self, trigger: str) -> str:
         """Write timestamped snapshot to backups/, return snapshot name"""
-        
+
     def restore_from_snapshot(self, snapshot_name: str) -> None:
         """Restore registry from snapshot"""
-        
+
     def get_installed_skills(self) -> list[str]:
         """Return list of currently installed skill names"""
-        
+
     def get_skill_metadata(self, skill_name: str) -> Dict:
         """Return stored SHA, install_date, etc. for a skill"""
 ```
@@ -626,7 +626,7 @@ class Registry:
 def rollback(target_snapshot: str = None, force: bool = False) -> None:
     """
     Restore registry + skill repos to snapshot state.
-    
+
     Args:
         target_snapshot: Snapshot name (default: most recent)
         force: Skip confirmation
@@ -656,7 +656,7 @@ def render_hunt_report(
 ) -> str:
     """
     Render terminal report of hunt results.
-    
+
     Returns:
         Formatted string with rich table
     """
@@ -664,7 +664,7 @@ def render_hunt_report(
 def save_hunt_report(report_str: str) -> str:
     """
     Save report to ~/.agent-hunter/reports/hunt_report_YYYY-MM-DD.md
-    
+
     Returns:
         Path to saved file
     """
@@ -727,11 +727,11 @@ class Sandbox:
     def run_code(self, code: str, timeout_seconds: int = 10) -> SandboxResult:
         """
         Execute code in isolated subprocess/container.
-        
+
         Args:
             code: Python code to run
             timeout_seconds: Execution timeout
-            
+
         Returns:
             SandboxResult: {stdout, stderr, return_code, observed_behaviors}
         """
@@ -767,13 +767,13 @@ class SandboxResult:
 def parse_skill_frontmatter(raw_content: str) -> SkillFrontmatter:
     """
     Extract YAML frontmatter from SKILL.md.
-    
+
     Args:
         raw_content: Raw SKILL.md content
-        
+
     Returns:
         SkillFrontmatter: parsed frontmatter + body text
-        
+
     Raises:
         SkillParseError: if YAML is malformed
     """
@@ -829,7 +829,7 @@ license: MIT
    - Uses AST to safely identify decode-then-exec blocks
    - Controlled execution in sandbox to unpack
    - Re-scan unpacked code for RED patterns
-   
+
 2. Behavior analysis during sandbox:
    - Monitor file writes (reject outside /tmp)
    - Monitor network (reject all)
@@ -866,7 +866,7 @@ license: MIT
    - Before every `audit` or `update` command, write snapshot to `~/.agent-hunter/backups/pre_audit_*.json`
    - Snapshot includes: registry, installed skills list, SHA hashes, install_log tail
    - CRC32 checksum for tamper detection
-   
+
 2. Enhanced rollback:
    - List available snapshots with metadata
    - User picks target (or `--to` flag)
@@ -909,7 +909,7 @@ license: MIT
    - Builds conflict graph: which skills have incompatible dependencies
    - Attempts to find compatible semver range for each package
    - Output: list of conflicts + proposed resolutions (or "UNRESOLVABLE")
-   
+
 2. Audit --deps command:
    - Reports total unique dependencies
    - Lists conflicting pairs + severity

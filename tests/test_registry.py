@@ -21,6 +21,7 @@ from registry import Registry, RegistryEntry, check_sha_tamper  # noqa: E402
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture
 def reg(tmp_path):
     """A fresh Registry backed by a temp file."""
@@ -34,6 +35,7 @@ def _entry(name: str = "myskill", url: str = "https://github.com/owner/myskill")
 # ---------------------------------------------------------------------------
 # upsert / get / remove round-trip
 # ---------------------------------------------------------------------------
+
 
 class TestUpsertRemove:
     def test_upsert_and_get(self, reg):
@@ -83,6 +85,7 @@ class TestUpsertRemove:
 # Persistence: _save / _load round-trip
 # ---------------------------------------------------------------------------
 
+
 class TestPersistence:
     def test_save_load_round_trip(self, tmp_path):
         path = tmp_path / "registry.json"
@@ -120,6 +123,7 @@ class TestPersistence:
 # ---------------------------------------------------------------------------
 # Snapshot / restore
 # ---------------------------------------------------------------------------
+
 
 class TestSnapshot:
     def test_snapshot_creates_backup_file(self, tmp_path):
@@ -171,6 +175,7 @@ class TestSnapshot:
 # SHA tamper detection
 # ---------------------------------------------------------------------------
 
+
 class TestShaTamper:
     def test_no_sha_stored_returns_not_tampered(self):
         e = _entry()
@@ -211,10 +216,12 @@ class TestShaTamper:
 # _fetch_remote_sha direct tests
 # ---------------------------------------------------------------------------
 
+
 class TestFetchRemoteSha:
     def test_short_url_returns_none(self):
         """URL with fewer than 2 path parts should return None immediately."""
         import registry as reg_mod
+
         result = reg_mod._fetch_remote_sha("https://github.com/only-one")
         assert result is None
 
@@ -228,9 +235,7 @@ class TestFetchRemoteSha:
         mock_resp.json.return_value = {"sha": "abc123def"}
 
         with patch("requests.get", return_value=mock_resp) as mock_get:
-            result = reg_mod._fetch_remote_sha(
-                "https://github.com/owner/repo", token="my-token"
-            )
+            result = reg_mod._fetch_remote_sha("https://github.com/owner/repo", token="my-token")
 
         assert result == "abc123def"
         call_kwargs = mock_get.call_args.kwargs

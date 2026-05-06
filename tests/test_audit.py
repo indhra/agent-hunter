@@ -17,7 +17,13 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from audit import Auditor, AuditEntryResult, AuditReport, _check_license_compat, _check_dormant_skill
+from audit import (
+    Auditor,
+    AuditEntryResult,
+    AuditReport,
+    _check_license_compat,
+    _check_dormant_skill,
+)
 from registry import RegistryEntry
 from security_scan import ScanResult
 from context_extractor import SkillUsage
@@ -26,6 +32,7 @@ from context_extractor import SkillUsage
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _entry(**kwargs) -> RegistryEntry:
     defaults = dict(
@@ -54,6 +61,7 @@ def _make_auditor(entries: list[RegistryEntry]) -> Auditor:
 # ---------------------------------------------------------------------------
 # _check_license_compat
 # ---------------------------------------------------------------------------
+
 
 class TestCheckLicenseCompat:
     def test_mit_returns_none(self):
@@ -87,6 +95,7 @@ class TestCheckLicenseCompat:
 # ---------------------------------------------------------------------------
 # Auditor._audit_entry
 # ---------------------------------------------------------------------------
+
 
 class TestAuditEntry:
     def test_healthy_entry_with_no_skill_file(self):
@@ -197,7 +206,9 @@ class TestAuditEntry:
         entry = _entry(install_path=str(local_file))
 
         with patch("audit.check_sha_tamper", return_value=(True, "SHA mismatch")):
-            with patch.object(auditor, "_fetch_remote_skill_content", return_value="different content"):
+            with patch.object(
+                auditor, "_fetch_remote_skill_content", return_value="different content"
+            ):
                 result = auditor._audit_entry(entry)
 
         assert result.overall_status == "tampered"
@@ -226,6 +237,7 @@ class TestAuditEntry:
 # Auditor.run()
 # ---------------------------------------------------------------------------
 
+
 class TestAuditorRun:
     def test_empty_registry_returns_empty_report(self):
         auditor = _make_auditor([])
@@ -239,9 +251,7 @@ class TestAuditorRun:
         auditor = _make_auditor(entries)
 
         with patch.object(auditor, "_audit_entry") as mock_audit:
-            mock_audit.return_value = AuditEntryResult(
-                entry=entries[0], overall_status="healthy"
-            )
+            mock_audit.return_value = AuditEntryResult(entry=entries[0], overall_status="healthy")
             with patch.object(auditor, "_update_registry_status"):
                 with patch.object(auditor, "_print_report"):
                     auditor.run()
@@ -275,19 +285,16 @@ class TestAuditorRun:
 # AuditReport.has_issues
 # ---------------------------------------------------------------------------
 
+
 class TestAuditReport:
     def test_has_issues_false_when_all_healthy(self):
         e = _entry()
-        report = AuditReport(
-            audit_results=[AuditEntryResult(entry=e, overall_status="healthy")]
-        )
+        report = AuditReport(audit_results=[AuditEntryResult(entry=e, overall_status="healthy")])
         assert report.has_issues is False
 
     def test_has_issues_true_with_one_tampered(self):
         e = _entry()
-        report = AuditReport(
-            audit_results=[AuditEntryResult(entry=e, overall_status="tampered")]
-        )
+        report = AuditReport(audit_results=[AuditEntryResult(entry=e, overall_status="tampered")])
         assert report.has_issues is True
 
     def test_has_issues_true_with_security_issue(self):
@@ -306,6 +313,7 @@ class TestAuditReport:
 # _detect_conflicts (placeholder for v0.3.0, should not crash)
 # ---------------------------------------------------------------------------
 
+
 class TestDetectConflicts:
     def test_detect_conflicts_is_noop(self):
         """v0.3.0 stub — should not crash."""
@@ -323,15 +331,14 @@ class TestDetectConflicts:
 # _fetch_remote_skill_content
 # ---------------------------------------------------------------------------
 
+
 class TestFetchRemoteSkillContent:
     def test_fetch_success_main_branch(self):
         auditor = _make_auditor([])
         entry = _entry(repo_url="https://github.com/owner/myskill")
 
         with patch("audit.requests.get") as mock_get:
-            mock_get.return_value = MagicMock(
-                status_code=200, text="# Remote SKILL content"
-            )
+            mock_get.return_value = MagicMock(status_code=200, text="# Remote SKILL content")
             content = auditor._fetch_remote_skill_content(entry)
 
         assert content == "# Remote SKILL content"
@@ -441,6 +448,7 @@ class TestFetchRemoteSkillContent:
 # _update_registry_status
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateRegistryStatus:
     def test_updates_entry_with_audit_status(self):
         auditor = _make_auditor([])
@@ -473,6 +481,7 @@ class TestUpdateRegistryStatus:
 # _print_report (output formatting)
 # ---------------------------------------------------------------------------
 
+
 class TestPrintReport:
     def test_print_report_shows_all_statuses(self, capsys):
         entries = [
@@ -481,15 +490,9 @@ class TestPrintReport:
             _entry(name="update-skill"),
         ]
         results = [
-            AuditEntryResult(
-                entry=entries[0], overall_status="healthy"
-            ),
-            AuditEntryResult(
-                entry=entries[1], overall_status="tampered"
-            ),
-            AuditEntryResult(
-                entry=entries[2], overall_status="update_available"
-            ),
+            AuditEntryResult(entry=entries[0], overall_status="healthy"),
+            AuditEntryResult(entry=entries[1], overall_status="tampered"),
+            AuditEntryResult(entry=entries[2], overall_status="update_available"),
         ]
         report = AuditReport(audit_results=results)
         auditor = _make_auditor(entries)
@@ -598,6 +601,7 @@ class TestPrintReport:
     def test_print_report_shows_backup_path(self, capsys):
         """Verify backup path is shown when present."""
         from pathlib import Path
+
         backup_file = Path("/tmp/agent-hunter-backup.json")
         report = AuditReport(
             audit_results=[],
@@ -646,6 +650,7 @@ class TestPrintReport:
 # Full integration: Auditor.run() with snapshot
 # ---------------------------------------------------------------------------
 
+
 class TestAuditorSnapshot:
     def test_run_creates_snapshot_when_registry_exists(self, tmp_path):
         """Pre-audit snapshot should be created if registry file exists."""
@@ -661,9 +666,7 @@ class TestAuditorSnapshot:
         auditor.registry.snapshot = MagicMock(return_value=backup_file)
 
         with patch.object(auditor, "_audit_entry") as mock_audit:
-            mock_audit.return_value = AuditEntryResult(
-                entry=entries[0], overall_status="healthy"
-            )
+            mock_audit.return_value = AuditEntryResult(entry=entries[0], overall_status="healthy")
             with patch.object(auditor, "_print_report"):
                 report = auditor.run()
 
@@ -679,9 +682,7 @@ class TestAuditorSnapshot:
         auditor.registry.registry_path = Path("/tmp/does_not_exist.json")
 
         with patch.object(auditor, "_audit_entry") as mock_audit:
-            mock_audit.return_value = AuditEntryResult(
-                entry=entries[0], overall_status="healthy"
-            )
+            mock_audit.return_value = AuditEntryResult(entry=entries[0], overall_status="healthy")
             with patch.object(auditor, "_print_report"):
                 report = auditor.run()
 
@@ -692,6 +693,7 @@ class TestAuditorSnapshot:
 # ---------------------------------------------------------------------------
 # Status priority resolution (edge cases)
 # ---------------------------------------------------------------------------
+
 
 class TestStatusPriority:
     def test_update_available_takes_priority_over_license_conflict(self, tmp_path):
@@ -733,6 +735,7 @@ class TestStatusPriority:
 # Dormant skill detection (v0.4.0 Gap 3)
 # ---------------------------------------------------------------------------
 
+
 class TestDormantSkillDetection:
     """Test dormant skill detection — installed >30d with 0 session mentions."""
 
@@ -740,24 +743,27 @@ class TestDormantSkillDetection:
         """Skill installed >30d ago with 0 session mentions should be dormant."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         old_ts = (now - timedelta(days=35)).isoformat()
-        
+
         install_log.write_text(
-            json.dumps({
-                "skill_name": "old-skill",
-                "action": "install",
-                "timestamp": old_ts,
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "old-skill",
+                    "action": "install",
+                    "timestamp": old_ts,
+                }
+            )
+            + "\n"
         )
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         with patch("audit._extract_session_skills", return_value=[]):
             is_dormant, days = _check_dormant_skill("old-skill")
-        
+
         assert is_dormant is True
         assert days >= 35
 
@@ -765,24 +771,27 @@ class TestDormantSkillDetection:
         """Skill installed <30d ago should NOT be dormant."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         recent_ts = (now - timedelta(days=10)).isoformat()
-        
+
         install_log.write_text(
-            json.dumps({
-                "skill_name": "new-skill",
-                "action": "install",
-                "timestamp": recent_ts,
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "new-skill",
+                    "action": "install",
+                    "timestamp": recent_ts,
+                }
+            )
+            + "\n"
         )
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         with patch("audit._extract_session_skills", return_value=[]):
             is_dormant, days = _check_dormant_skill("new-skill")
-        
+
         assert is_dormant is False
         assert days == 10
 
@@ -790,21 +799,24 @@ class TestDormantSkillDetection:
         """Skill with recent session mentions should NOT be dormant."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         old_ts = (now - timedelta(days=40)).isoformat()
-        
+
         install_log.write_text(
-            json.dumps({
-                "skill_name": "active-skill",
-                "action": "install",
-                "timestamp": old_ts,
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "active-skill",
+                    "action": "install",
+                    "timestamp": old_ts,
+                }
+            )
+            + "\n"
         )
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         # Mock recent session mentions
         mock_skills = [
             SkillUsage(
@@ -813,10 +825,10 @@ class TestDormantSkillDetection:
                 mention_count=5,
             )
         ]
-        
+
         with patch("audit._extract_session_skills", return_value=mock_skills):
             is_dormant, days = _check_dormant_skill("active-skill")
-        
+
         assert is_dormant is False
 
     def test_dormant_not_installed(self, tmp_path, monkeypatch):
@@ -824,12 +836,12 @@ class TestDormantSkillDetection:
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
         (agent_hunter_dir / "install_log.jsonl").write_text("")
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         with patch("audit._extract_session_skills", return_value=[]):
             is_dormant, days = _check_dormant_skill("never-installed")
-        
+
         assert is_dormant is False
         assert days == 0
 
@@ -837,29 +849,34 @@ class TestDormantSkillDetection:
         """_audit_entry should detect and mark dormant skills."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         old_ts = (now - timedelta(days=40)).isoformat()
-        
+
         install_log.write_text(
-            json.dumps({
-                "skill_name": "dormant-skill",
-                "action": "install",
-                "timestamp": old_ts,
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "dormant-skill",
+                    "action": "install",
+                    "timestamp": old_ts,
+                }
+            )
+            + "\n"
         )
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         auditor = _make_auditor([])
         entry = _entry(name="dormant-skill")
-        
+
         with patch("audit.check_sha_tamper", return_value=(False, "ok")):
-            with patch.object(auditor, "_fetch_remote_skill_content", return_value="---\nname: test\n---\n"):
+            with patch.object(
+                auditor, "_fetch_remote_skill_content", return_value="---\nname: test\n---\n"
+            ):
                 with patch("audit._extract_session_skills", return_value=[]):
                     result = auditor._audit_entry(entry)
-        
+
         assert result.dormant is True
         assert result.overall_status == "dormant"
 
@@ -867,34 +884,37 @@ class TestDormantSkillDetection:
         """Dormant status should take priority over update_available."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         old_ts = (now - timedelta(days=40)).isoformat()
-        
+
         install_log.write_text(
-            json.dumps({
-                "skill_name": "dormant-skill",
-                "action": "install",
-                "timestamp": old_ts,
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "dormant-skill",
+                    "action": "install",
+                    "timestamp": old_ts,
+                }
+            )
+            + "\n"
         )
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         auditor = _make_auditor([])
         local_file = tmp_path / "SKILL.md"
         local_file.write_text("old content")
         entry = _entry(name="dormant-skill", install_path=str(local_file))
-        
+
         # Remote has different content (update_available=True) but skill is dormant
         remote_content = "new content"
-        
+
         with patch("audit.check_sha_tamper", return_value=(False, "ok")):
             with patch.object(auditor, "_fetch_remote_skill_content", return_value=remote_content):
                 with patch("audit._extract_session_skills", return_value=[]):
                     result = auditor._audit_entry(entry)
-        
+
         assert result.update_available is True
         assert result.dormant is True
         # Dormant should take priority
@@ -904,6 +924,7 @@ class TestDormantSkillDetection:
 # ---------------------------------------------------------------------------
 # CLI entry point (__main__)
 # ---------------------------------------------------------------------------
+
 
 class TestAuditCliEntryPoint:
     def test_main_with_no_issues_exits_zero(self):
@@ -916,10 +937,11 @@ class TestAuditCliEntryPoint:
             with patch("sys.exit"):
                 # Simulate running the __main__ block
                 from audit import Auditor
+
                 auditor = Auditor()
                 report = auditor.run()
                 exit_code = 1 if report.has_issues else 0
-                
+
                 # Verify the exit code logic
                 assert exit_code == 0
 
@@ -933,4 +955,3 @@ class TestAuditCliEntryPoint:
         exit_code = 1 if report.has_issues else 0
         assert exit_code == 1
         assert report.has_issues is True
-

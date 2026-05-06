@@ -39,6 +39,7 @@ from skill_parser import SkillMetadata, parse_skill_content
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _profile(**kwargs) -> ContextProfile:
     defaults = dict(
         tech_stack=["fastapi", "postgres"],
@@ -87,6 +88,7 @@ def _make_installer(tmp_path: Path, *, dry_run: bool = False) -> tuple[Installer
 # =============================================================================
 # scorer.py — _compute_recency edge cases
 # =============================================================================
+
 
 class TestComputeRecency:
     """Boundary conditions for _compute_recency()."""
@@ -143,6 +145,7 @@ class TestComputeRecency:
 # scorer.py — star score boundary
 # =============================================================================
 
+
 class TestStarScore:
     def test_zero_stars_log_normalised_to_zero(self):
         """log10(max(0,1)) / 4 = log10(1)/4 = 0.0"""
@@ -168,6 +171,7 @@ class TestStarScore:
 
     def test_hundred_stars_between_zero_and_one(self):
         import math
+
         r = _result(stars=100)
         s = _score_single(r, None, _profile())
         expected = min(math.log10(100) / 4, 1.0)  # 2/4 = 0.5
@@ -177,6 +181,7 @@ class TestStarScore:
 # =============================================================================
 # scorer.py — trust tier
 # =============================================================================
+
 
 class TestTrustTierScore:
     def test_verified_scores_highest(self):
@@ -205,6 +210,7 @@ class TestTrustTierScore:
 # scorer.py — YAGNI multiplier
 # =============================================================================
 
+
 class TestYagniMultiplier:
     def test_active_domain_match_gives_2x(self):
         profile = _profile(active_domains=["fastapi"], tech_stack=["fastapi"])
@@ -220,8 +226,10 @@ class TestYagniMultiplier:
 
     def test_dormant_domain_match_gives_half_x(self):
         profile = _profile(
-            active_domains=[], recent_domains=[],
-            dormant_domains=["redis"], tech_stack=["redis"],
+            active_domains=[],
+            recent_domains=[],
+            dormant_domains=["redis"],
+            tech_stack=["redis"],
         )
         r = _result(name="redis-helper", repo_name="redis-helper")
         s = _score_single(r, None, profile)
@@ -237,6 +245,7 @@ class TestYagniMultiplier:
 # =============================================================================
 # scorer.py — stack/domain neutral when empty
 # =============================================================================
+
 
 class TestStackDomainNeutral:
     def test_empty_tech_stack_returns_neutral_stack_score(self):
@@ -267,6 +276,7 @@ class TestStackDomainNeutral:
 # scorer.py — config weights + score cap
 # =============================================================================
 
+
 class TestScorerConfigAndCap:
     def test_custom_config_weights_applied(self):
         """Config dict with different weights must change total score."""
@@ -275,10 +285,17 @@ class TestScorerConfigAndCap:
         default_scored = score_results([r], profile)[0]
 
         # Override trust to 1.0 weight, everything else 0 — total = trust score
-        config = {"scoring": {"weights": {
-            "stack_match": 0.0, "domain_match": 0.0,
-            "star_score": 0.0, "recency_score": 0.0, "trust_score": 1.0,
-        }}}
+        config = {
+            "scoring": {
+                "weights": {
+                    "stack_match": 0.0,
+                    "domain_match": 0.0,
+                    "star_score": 0.0,
+                    "recency_score": 0.0,
+                    "trust_score": 1.0,
+                }
+            }
+        }
         custom_scored = score_results([r], profile, config=config)[0]
         assert custom_scored.total_score != default_scored.total_score
 
@@ -317,7 +334,9 @@ class TestScorerConfigAndCap:
         plain = score_results([r], profile)[0]
 
         # With metadata that contains "fastapi"
-        meta = SkillMetadata(name="generic-helper", description="FastAPI integration", body="fastapi helper")
+        meta = SkillMetadata(
+            name="generic-helper", description="FastAPI integration", body="fastapi helper"
+        )
         enriched = score_results([r], profile, metadata_map={r.repo_url: meta})[0]
 
         assert enriched.stack_match_score >= plain.stack_match_score
@@ -326,6 +345,7 @@ class TestScorerConfigAndCap:
 # =============================================================================
 # security_scan.py — edge cases
 # =============================================================================
+
 
 class TestSecurityScanEdgeCases:
     def test_empty_content_is_green(self):
@@ -339,14 +359,18 @@ class TestSecurityScanEdgeCases:
 
     def test_eval_call_is_yellow(self):
         result = scan_skill("result = eval(user_input)")
-        yellow = [f for f in result.findings if f.severity == "YELLOW" and "eval" in f.description.lower()]
+        yellow = [
+            f for f in result.findings if f.severity == "YELLOW" and "eval" in f.description.lower()
+        ]
         assert len(yellow) > 0
 
     def test_exec_call_is_yellow(self):
         result = scan_skill("exec(payload)")
         assert result.severity in ("YELLOW", "RED")
-        assert any("eval" in f.description.lower() or "exec" in f.description.lower()
-                   for f in result.findings)
+        assert any(
+            "eval" in f.description.lower() or "exec" in f.description.lower()
+            for f in result.findings
+        )
 
     def test_compile_exec_is_yellow(self):
         result = scan_skill("compile(src, '<string>', exec)")
@@ -390,7 +414,9 @@ class TestSecurityScanEdgeCases:
         assert any(f.severity == "RED" for f in result.findings)
 
     def test_bearer_token_is_red(self):
-        result = scan_skill("Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9abcdefghijklmn")
+        result = scan_skill(
+            "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9abcdefghijklmn"
+        )
         assert any(f.severity == "RED" for f in result.findings)
 
     def test_multiple_red_patterns_all_found(self):
@@ -428,6 +454,7 @@ class TestSecurityScanEdgeCases:
 # =============================================================================
 # context_extractor.py — edge cases
 # =============================================================================
+
 
 class TestContextExtractorEdgeCases:
     def test_nonexistent_path_returns_empty_profile(self, tmp_path):
@@ -482,6 +509,7 @@ class TestContextExtractorEdgeCases:
 # =============================================================================
 # registry.py — edge cases
 # =============================================================================
+
 
 class TestRegistryEdgeCases:
     def test_snapshot_on_empty_registry_does_not_raise(self, tmp_path):
@@ -565,6 +593,7 @@ class TestRegistryEdgeCases:
 # installer.py — edge cases
 # =============================================================================
 
+
 class TestInstallerEdgeCases:
     def test_enable_logs_action(self, tmp_path):
         """enable() should call _log_action just like disable() does."""
@@ -626,9 +655,9 @@ class TestInstallerEdgeCases:
 
         r = _result(repo_name="danger", repo_url="https://github.com/o/danger")
         scored = ScoredResult(hunt_result=r, skill_metadata=None, total_score=0.9)
-        red_scan = ScanResult(severity="RED", findings=[
-            ScanFinding("SP-001", "RED", "Injection", "body")
-        ])
+        red_scan = ScanResult(
+            severity="RED", findings=[ScanFinding("SP-001", "RED", "Injection", "body")]
+        )
         actions = build_action_list(
             top_results=[scored],
             scan_results={r.repo_url: red_scan},
@@ -673,6 +702,7 @@ class TestInstallerEdgeCases:
 # hunter.py — edge cases
 # =============================================================================
 
+
 class TestHunterEdgeCases:
     def test_build_queries_empty_tech_stack_no_crash(self):
         h = Hunter(github_token=None)
@@ -708,9 +738,7 @@ class TestHunterEdgeCases:
         mock_resp.status_code = 404
         h._session = MagicMock()
         h._session.get.return_value = mock_resp
-        result = h._fetch_skill_content(
-            "https://github.com/owner/repo/blob/main/SKILL.md"
-        )
+        result = h._fetch_skill_content("https://github.com/owner/repo/blob/main/SKILL.md")
         assert result is None
 
     def test_fetch_repo_metadata_404_returns_none(self):
@@ -743,6 +771,7 @@ class TestHunterEdgeCases:
 # =============================================================================
 # skill_parser.py — edge cases
 # =============================================================================
+
 
 class TestSkillParserEdgeCases:
     def test_empty_string_returns_empty_metadata(self):

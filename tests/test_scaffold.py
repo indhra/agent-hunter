@@ -20,6 +20,7 @@ from context_extractor import ContextProfile  # noqa: E402
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_profile(tech_stack=None, domain_tags=None) -> ContextProfile:
     p = ContextProfile()
     p.tech_stack = tech_stack if tech_stack is not None else ["fastapi", "python"]
@@ -30,6 +31,7 @@ def _make_profile(tech_stack=None, domain_tags=None) -> ContextProfile:
 # ---------------------------------------------------------------------------
 # _slugify
 # ---------------------------------------------------------------------------
+
 
 class TestSlugify:
     def test_simple_name(self):
@@ -54,6 +56,7 @@ class TestSlugify:
 # ---------------------------------------------------------------------------
 # _fill_template
 # ---------------------------------------------------------------------------
+
 
 class TestFillTemplate:
     def test_fills_skill_name(self):
@@ -97,6 +100,7 @@ class TestFillTemplate:
 # _load_template
 # ---------------------------------------------------------------------------
 
+
 class TestLoadTemplate:
     def test_loads_from_assets_if_exists(self, tmp_path):
         fake_template = "# Template content"
@@ -115,6 +119,7 @@ class TestLoadTemplate:
 # ---------------------------------------------------------------------------
 # scaffold_skill
 # ---------------------------------------------------------------------------
+
 
 class TestScaffoldSkill:
     def test_creates_file_at_default_path(self, tmp_path, capsys):

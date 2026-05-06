@@ -21,6 +21,7 @@ from hunter import Hunter, HuntResult, _to_raw_url
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def make_hunter(**kwargs) -> Hunter:
     defaults = dict(min_stars=10, max_age_days=180, include_mcp=True)
     defaults.update(kwargs)
@@ -44,7 +45,9 @@ def make_result(**kwargs) -> HuntResult:
     return HuntResult(**defaults)
 
 
-def _mock_response(status_code: int = 200, json_data: dict | None = None, text: str = "") -> MagicMock:
+def _mock_response(
+    status_code: int = 200, json_data: dict | None = None, text: str = ""
+) -> MagicMock:
     resp = MagicMock()
     resp.status_code = status_code
     resp.json.return_value = json_data or {}
@@ -52,8 +55,12 @@ def _mock_response(status_code: int = 200, json_data: dict | None = None, text: 
     return resp
 
 
-RECENT_DATE = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=10)).strftime("%Y-%m-%dT%H:%M:%SZ")
-OLD_DATE = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=400)).strftime("%Y-%m-%dT%H:%M:%SZ")
+RECENT_DATE = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=10)).strftime(
+    "%Y-%m-%dT%H:%M:%SZ"
+)
+OLD_DATE = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=400)).strftime(
+    "%Y-%m-%dT%H:%M:%SZ"
+)
 
 REPO_META_OK = {
     "pushed_at": RECENT_DATE,
@@ -78,6 +85,7 @@ REPO_META_NO_LANG = {
 # ---------------------------------------------------------------------------
 # _to_raw_url
 # ---------------------------------------------------------------------------
+
 
 class TestToRawUrl:
     def test_blob_url_converted(self):
@@ -114,6 +122,7 @@ class TestToRawUrl:
 # _passes_prefilter — stars gate
 # ---------------------------------------------------------------------------
 
+
 class TestPrefilterStars:
     def test_too_few_stars_excluded(self):
         h = make_hunter(min_stars=50)
@@ -135,6 +144,7 @@ class TestPrefilterStars:
 # ---------------------------------------------------------------------------
 # _passes_prefilter — recency
 # ---------------------------------------------------------------------------
+
 
 class TestPrefilterRecency:
     @patch("hunter.Hunter._fetch_repo_metadata")
@@ -183,6 +193,7 @@ class TestPrefilterRecency:
 # _passes_prefilter — language / empty repo
 # ---------------------------------------------------------------------------
 
+
 class TestPrefilterLanguage:
     @patch("hunter.Hunter._fetch_repo_metadata")
     def test_no_language_no_size_excluded(self, mock_meta):
@@ -206,6 +217,7 @@ class TestPrefilterLanguage:
 # _passes_prefilter — API failure handling
 # ---------------------------------------------------------------------------
 
+
 class TestPrefilterApiFail:
     @patch("hunter.Hunter._fetch_repo_metadata")
     def test_api_failure_excludes_result(self, mock_meta):
@@ -225,23 +237,20 @@ class TestPrefilterApiFail:
 # _fetch_skill_content
 # ---------------------------------------------------------------------------
 
+
 class TestFetchSkillContent:
     def test_fetches_raw_content(self):
         h = make_hunter()
         with patch.object(h._session, "get") as mock_get:
             mock_get.return_value = _mock_response(200, text="# SKILL\nHello")
-            content = h._fetch_skill_content(
-                "https://github.com/owner/repo/blob/main/SKILL.md"
-            )
+            content = h._fetch_skill_content("https://github.com/owner/repo/blob/main/SKILL.md")
         assert content == "# SKILL\nHello"
 
     def test_404_returns_none(self):
         h = make_hunter()
         with patch.object(h._session, "get") as mock_get:
             mock_get.return_value = _mock_response(404)
-            content = h._fetch_skill_content(
-                "https://github.com/owner/repo/blob/main/SKILL.md"
-            )
+            content = h._fetch_skill_content("https://github.com/owner/repo/blob/main/SKILL.md")
         assert content is None
 
     def test_unknown_url_returns_none(self):
@@ -252,10 +261,9 @@ class TestFetchSkillContent:
     def test_network_error_returns_none(self):
         h = make_hunter()
         import requests as req
+
         with patch.object(h._session, "get", side_effect=req.RequestException("timeout")):
-            content = h._fetch_skill_content(
-                "https://github.com/owner/repo/blob/main/SKILL.md"
-            )
+            content = h._fetch_skill_content("https://github.com/owner/repo/blob/main/SKILL.md")
         assert content is None
 
     def test_raw_content_stored_on_result(self):
@@ -275,9 +283,7 @@ class TestFetchSkillContent:
         with patch.object(h._session, "get") as mock_get:
             mock_get.return_value = _mock_response(429)
             with patch("hunter.time.sleep"):  # don't actually sleep in tests
-                content = h._fetch_skill_content(
-                    "https://github.com/owner/repo/blob/main/SKILL.md"
-                )
+                content = h._fetch_skill_content("https://github.com/owner/repo/blob/main/SKILL.md")
         assert content is None
 
     def test_rate_limit_uses_retry_after_header(self):
@@ -288,17 +294,15 @@ class TestFetchSkillContent:
             resp_429 = MagicMock()
             resp_429.status_code = 429
             resp_429.headers = {"Retry-After": "10"}  # Expect 10s backoff
-            
+
             # Second response: success
             resp_200 = _mock_response(200, text="# SKILL content")
-            
+
             mock_get.side_effect = [resp_429, resp_200]
-            
+
             with patch("hunter.time.sleep") as mock_sleep:
-                content = h._fetch_skill_content(
-                    "https://github.com/owner/repo/blob/main/SKILL.md"
-                )
-            
+                content = h._fetch_skill_content("https://github.com/owner/repo/blob/main/SKILL.md")
+
             # Should have slept for 10s (from header)
             mock_sleep.assert_called_with(10)
             assert content == "# SKILL content"
@@ -311,17 +315,16 @@ class TestFetchSkillContent:
             resp_429 = MagicMock()
             resp_429.status_code = 429
             resp_429.headers = {}  # No Retry-After
-            
+
             resp_200 = _mock_response(200, text="success")
             mock_get.side_effect = [resp_429, resp_200]
-            
+
             with patch("hunter.time.sleep") as mock_sleep:
-                content = h._fetch_skill_content(
-                    "https://github.com/owner/repo/blob/main/SKILL.md"
-                )
-            
+                content = h._fetch_skill_content("https://github.com/owner/repo/blob/main/SKILL.md")
+
             # Should have slept for RATE_LIMIT_BACKOFF_SECONDS (60)
             from hunter import RATE_LIMIT_BACKOFF_SECONDS
+
             mock_sleep.assert_called_with(RATE_LIMIT_BACKOFF_SECONDS)
             assert content == "success"
 
@@ -332,13 +335,13 @@ class TestFetchSkillContent:
             resp_429 = MagicMock()
             resp_429.status_code = 429
             resp_429.headers = {"Retry-After": "5"}
-            
+
             resp_200 = _mock_response(200, json_data=REPO_META_OK)
             mock_get.side_effect = [resp_429, resp_200]
-            
+
             with patch("hunter.time.sleep") as mock_sleep:
                 meta = h._fetch_repo_metadata("owner", "repo")
-            
+
             mock_sleep.assert_called_with(5)
             assert meta == REPO_META_OK
 
@@ -346,6 +349,7 @@ class TestFetchSkillContent:
 # ---------------------------------------------------------------------------
 # _fetch_repo_metadata
 # ---------------------------------------------------------------------------
+
 
 class TestFetchRepoMetadata:
     def test_returns_metadata_on_200(self):
@@ -365,6 +369,7 @@ class TestFetchRepoMetadata:
     def test_returns_none_on_network_error(self):
         h = make_hunter()
         import requests as req
+
         with patch.object(h._session, "get", side_effect=req.RequestException("fail")):
             meta = h._fetch_repo_metadata("owner", "repo")
         assert meta is None
@@ -393,13 +398,12 @@ class TestFetchRepoMetadata:
 # _load_verified_urls
 # ---------------------------------------------------------------------------
 
+
 class TestLoadVerifiedUrls:
     def test_parses_repo_url_from_verified_skills(self, tmp_path):
         md = tmp_path / "VERIFIED_SKILLS.md"
         md.write_text(
-            "### my-skill\n"
-            "- **Repo:** https://github.com/owner/skill-x\n"
-            "- **License:** MIT\n"
+            "### my-skill\n- **Repo:** https://github.com/owner/skill-x\n- **License:** MIT\n"
         )
         h = make_hunter(verified_index_path=md)
         urls = h._load_verified_urls()
@@ -408,8 +412,7 @@ class TestLoadVerifiedUrls:
     def test_multiple_repos_parsed(self, tmp_path):
         md = tmp_path / "VERIFIED_SKILLS.md"
         md.write_text(
-            "- **Repo:** https://github.com/a/skill-a\n"
-            "- **Repo:** https://github.com/b/skill-b\n"
+            "- **Repo:** https://github.com/a/skill-a\n- **Repo:** https://github.com/b/skill-b\n"
         )
         h = make_hunter(verified_index_path=md)
         urls = h._load_verified_urls()
@@ -446,6 +449,7 @@ class TestLoadVerifiedUrls:
 # ---------------------------------------------------------------------------
 # Pagination
 # ---------------------------------------------------------------------------
+
 
 class TestPagination:
     def test_fetches_page_2_when_page_1_full(self):
@@ -501,6 +505,7 @@ class TestPagination:
 # hunt() integration (all I/O mocked)
 # ---------------------------------------------------------------------------
 
+
 class TestHuntIntegration:
     def _make_search_item(self, name: str, stars: int = 100, idx: int = 0) -> dict:
         return {
@@ -522,6 +527,7 @@ class TestHuntIntegration:
         h = make_hunter()
 
         from context_extractor import ContextProfile
+
         profile = ContextProfile(tech_stack=["fastapi"])
 
         item = self._make_search_item("skill-x")
@@ -541,6 +547,7 @@ class TestHuntIntegration:
         h = make_hunter(min_stars=100)
 
         from context_extractor import ContextProfile
+
         profile = ContextProfile(tech_stack=["fastapi"])
 
         low_star_item = self._make_search_item("bad-skill", stars=5)
@@ -553,9 +560,11 @@ class TestHuntIntegration:
     def test_hunt_returns_empty_on_search_failure(self):
         h = make_hunter()
         from context_extractor import ContextProfile
+
         profile = ContextProfile(tech_stack=["fastapi"])
 
         import requests as req
+
         with patch.object(h._session, "get", side_effect=req.RequestException("down")):
             results = h.hunt(profile)
 
@@ -571,6 +580,7 @@ class TestHuntIntegration:
         h = make_hunter()
 
         from context_extractor import ContextProfile
+
         profile = ContextProfile(tech_stack=["fastapi"])
 
         item = self._make_search_item("skill-y")
@@ -588,6 +598,7 @@ class TestHuntIntegration:
 # ---------------------------------------------------------------------------
 # MCP Server Hunting
 # ---------------------------------------------------------------------------
+
 
 class TestMCPHunting:
     def _make_mcp_search_item(self, name: str, stars: int = 100) -> dict:
@@ -646,6 +657,7 @@ class TestMCPHunting:
     def test_build_queries_includes_mcp_queries(self):
         h = make_hunter(include_mcp=True)
         from context_extractor import ContextProfile
+
         profile = ContextProfile(tech_stack=["fastapi", "nodejs"])
         queries = h._build_queries(profile)
         mcp_queries = [q for q in queries if q[1] == "mcp"]
@@ -655,6 +667,7 @@ class TestMCPHunting:
     def test_build_queries_respects_include_mcp_false(self):
         h = make_hunter(include_mcp=False)
         from context_extractor import ContextProfile
+
         profile = ContextProfile(tech_stack=["fastapi"])
         queries = h._build_queries(profile)
         mcp_queries = [q for q in queries if q[1] == "mcp"]
@@ -668,6 +681,7 @@ class TestMCPHunting:
         h = make_hunter(include_mcp=True)
 
         from context_extractor import ContextProfile
+
         profile = ContextProfile(tech_stack=["fastapi"])
 
         skill_item = {

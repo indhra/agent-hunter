@@ -22,10 +22,14 @@ FIXTURES = Path(__file__).parent / "fixtures"
 # Clean skill — should produce GREEN, no findings
 # ---------------------------------------------------------------------------
 
+
 class TestCleanSkill:
     def setup_method(self):
         self.content = (FIXTURES / "clean_skill.md").read_text()
-        self.result = scan_skill(content=self.content, description="Manage Alembic database migrations for FastAPI projects.")
+        self.result = scan_skill(
+            content=self.content,
+            description="Manage Alembic database migrations for FastAPI projects.",
+        )
 
     def test_clean_is_green(self):
         assert self.result.severity == "GREEN"
@@ -40,6 +44,7 @@ class TestCleanSkill:
 # ---------------------------------------------------------------------------
 # Malicious skill — should produce RED findings
 # ---------------------------------------------------------------------------
+
 
 class TestMaliciousSkill:
     def setup_method(self):
@@ -58,7 +63,11 @@ class TestMaliciousSkill:
         assert len(description_findings) > 0, "Should detect prompt injection in description"
 
     def test_malicious_detects_shell_exec(self):
-        shell_findings = [f for f in self.result.findings if "shell" in f.description.lower() or "subprocess" in f.description.lower()]
+        shell_findings = [
+            f
+            for f in self.result.findings
+            if "shell" in f.description.lower() or "subprocess" in f.description.lower()
+        ]
         assert len(shell_findings) > 0, "Should detect subprocess shell execution"
 
     def test_malicious_detects_env_exfil(self):
@@ -72,6 +81,7 @@ class TestMaliciousSkill:
 # ---------------------------------------------------------------------------
 # Inline content tests — prompt injection patterns
 # ---------------------------------------------------------------------------
+
 
 class TestPromptInjectionPatterns:
     def test_ignore_previous_instructions(self):
@@ -103,6 +113,7 @@ class TestPromptInjectionPatterns:
 # Shell execution patterns
 # ---------------------------------------------------------------------------
 
+
 class TestShellExecPatterns:
     def test_os_system(self):
         result = scan_skill(content='import os\nos.system("rm -rf /")')
@@ -116,14 +127,14 @@ class TestShellExecPatterns:
         # subprocess with shell=False is generally safe
         result = scan_skill(content='subprocess.run(["git", "log"], capture_output=True)')
         assert not any(
-            "shell" in f.description.lower() and f.severity == "RED"
-            for f in result.findings
+            "shell" in f.description.lower() and f.severity == "RED" for f in result.findings
         )
 
 
 # ---------------------------------------------------------------------------
 # Secret patterns
 # ---------------------------------------------------------------------------
+
 
 class TestSecretPatterns:
     def test_github_pat(self):
@@ -138,6 +149,7 @@ class TestSecretPatterns:
 # ---------------------------------------------------------------------------
 # Known malicious index
 # ---------------------------------------------------------------------------
+
 
 class TestKnownMaliciousIndex:
     def test_blocked_url(self):

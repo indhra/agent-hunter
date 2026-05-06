@@ -59,6 +59,7 @@ MCP_JSON_NESTED = {
 # Tests for parse_mcp_json
 # ---------------------------------------------------------------------------
 
+
 class TestParseMCPJson:
     def test_parses_valid_stdio_mcp(self):
         content = json.dumps(MCP_JSON_STDIO)
@@ -120,6 +121,7 @@ class TestParseMCPJson:
 # Tests for _extract_transport
 # ---------------------------------------------------------------------------
 
+
 class TestExtractTransport:
     def test_direct_transport_field(self):
         data = {"name": "test", "transport": "stdio"}
@@ -153,6 +155,7 @@ class TestExtractTransport:
 # ---------------------------------------------------------------------------
 # Tests for _infer_install_command
 # ---------------------------------------------------------------------------
+
 
 class TestInferInstallCommand:
     def test_uses_explicit_command(self):
@@ -191,6 +194,7 @@ class TestInferInstallCommand:
 # Tests for is_mcp_server_py
 # ---------------------------------------------------------------------------
 
+
 class TestIsMcpServerPy:
     def test_detects_mcp_import(self):
         content = "from mcp import Server\napp = Server()"
@@ -222,6 +226,7 @@ class TestIsMcpServerPy:
 # ---------------------------------------------------------------------------
 # Integration tests
 # ---------------------------------------------------------------------------
+
 
 class TestMCPIntegration:
     def test_full_parse_workflow(self):

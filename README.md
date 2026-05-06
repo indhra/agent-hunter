@@ -205,17 +205,17 @@ Domain: backend
    Security scanner for Claude skills. 🟢 VERIFIED
    Score: 4.8/5.0  Trust: verified  Stars: 2400
    Reason: Exact stack match (fastapi+pydantic). Active (2d).
-   
+
 2. ⭐⭐⭐⭐  autotest (by /author)
    Auto-generate pytest tests from docstrings.  🟢 COMMUNITY
    Score: 4.3/5.0  Trust: community  Stars: 890
    Reason: Stack match (pytest). Used in your sessions (8 days ago).
-   
+
 3. ⭐⭐⭐⭐  db-migrate (by /someone-else)
    PostgreSQL schema versioning + rollback. 🟡 RAW
    Score: 3.9/5.0  Trust: raw  Stars: 340
    Reason: Domain match (backend+database). Newer (4d).
-   
+
 [Install any? Type: agent-hunter install trusty]
 
 2 results RED-scanned (hidden) — use --show-scan-details to review

@@ -57,7 +57,7 @@ When the user says something like:
 ---
 
 <!-- Remove this comment block before shipping -->
-<!-- 
+<!--
   CHECKLIST before removing draft status:
   - [ ] All {{placeholders}} replaced
   - [ ] Triggers tested: does this activate when you want it to? Does it NOT activate when you don't?

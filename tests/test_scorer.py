@@ -50,19 +50,26 @@ def make_result(**kwargs) -> HuntResult:
 class TestScoring:
     def test_returns_sorted_by_score(self):
         profile = make_profile()
-        high = make_result(stars=500, name="fastapi-postgres-skill",
-                          repo_url="https://github.com/a/a", trust_tier="verified")
-        low = make_result(stars=10, name="rust-game-engine",
-                         repo_url="https://github.com/b/b", trust_tier="raw")
+        high = make_result(
+            stars=500,
+            name="fastapi-postgres-skill",
+            repo_url="https://github.com/a/a",
+            trust_tier="verified",
+        )
+        low = make_result(
+            stars=10, name="rust-game-engine", repo_url="https://github.com/b/b", trust_tier="raw"
+        )
         results = score_results([low, high], profile)
         assert results[0].hunt_result.repo_url == high.repo_url
 
     def test_verified_scores_higher_than_raw(self):
         profile = make_profile()
-        verified = make_result(repo_url="https://github.com/a/a", trust_tier="verified",
-                               stars=50, name="fastapi-skill")
-        raw = make_result(repo_url="https://github.com/b/b", trust_tier="raw",
-                          stars=50, name="fastapi-skill")
+        verified = make_result(
+            repo_url="https://github.com/a/a", trust_tier="verified", stars=50, name="fastapi-skill"
+        )
+        raw = make_result(
+            repo_url="https://github.com/b/b", trust_tier="raw", stars=50, name="fastapi-skill"
+        )
         results = score_results([raw, verified], profile)
         assert results[0].hunt_result.trust_tier == "verified"
 
@@ -74,8 +81,9 @@ class TestScoring:
 
     def test_yagni_active_domain_boosts_score(self):
         profile = make_profile(active_domains=["fastapi"])
-        active = make_result(name="fastapi-helper", repo_name="fastapi-helper",
-                             repo_url="https://github.com/a/a")
+        active = make_result(
+            name="fastapi-helper", repo_name="fastapi-helper", repo_url="https://github.com/a/a"
+        )
         dormant_profile = make_profile(dormant_domains=["fastapi"], active_domains=[])
         results_active = score_results([active], profile)
         results_dormant = score_results([active], dormant_profile)
@@ -83,10 +91,12 @@ class TestScoring:
 
     def test_recent_commit_scores_higher_than_stale(self):
         profile = make_profile()
-        fresh = make_result(last_commit_date=datetime.now() - timedelta(days=5),
-                            repo_url="https://github.com/a/a")
-        stale = make_result(last_commit_date=datetime.now() - timedelta(days=170),
-                            repo_url="https://github.com/b/b")
+        fresh = make_result(
+            last_commit_date=datetime.now() - timedelta(days=5), repo_url="https://github.com/a/a"
+        )
+        stale = make_result(
+            last_commit_date=datetime.now() - timedelta(days=170), repo_url="https://github.com/b/b"
+        )
         results = score_results([stale, fresh], profile)
         assert results[0].hunt_result.repo_url == fresh.repo_url
 
@@ -115,31 +125,34 @@ class TestInstallLogFeedback:
         # Setup: create mock install_log.jsonl
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         old_install_ts = (now - timedelta(days=35)).isoformat()
-        
+
         install_log.write_text(
-            json.dumps({
-                "skill_name": "old-skill",
-                "action": "install",
-                "timestamp": old_install_ts,
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "old-skill",
+                    "action": "install",
+                    "timestamp": old_install_ts,
+                }
+            )
+            + "\n"
         )
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         # Create profile with no session mentions of the skill
         profile = make_profile(session_skills=[])
-        
+
         skill = make_result(
             name="old-skill",
             repo_url="https://github.com/owner/old-skill",
             stars=100,
             last_commit_date=datetime.now() - timedelta(days=10),
         )
-        
+
         results = score_results([skill], profile)
         # Should have dormant multiplier applied (0.5×)
         assert results[0].yagni_multiplier == 0.5
@@ -148,21 +161,24 @@ class TestInstallLogFeedback:
         """Skill with recent session mentions should get a boost."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         recent_install_ts = (now - timedelta(days=5)).isoformat()
-        
+
         install_log.write_text(
-            json.dumps({
-                "skill_name": "active-skill",
-                "action": "install",
-                "timestamp": recent_install_ts,
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "active-skill",
+                    "action": "install",
+                    "timestamp": recent_install_ts,
+                }
+            )
+            + "\n"
         )
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         # Create profile WITH session mentions
         recent_date = datetime.now()
         profile = make_profile(
@@ -174,13 +190,13 @@ class TestInstallLogFeedback:
                 )
             ]
         )
-        
+
         skill = make_result(
             name="active-skill",
             repo_url="https://github.com/owner/active-skill",
             stars=50,
         )
-        
+
         results = score_results([skill], profile)
         # Should get active boost (up to 1.1×)
         assert results[0].yagni_multiplier >= 1.0
@@ -189,23 +205,23 @@ class TestInstallLogFeedback:
         """Skill not in install_log should use normal YAGNI logic."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         # Empty install_log
         (agent_hunter_dir / "install_log.jsonl").write_text("")
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         profile = make_profile(
             active_domains=["fastapi"],
             session_skills=[],
         )
-        
+
         skill = make_result(
             name="fastapi-helper",
             repo_url="https://github.com/owner/fastapi-helper",
             repo_name="fastapi-helper",
             stars=100,
         )
-        
+
         results = score_results([skill], profile)
         # Should use active_domains match (2.0×) not install_log
         assert results[0].yagni_multiplier == 2.0
@@ -214,45 +230,51 @@ class TestInstallLogFeedback:
         """_check_installed_skill_usage should detect dormant skills."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         old_ts = (now - timedelta(days=40)).isoformat()
-        
+
         install_log.write_text(
-            json.dumps({
-                "skill_name": "dormant-skill",
-                "action": "install",
-                "timestamp": old_ts,
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "dormant-skill",
+                    "action": "install",
+                    "timestamp": old_ts,
+                }
+            )
+            + "\n"
         )
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         profile = make_profile(session_skills=[])  # No mentions
         status = _check_installed_skill_usage("dormant-skill", profile)
-        
+
         assert status == "dormant"
 
     def test_check_installed_skill_usage_returns_active(self, tmp_path, monkeypatch):
         """_check_installed_skill_usage should detect actively used skills."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         recent_ts = (now - timedelta(days=10)).isoformat()
-        
+
         install_log.write_text(
-            json.dumps({
-                "skill_name": "active-skill",
-                "action": "install",
-                "timestamp": recent_ts,
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "active-skill",
+                    "action": "install",
+                    "timestamp": recent_ts,
+                }
+            )
+            + "\n"
         )
-        
+
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         profile = make_profile(
             session_skills=[
                 SkillUsage(
@@ -262,7 +284,7 @@ class TestInstallLogFeedback:
                 )
             ]
         )
-        
+
         status = _check_installed_skill_usage("active-skill", profile)
         assert status == "active"
 
@@ -270,23 +292,23 @@ class TestInstallLogFeedback:
         """Should return None for skills that aren't installed."""
         agent_hunter_dir = tmp_path / ".agent-hunter"
         agent_hunter_dir.mkdir()
-        
+
         (agent_hunter_dir / "install_log.jsonl").write_text("")
         monkeypatch.setenv("HOME", str(tmp_path))
-        
+
         profile = make_profile(session_skills=[])
         status = _check_installed_skill_usage("never-installed", profile)
-        
+
         assert status is None
 
     def test_install_log_missing_returns_none(self, tmp_path, monkeypatch):
         """Should gracefully return None if install_log doesn't exist."""
         monkeypatch.setenv("HOME", str(tmp_path))
         # Don't create .agent-hunter directory
-        
+
         profile = make_profile(session_skills=[])
         status = _check_installed_skill_usage("some-skill", profile)
-        
+
         assert status is None
 
 
@@ -294,12 +316,18 @@ class TestInstallLogFeedback:
 # _compute_recency edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestComputeRecency:
     def test_string_date_is_parsed(self):
         """ISO string dates should be parsed and scored correctly."""
         from hunter import HuntResult
+
         r = HuntResult(
-            name="x", repo_url="u", stars=1, result_type="skill", trust_tier="raw",
+            name="x",
+            repo_url="u",
+            stars=1,
+            result_type="skill",
+            trust_tier="raw",
             last_commit_date="2099-01-01",  # future date → recency = 1.0
         )
         score = _compute_recency(r)
@@ -308,8 +336,13 @@ class TestComputeRecency:
     def test_bad_string_date_returns_neutral(self):
         """Unparseable ISO string should return 0.5 (neutral)."""
         from hunter import HuntResult
+
         r = HuntResult(
-            name="x", repo_url="u", stars=1, result_type="skill", trust_tier="raw",
+            name="x",
+            repo_url="u",
+            stars=1,
+            result_type="skill",
+            trust_tier="raw",
             last_commit_date="not-a-date",
         )
         score = _compute_recency(r)
@@ -318,9 +351,14 @@ class TestComputeRecency:
     def test_timezone_aware_date_is_handled(self):
         """Timezone-aware datetime objects should be stripped and scored."""
         from hunter import HuntResult
+
         recent = datetime.now(timezone.utc) - timedelta(days=5)
         r = HuntResult(
-            name="x", repo_url="u", stars=1, result_type="skill", trust_tier="raw",
+            name="x",
+            repo_url="u",
+            stars=1,
+            result_type="skill",
+            trust_tier="raw",
             last_commit_date=recent,
         )
         score = _compute_recency(r)
@@ -329,8 +367,13 @@ class TestComputeRecency:
     def test_none_date_returns_neutral(self):
         """None last_commit_date should return 0.5."""
         from hunter import HuntResult
+
         r = HuntResult(
-            name="x", repo_url="u", stars=1, result_type="skill", trust_tier="raw",
+            name="x",
+            repo_url="u",
+            stars=1,
+            result_type="skill",
+            trust_tier="raw",
             last_commit_date=None,
         )
         score = _compute_recency(r)
@@ -339,8 +382,13 @@ class TestComputeRecency:
     def test_very_old_date_returns_zero(self):
         """Date 180+ days old should return 0.0."""
         from hunter import HuntResult
+
         r = HuntResult(
-            name="x", repo_url="u", stars=1, result_type="skill", trust_tier="raw",
+            name="x",
+            repo_url="u",
+            stars=1,
+            result_type="skill",
+            trust_tier="raw",
             last_commit_date=datetime.now() - timedelta(days=200),
         )
         score = _compute_recency(r)
@@ -351,18 +399,24 @@ class TestComputeRecency:
 # _compute_yagni edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestComputeYagni:
     def test_dormant_domain_match_returns_low_multiplier(self):
         """Skill matching dormant git domain should get 0.5× multiplier."""
         from hunter import HuntResult
+
         profile = make_profile(
             active_domains=[],
             recent_domains=[],
             dormant_domains=["rust"],
         )
         r = HuntResult(
-            name="rust-helper", repo_url="u", stars=1, result_type="skill",
-            trust_tier="raw", repo_name="rust-helper",
+            name="rust-helper",
+            repo_url="u",
+            stars=1,
+            result_type="skill",
+            trust_tier="raw",
+            repo_name="rust-helper",
         )
         with patch("scorer.Path.home") as mock_home:
             mock_home.return_value = Path("/nonexistent_path_xyz")
@@ -376,11 +430,14 @@ class TestComputeYagni:
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         install_log.write_text(
-            json.dumps({
-                "skill_name": "myskill",
-                "action": "install",
-                "timestamp": (now - timedelta(days=5)).isoformat(),
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "myskill",
+                    "action": "install",
+                    "timestamp": (now - timedelta(days=5)).isoformat(),
+                }
+            )
+            + "\n"
         )
         monkeypatch.setenv("HOME", str(tmp_path))
         profile = make_profile(
@@ -392,8 +449,12 @@ class TestComputeYagni:
             ],
         )
         r = HuntResult(
-            name="myskill", repo_url="u", stars=1, result_type="skill",
-            trust_tier="raw", repo_name="myskill",
+            name="myskill",
+            repo_url="u",
+            stars=1,
+            result_type="skill",
+            trust_tier="raw",
+            repo_name="myskill",
         )
         mult = _compute_yagni(r, profile)
         assert mult >= 1.0
@@ -405,11 +466,14 @@ class TestComputeYagni:
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         install_log.write_text(
-            json.dumps({
-                "skill_name": "oldskill",
-                "action": "install",
-                "timestamp": (now - timedelta(days=40)).isoformat(),
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "oldskill",
+                    "action": "install",
+                    "timestamp": (now - timedelta(days=40)).isoformat(),
+                }
+            )
+            + "\n"
         )
         monkeypatch.setenv("HOME", str(tmp_path))
         profile = make_profile(
@@ -419,8 +483,12 @@ class TestComputeYagni:
             session_skills=[],
         )
         r = HuntResult(
-            name="oldskill", repo_url="u", stars=1, result_type="skill",
-            trust_tier="raw", repo_name="oldskill",
+            name="oldskill",
+            repo_url="u",
+            stars=1,
+            result_type="skill",
+            trust_tier="raw",
+            repo_name="oldskill",
         )
         mult = _compute_yagni(r, profile)
         assert mult == 0.5
@@ -429,6 +497,7 @@ class TestComputeYagni:
 # ---------------------------------------------------------------------------
 # _check_installed_skill_usage edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestCheckInstalledSkillUsageEdgeCases:
     def test_oserror_reading_log_returns_none(self, tmp_path, monkeypatch):
@@ -454,11 +523,14 @@ class TestCheckInstalledSkillUsageEdgeCases:
         install_log.write_text(
             "not valid json\n"
             "{}\n"
-            + json.dumps({
-                "skill_name": "good-skill",
-                "action": "install",
-                "timestamp": (datetime.now() - timedelta(days=40)).isoformat(),
-            }) + "\n"
+            + json.dumps(
+                {
+                    "skill_name": "good-skill",
+                    "action": "install",
+                    "timestamp": (datetime.now() - timedelta(days=40)).isoformat(),
+                }
+            )
+            + "\n"
         )
         monkeypatch.setenv("HOME", str(tmp_path))
 
@@ -474,16 +546,22 @@ class TestCheckInstalledSkillUsageEdgeCases:
         # Old install, recent enable → should not be dormant
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         install_log.write_text(
-            json.dumps({
-                "skill_name": "reenabled-skill",
-                "action": "install",
-                "timestamp": (now - timedelta(days=60)).isoformat(),
-            }) + "\n"
-            + json.dumps({
-                "skill_name": "reenabled-skill",
-                "action": "enable",
-                "timestamp": (now - timedelta(days=2)).isoformat(),
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "reenabled-skill",
+                    "action": "install",
+                    "timestamp": (now - timedelta(days=60)).isoformat(),
+                }
+            )
+            + "\n"
+            + json.dumps(
+                {
+                    "skill_name": "reenabled-skill",
+                    "action": "enable",
+                    "timestamp": (now - timedelta(days=2)).isoformat(),
+                }
+            )
+            + "\n"
         )
         monkeypatch.setenv("HOME", str(tmp_path))
 
@@ -499,11 +577,14 @@ class TestCheckInstalledSkillUsageEdgeCases:
         install_log = agent_hunter_dir / "install_log.jsonl"
         now = datetime.now(timezone.utc).replace(tzinfo=None)
         install_log.write_text(
-            json.dumps({
-                "skill_name": "new-skill",
-                "action": "install",
-                "timestamp": (now - timedelta(days=10)).isoformat(),
-            }) + "\n"
+            json.dumps(
+                {
+                    "skill_name": "new-skill",
+                    "action": "install",
+                    "timestamp": (now - timedelta(days=10)).isoformat(),
+                }
+            )
+            + "\n"
         )
         monkeypatch.setenv("HOME", str(tmp_path))
         profile = make_profile(session_skills=[])

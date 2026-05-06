@@ -20,6 +20,7 @@ from registry import RegistryEntry
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _entry(**kwargs) -> RegistryEntry:
     defaults = dict(
         name="myskill",
@@ -45,6 +46,7 @@ def _make_updater(entries: list[RegistryEntry]) -> SkillUpdater:
 # UpdateRequest
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateRequest:
     def test_has_changes_when_content_differs(self):
         entry = _entry()
@@ -67,13 +69,14 @@ class TestUpdateRequest:
 # _extract_version
 # ---------------------------------------------------------------------------
 
+
 class TestExtractVersion:
     def test_extracts_version_from_frontmatter(self):
         content = "---\nname: test\nversion: 2.0.0\n---\nBody"
         assert _extract_version(content) == "2.0.0"
 
     def test_extracts_quoted_version(self):
-        content = "---\nversion: \"1.5.3\"\n---\nBody"
+        content = '---\nversion: "1.5.3"\n---\nBody'
         assert _extract_version(content) == "1.5.3"
 
     def test_handles_single_quotes(self):
@@ -92,6 +95,7 @@ class TestExtractVersion:
 # ---------------------------------------------------------------------------
 # SkillUpdater.check_updates
 # ---------------------------------------------------------------------------
+
 
 class TestCheckUpdates:
     def test_detects_update_when_remote_differs(self, tmp_path):
@@ -167,6 +171,7 @@ class TestCheckUpdates:
 # SkillUpdater.prompt_update
 # ---------------------------------------------------------------------------
 
+
 class TestPromptUpdate:
     def test_user_approve_with_y(self):
         entry = _entry()
@@ -226,6 +231,7 @@ class TestPromptUpdate:
 # SkillUpdater.apply_update
 # ---------------------------------------------------------------------------
 
+
 class TestApplyUpdate:
     def test_writes_remote_content_to_file(self, tmp_path):
         skill_file = tmp_path / "SKILL.md"
@@ -255,6 +261,7 @@ class TestApplyUpdate:
 # ---------------------------------------------------------------------------
 # SkillUpdater.run_interactive_update
 # ---------------------------------------------------------------------------
+
 
 class TestRunInteractiveUpdate:
     def test_no_updates_returns_zero(self, tmp_path, capsys):

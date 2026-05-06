@@ -71,6 +71,7 @@ PYTHON="$VENV_PYTHON"
 
 # ── 3. Make scripts executable ───────────────────────────────────────────────
 chmod +x "$SKILL_DIR/scripts/"*.py 2>/dev/null || true
+chmod +x "$SKILL_DIR/bin/"* 2>/dev/null || true
 green "✓ Scripts marked executable"
 
 # ── 3b. Symlink sub-skills into ~/.claude/skills/ ────────────────────────────
@@ -95,6 +96,19 @@ exec "$VENV_DIR/bin/python" "$SKILL_DIR/scripts/main.py" "\$@"
 WRAPPER
 chmod +x "$SKILL_DIR/bin/agent-hunter"
 green "✓ Wrapper written: $SKILL_DIR/bin/agent-hunter"
+
+# ── 4b. Add to PATH via ~/.local/bin symlink ─────────────────────────────────
+LOCAL_BIN="$HOME/.local/bin"
+mkdir -p "$LOCAL_BIN"
+LOCAL_LINK="$LOCAL_BIN/agent-hunter"
+ln -sf "$SKILL_DIR/bin/agent-hunter" "$LOCAL_LINK"
+green "✓ Linked to PATH: $LOCAL_LINK"
+
+# Remind user if ~/.local/bin isn't in PATH yet
+if ! echo ":$PATH:" | grep -q ":$LOCAL_BIN:"; then
+  yellow "  Note: Add ~/.local/bin to PATH to use 'agent-hunter' from any shell:"
+  yellow "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc  # or ~/.bash_profile"
+fi
 
 # ── 4. Verify the install works ──────────────────────────────────────────────
 echo ""
@@ -156,6 +170,6 @@ bold "Quick start:"
 echo "  In Claude Code, type: /agent-hunter"
 echo "  Or run directly:      $SKILL_DIR/bin/agent-hunter hunt ."
 echo ""
-echo "For a GitHub token (5,000 req/hr vs 60 unauthenticated):"
+echo "For a GitHub token (required — GitHub Code Search needs auth since 2024):"
 echo "  export GITHUB_TOKEN=your_token"
 echo ""

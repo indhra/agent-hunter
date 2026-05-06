@@ -73,6 +73,13 @@ class TestFullUpdateWorkflow:
         assert report.audit_results[0].update_available is True
 
         # Run update with user approval
+        # Snapshot the registry before updating (mirrors what cmd_update does)
+        backups_dir = tmp_path / "backups"
+        import registry as registry_module
+
+        with patch.object(registry_module, "BACKUPS_DIR", backups_dir):
+            reg.snapshot(trigger="pre_update")
+
         updater = SkillUpdater(registry=reg)
         with patch.object(updater.auditor, "_fetch_remote_skill_content", return_value=v2_content):
             with patch("builtins.input", return_value="y"):
@@ -91,7 +98,8 @@ class TestFullUpdateWorkflow:
         assert report2.audit_results[0].overall_status == "healthy"
 
         # Rollback registry only (doesn't restore skill file content)
-        success = rollback(registry=reg, interactive=False)
+        with patch.object(registry_module, "BACKUPS_DIR", backups_dir):
+            success = rollback(registry=reg, interactive=False)
         assert success is True
         # Skill file content is unchanged (still V2) — registry was rolled back only
         assert skill_file.read_text() == v2_content

@@ -28,21 +28,29 @@ pytest tests/ -v
 # Lint
 ruff check .
 
-# Run a hunt (once main.py exists)
+# Full hunt via bin wrapper (preferred)
+bin/hunt .
+
+# Or via main.py directly
 python scripts/main.py hunt .
 
-# Run security scan on a specific skill
-python scripts/security_scan.py path/to/SKILL.md
+# Security scan a specific skill
+bin/security-scan path/to/SKILL.md
 
 # Extract context from current project
-python scripts/context_extractor.py .
+bin/context-extract .
+
+# Raw GitHub search (pure bash/curl, no Python)
+bin/github-search "filename:SKILL.md fastapi"
 ```
 
 ## Key files
 
 | File | What it is |
 |---|---|
-| `SKILL.md` | The brain — Claude's step-by-step instructions for the hunt pipeline |
+| `SKILL.md` | The brain — Claude's step-by-step instructions; calls `bin/` scripts |
+| `bin/` | Bash wrappers Claude runs directly (gstack model) |
+| `bin/github-search` | Pure curl GitHub Code Search — no Python needed |
 | `SPEC.md` | Full technical specification (16 sections + robustness additions) |
 | `ROADMAP.md` | Versioned roadmap v0.4.0 → v1.0.0 with release gates |
 | `scripts/hunter.py` | GitHub API search — completed |

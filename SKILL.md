@@ -41,6 +41,19 @@ Security-scans every result before showing it. Never installs without your confi
 
 ---
 
+## Preamble (run first)
+
+```bash
+_AH_DIR="${AGENT_HUNTER_DIR:-$HOME/.claude/skills/agent-hunter}"
+_AH_BIN="$_AH_DIR/bin"
+echo "agent-hunter ready: $_AH_DIR"
+```
+
+All commands below use `~/.claude/skills/agent-hunter/bin/` as the bin prefix.
+If you installed to a custom location, set `AGENT_HUNTER_DIR` to that path.
+
+---
+
 ## Session Loop Guard
 
 **CRITICAL — READ FIRST:**
@@ -92,7 +105,7 @@ present and trusted, it delegates to them; if not, it uses its own built-in logi
 
 Run:
 ```bash
-python scripts/skill_parser.py --resolve-deps
+~/.claude/skills/agent-hunter/bin/resolve-deps
 ```
 
 This outputs a JSON map of `role → {status, trust_tier, use_fallback, fallback, path}`.
@@ -127,7 +140,7 @@ When the user gives a new prompt or feature request, autonomously formulate an i
 
 Run:
 ```bash
-python scripts/main.py hunt . --intent "<intent_string>"
+~/.claude/skills/agent-hunter/bin/hunt . --intent "<intent_string>"
 ```
 
 This orchestrated command reads dependency files and appends the dynamic intent string into the GitHub search query. The script handles context extraction, hunting, security scanning, scoring, and registry updates in one action.
@@ -243,7 +256,7 @@ Call `scripts/reporter.py` or format the report as follows:
 
 Save the report:
 ```bash
-python scripts/reporter.py
+~/.claude/skills/agent-hunter/bin/hunt . --save-report
 # saves to ~/.agent-hunter/reports/hunt_report_YYYY-MM-DD.md
 ```
 
@@ -299,10 +312,10 @@ python scripts/installer.py <action> <args>
 ```
 
 For each action in sequence:
-- **install**: `python scripts/installer.py install <owner> <repo> [--sha <sha>]`
-- **disable**: `python scripts/installer.py disable <skill_name>`
-- **rollback**: `python scripts/installer.py rollback <owner> <repo> <sha>`
-- **uninstall**: `python scripts/installer.py uninstall <skill_name>` (only if user explicitly asked)
+- **install**: `~/.claude/skills/agent-hunter/bin/installer install <owner> <repo> [--sha <sha>]`
+- **disable**: `~/.claude/skills/agent-hunter/bin/installer disable <skill_name>`
+- **rollback**: `~/.claude/skills/agent-hunter/bin/installer rollback <owner> <repo> <sha>`
+- **uninstall**: `~/.claude/skills/agent-hunter/bin/installer uninstall <skill_name>` (only if user explicitly asked)
 
 **Print each result as it completes:**
 ```
@@ -331,12 +344,12 @@ When triggered by "agent-hunter audit" or "audit installed skills":
 
 1. Write a pre-audit snapshot first (enables rollback):
    ```bash
-   python scripts/registry.py snapshot
+   ~/.claude/skills/agent-hunter/bin/registry snapshot
    ```
 
 2. Run the audit:
    ```bash
-   python scripts/audit.py
+   ~/.claude/skills/agent-hunter/bin/audit
    ```
 
 3. Show the health table. For any 🔴 issue:
@@ -351,7 +364,7 @@ When triggered by "agent-hunter audit" or "audit installed skills":
 When triggered by "agent-hunter rollback" or after a tamper flag:
 
 ```bash
-python scripts/rollback.py
+~/.claude/skills/agent-hunter/bin/rollback
 ```
 
 This restores the registry to the pre-audit/pre-update state.
@@ -364,7 +377,7 @@ Confirm with the user before running — show them what will be restored.
 When triggered by "agent-hunter context":
 
 ```bash
-python scripts/context_extractor.py .
+~/.claude/skills/agent-hunter/bin/context-extract .
 ```
 
 Show the full ContextProfile in a readable format:
@@ -386,7 +399,7 @@ When triggered by "agent-hunter scaffold <name>" or when hunt returns 0 results:
 
 2. Run:
    ```bash
-   python scripts/scaffold.py <name> --project .
+   ~/.claude/skills/agent-hunter/bin/scaffold <name> --project .
    ```
 
 3. Show the user the generated stub and walk them through customizing it.

@@ -41,16 +41,16 @@ Open Claude Code and paste this. Claude does the rest.
 
 > Install agent-hunter: run `git clone --single-branch --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter && cd ~/.claude/skills/agent-hunter && ./setup` then add an "agent-hunter" section to CLAUDE.md that says to use /agent-hunter to discover, security-scan, and install SKILL.md files and MCP servers relevant to the current project — run it before manually searching for skills, and lists the available skills: /agent-hunter, /agent-hunter-update. Then ask the user if they also want to add agent-hunter to the current project so teammates get it.
 
-### Step 2: Set your GitHub token (recommended)
+### Step 2: Set your GitHub token (required)
 
-Without a token: 60 GitHub API requests/hour. With a token: 5,000/hour.
+GitHub Code Search has required a token since February 2024. Without one, the hunt returns 0 results.
 
 ```bash
 export GITHUB_TOKEN=your_token_here
-# or add to ~/.zshrc / ~/.bashrc for persistence
+# or add to ~/.zshrc / ~/.bash_profile for persistence
 ```
 
-Generate at https://github.com/settings/tokens — no scopes needed for public repo search.
+Generate at https://github.com/settings/tokens — no scopes needed.
 
 ### Update
 
@@ -233,25 +233,33 @@ That's it. The skills are cloned to `~/.claude/skills/` and immediately availabl
 
 ## Commands
 
+Invoke via Claude Code (type a trigger phrase) or run the bin scripts directly:
+
 ```bash
-# Hunt for new skills + MCP servers matching your current project
-agent-hunter hunt
+# Full hunt — context → GitHub → scan → score → report
+~/.claude/skills/agent-hunter/bin/hunt [project_root] [--intent "<intent>"]
 
-# Review health of all installed skills (updates, security, conflicts)
-agent-hunter audit
+# Review health of all installed skills
+~/.claude/skills/agent-hunter/bin/audit
 
-# Update all installed skills with newer versions (user confirms)
-agent-hunter update
+# Restore registry to last known good snapshot
+~/.claude/skills/agent-hunter/bin/rollback
 
-# Roll back to last known healthy state (if tamper or bad update detected)
-agent-hunter rollback
+# Show what agent-hunter knows about your project
+~/.claude/skills/agent-hunter/bin/context-extract [project_root]
 
-# Show what agent-hunter knows about your current project context
-agent-hunter context
+# Security-scan a SKILL.md file
+~/.claude/skills/agent-hunter/bin/security-scan path/to/SKILL.md
 
-# Scaffold a new SKILL.md stub pre-filled with your project's stack
-agent-hunter scaffold <name>
+# Scaffold a new SKILL.md stub
+~/.claude/skills/agent-hunter/bin/scaffold <name> --project .
+
+# Raw GitHub Code Search (pure bash/curl, no Python)
+~/.claude/skills/agent-hunter/bin/github-search "filename:SKILL.md fastapi"
 ```
+
+The `~/.local/bin/agent-hunter` symlink is created by `./setup`, so after adding
+`~/.local/bin` to your PATH you can also run `agent-hunter hunt .` directly.
 
 ---
 

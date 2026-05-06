@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# github-search — query GitHub Code Search API via curl (no Python)
+# Usage: github-search "filename:SKILL.md python fastapi"
+# Output: GitHub JSON search response to stdout
+# Env:    GITHUB_TOKEN (required — GitHub Code Search requires auth since 2024)
+set -euo pipefail
+
+QUERY="${1:-}"
+if [ -z "$QUERY" ]; then
+  echo "[agent-hunter] Usage: github-search <query>" >&2
+  exit 1
+fi
+
+if [ -z "${GITHUB_TOKEN:-}" ]; then
+  echo "[agent-hunter] GitHub authentication required." >&2
+  echo "  GitHub Code Search has required a token since 2024." >&2
+  echo "  Get a free token (no special scopes needed):" >&2
+  echo "    https://github.com/settings/tokens" >&2
+  echo "  Then: export GITHUB_TOKEN=<your_token>" >&2
+  exit 1
+fi
+
+curl -sf --max-time 15 \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  -H "Accept: application/vnd.github+json" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  --get \
+  --data-urlencode "q=$QUERY" \
+  --data-urlencode "per_page=30" \
+  "https://api.github.com/search/code"

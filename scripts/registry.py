@@ -125,16 +125,22 @@ class Registry:
         except (FileNotFoundError, subprocess.CalledProcessError):
             pass  # Not a git repo or git not installed
 
-        # Create snapshot with metadata + CRC32 checksum
+        # Create snapshot with metadata + CRC32 checksum.
+        # CRC32 is computed over the compact JSON of the registry dict
+        # (same format used by validate_snapshot_integrity) so roundtrips match.
         registry_content = self.registry_path.read_bytes()
-        crc32_checksum = zlib.crc32(registry_content) & 0xFFFFFFFF
+        registry_data = json.loads(registry_content.decode("utf-8"))
+        registry_compact = json.dumps(
+            registry_data, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+        crc32_checksum = zlib.crc32(registry_compact) & 0xFFFFFFFF
 
         snapshot_data = {
             "snapshot_time": datetime.now(timezone.utc).isoformat(),
             "trigger": trigger,
             "git_branch": git_branch,
             "crc32": f"{crc32_checksum:08x}",
-            "registry": json.loads(registry_content.decode("utf-8")),
+            "registry": registry_data,
         }
 
         # Use descriptive naming: pre_audit_20260503_143022.json
@@ -271,18 +277,19 @@ class Registry:
         from pathlib import Path
 
         config_file = Path.home() / ".agent-hunter" / "config.json"
-        max_snapshots = 30  # default
+        max_snapshots = MAX_BACKUPS  # default (configurable via max_snapshots_kept)
         retention_days = 90  # default
 
         if config_file.exists():
             try:
                 config = json.loads(config_file.read_text(encoding="utf-8"))
-                max_snapshots = config.get("max_snapshots_kept", 30)
+                max_snapshots = config.get("max_snapshots_kept", MAX_BACKUPS)
                 retention_days = config.get("snapshot_retention_days", 90)
             except (json.JSONDecodeError, OSError):
                 pass
 
-        snapshots = sorted(BACKUPS_DIR.glob("*.json"))
+        # Sort by mtime so chronological order is preserved regardless of filename prefix
+        snapshots = sorted(BACKUPS_DIR.glob("*.json"), key=lambda f: f.stat().st_mtime)
 
         # Delete old by count
         for old in snapshots[:-max_snapshots]:

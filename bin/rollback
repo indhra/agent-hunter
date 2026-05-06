@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# rollback — restore registry to last known good snapshot
+# Usage: rollback
+# Output: interactive restore prompt
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$SKILL_DIR/.venv/bin/python" -c "
+import sys
+sys.path.insert(0, '$SKILL_DIR/scripts')
+from rollback import rollback, list_backups_cmd
+import argparse
+p = argparse.ArgumentParser()
+p.add_argument('--list', action='store_true')
+p.add_argument('--to', dest='to_snapshot', default=None)
+args = p.parse_args()
+if args.list:
+    list_backups_cmd()
+else:
+    rollback(interactive=True, to_snapshot=args.to_snapshot)
+" "$@"

@@ -11,7 +11,8 @@ Output: List[HuntResult] (unscored — scoring is done by scorer.py)
 
 Rate limits:
     Authenticated (GITHUB_TOKEN set): 5,000 requests/hour
-    Unauthenticated: 60 requests/hour
+    Unauthenticated: GitHub Code Search requires a token since 2024.
+    Without GITHUB_TOKEN the hunt will fail with 401.
 
 No LLM calls. Network access to GitHub API only.
 """
@@ -114,7 +115,11 @@ class Hunter:
         Returns:
             List of HuntResult objects that passed pre-filtering,
             deduplicated by repo URL. Trust tier assigned.
+            Returns empty list if GitHub API is unreachable or unauthenticated.
         """
+        if not self._check_auth():
+            return []
+
         results: dict[str, HuntResult] = {}  # keyed by repo_url for dedup
 
         # --- Query construction ---
@@ -137,6 +142,34 @@ class Hunter:
             # Community tier: TODO in v0.2.1 — check community-reviewed list
 
         return filtered
+
+    def _check_auth(self) -> bool:
+        """Probe GitHub API to verify credentials before firing all queries.
+
+        GitHub Code Search has required authentication since February 2024.
+        This probe uses /rate_limit (cheap, no search quota consumed) to
+        detect 401 early and print a clear, actionable error message.
+
+        Returns:
+            True if the API responds with a usable status, False on 401.
+        """
+        try:
+            resp = self._session.get(f"{GITHUB_API}/rate_limit", timeout=5)
+        except requests.RequestException as exc:
+            print(f"[agent-hunter] Could not reach GitHub API: {exc}")
+            return False
+
+        if resp.status_code == 401:
+            print(
+                "[agent-hunter] GitHub authentication required.\n"
+                "  GitHub Code Search has required a token since 2024.\n"
+                "  Get a free token (no special scopes needed):\n"
+                "    https://github.com/settings/tokens\n"
+                "  Then set: export GITHUB_TOKEN=<your_token>"
+            )
+            return False
+
+        return True
 
     def _build_queries(self, profile: ContextProfile) -> list[tuple[str, str]]:
         """Build a list of (query_string, result_type) tuples."""

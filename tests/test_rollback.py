@@ -174,7 +174,7 @@ class TestRollbackInteractive:
         mock_reg = _mock_registry(tmp_path, backups=[backup])
         mock_reg.registry_path = tmp_path / "registry.json"
 
-        with patch("builtins.input", return_value="y"):
+        with patch("builtins.input", side_effect=["1", "y"]):
             result = rollback(registry=mock_reg, interactive=True)
 
         assert result is True
@@ -232,11 +232,10 @@ class TestRollbackSpecificBackup:
         mock_reg.registry_path = tmp_path / "registry.json"
 
         # Pass the old backup explicitly — restore_latest should NOT be called
-        with patch("rollback._restore_specific", return_value=True) as mock_specific:
-            result = rollback(to_snapshot=old_backup, registry=mock_reg, interactive=False)
+        result = rollback(to_snapshot=old_backup, registry=mock_reg, interactive=False)
 
         assert result is True
-        mock_specific.assert_called_once_with(mock_reg, old_backup)
+        mock_reg.restore_from_snapshot.assert_called_once_with(old_backup)
         mock_reg.restore_latest.assert_not_called()
 
 
@@ -252,7 +251,7 @@ class TestListBackupsCmd:
         with patch("rollback.Registry", return_value=mock_reg):
             list_backups_cmd()
         out = capsys.readouterr().out
-        assert "No snapshots" in out
+        assert "No backups" in out
 
     def test_prints_backup_filenames(self, tmp_path, capsys):
         backup = _make_backup(tmp_path)

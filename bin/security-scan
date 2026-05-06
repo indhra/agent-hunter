@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# security-scan — static security scan a SKILL.md or script file
+# Usage: security-scan <path/to/SKILL.md>
+# Output: scan result (GREEN/YELLOW/RED) to stdout
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/scripts/security_scan.py" "$@"

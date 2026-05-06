@@ -98,6 +98,12 @@ def rollback(
             # Use most recent snapshot
             target_snapshot = snapshots[-1]
 
+    # Verify the snapshot file actually exists on disk
+    if not target_snapshot["path"].exists():
+        print(f"[agent-hunter] Snapshot file not found: {target_snapshot['path'].name}")
+        print("               The snapshot may have been manually deleted.")
+        return False
+
     # Validate snapshot integrity
     is_valid, msg = reg.validate_snapshot_integrity(target_snapshot["path"])
     if not is_valid:
@@ -137,7 +143,10 @@ def rollback(
     # Perform rollback
     try:
         # Step 1: Restore registry
-        reg.restore_from_snapshot(target_snapshot["path"])
+        success = reg.restore_from_snapshot(target_snapshot["path"])
+        if success is False:
+            print("[agent-hunter] ✗ Registry restore failed")
+            return False
         print("[agent-hunter] ✓ Registry restored")
 
         # Step 2: Restore skill git SHAs

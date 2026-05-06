@@ -14,6 +14,19 @@ The design has a hard constraint: **Python scripts do I/O only. No LLM calls fro
 SKILL.md (Claude's brain)
     │
     ▼
+bin/ (bash wrappers — Claude calls these directly, gstack model)
+    hunt              → full pipeline wrapper
+    github-search     → pure curl GitHub Code Search (no Python)
+    context-extract   → wraps context_extractor.py
+    security-scan     → wraps security_scan.py
+    audit             → wraps audit.py
+    rollback          → wraps rollback.py
+    scaffold          → wraps scaffold.py
+    installer         → wraps installer.py
+    registry          → wraps registry.py
+    resolve-deps      → wraps skill_parser.py --resolve-deps
+    │
+    ▼
 scripts/ (I/O workers — Python, no LLM)
     context_extractor.py   → reads project files, extracts ONLY tech keywords
     hunter.py              → queries GitHub API for SKILL.md + MCP configs
@@ -49,13 +62,9 @@ context_extractor → hunter → security_scan (per result) → scorer → repor
 - `rollback.py` — complete
 - `sandbox.py` — complete (subprocess mode; Docker is a v0.3.0 stub)
 - `scaffold.py` — complete
-
-
-### Fully implemented (do not rewrite unless fixing a bug)
 - **`scripts/main.py`** — the CLI entry point that wires all scripts together
-  - Commands: `hunt`, `audit`, `rollback`, `context`, `scaffold`, `update`
-  - Should call the other scripts in sequence
-  - Should handle all error cases from `SPEC.md § 13. Error Handling`
+- **`bin/`** — all 10 bash wrappers complete (gstack model; Claude calls these directly)
+  - `bin/github-search` is pure bash/curl — no Python dependency
 
 ---
 
@@ -105,7 +114,7 @@ pytest tests/test_security_scan.py -v -k "clean"
 pytest tests/ --cov=scripts --cov-report=term-missing
 ```
 
-All 50 tests must pass before any commit.
+All 674 tests must pass before any commit.
 
 ---
 
@@ -126,11 +135,11 @@ All 50 tests must pass before any commit.
 
 ## What to implement next (v0.5.0+ sprint / Real World QA)
 
-The core pipeline is fully built out and passing tests.
+The core pipeline is fully built out and passing tests. The bin/ interface matches gstack's model.
 Before writing new features (like Docker sandboxing or cryptography), your main assignment is:
-1. Try using the tool exactly as a user would (`agent-hunter hunt`).
+1. Try using the tool exactly as a user would (type `/agent-hunter` in Claude Code).
 2. Identify bugs or friction in the end-to-end user flow.
-3. Polish the distribution and installation process so it's a 1-liner to run.
+3. Ensure `GITHUB_TOKEN` is clearly surfaced wherever needed.
 
 Do not start implementing advanced roadmap tasks (v0.6.0+) until the v0.4.0 core is verified by real users in real environments.
 
@@ -141,6 +150,7 @@ Do not start implementing advanced roadmap tasks (v0.6.0+) until the v0.4.0 core
 - Repo metadata: `GET /repos/{owner}/{repo}`
 - Raw content: `https://raw.githubusercontent.com/{owner}/{repo}/{branch}/SKILL.md`
 - Auth header: `Authorization: Bearer <GITHUB_TOKEN>`
-- Rate limit: 60/hr unauthenticated, 5000/hr authenticated
+- Rate limit: **authentication required** — GitHub Code Search requires a token since Feb 2024; unauthenticated requests return 401
+- `hunter.py` probes `/rate_limit` first (`_check_auth()`) and surfaces a clear error with token URL on 401
 - On 429: exponential backoff (1s, 2s, 4s). After 3 retries → fail with message.
 - Response: `{"items": [{"repository": {"stargazers_count": N, ...}, "html_url": "...", ...}]}`

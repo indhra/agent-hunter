@@ -526,7 +526,7 @@ class TestRegistryEdgeCases:
             m.setattr("registry.BACKUPS_DIR", tmp_path / "backups")
             backup = reg.snapshot()
         data = json.loads(backup.read_text())
-        assert "entries" in data
+        assert "registry" in data
 
     def test_prune_old_backups_removes_oldest(self, tmp_path):
         """When backups exceed MAX_BACKUPS, the oldest must be pruned."""
@@ -545,7 +545,7 @@ class TestRegistryEdgeCases:
             m.setattr("registry.BACKUPS_DIR", backups_dir)
             reg.snapshot()
 
-        remaining = list(backups_dir.glob("registry_*.json"))
+        remaining = list(backups_dir.glob("*.json"))
         assert len(remaining) <= MAX_BACKUPS
 
     def test_all_returns_mutable_list(self, tmp_path):

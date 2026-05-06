@@ -601,7 +601,6 @@ def cmd_contribute(args: list[str]) -> int:
         from pathlib import Path
         from security_scan import scan_skill
         from skill_parser import parse_skill_content
-        from registry import Registry
         import subprocess
 
         # Check if skill is installed

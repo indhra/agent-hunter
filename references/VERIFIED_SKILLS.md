@@ -33,19 +33,137 @@ To contribute a verified skill, see [CONTRIBUTING.md](../CONTRIBUTING.md#type-3-
 
 ## Verified Skills
 
-<!--
-████████████████████████████████████████████████████
-  PLACEHOLDER — VERIFIED SKILLS
-  Target: 25+ entries by v1.0.0 release.
-  First entries will be added by maintainer after
-  manual review of top GitHub SKILL.md results.
-  Contributors: use the format above and open a PR.
-████████████████████████████████████████████████████
--->
+### browse
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `browse/SKILL.md`
+- **Version reviewed:** v1.1.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (browser automation, QA)
+- **Why verified:** Headless browser control for QA and dogfooding; GREEN security scan, no shell exec or prompt injection patterns; widely used gstack core skill.
 
-*No verified skills yet — this list is seeded during v0.2.0 development.*
+### qa
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `qa/SKILL.md`
+- **Version reviewed:** v2.0.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (testing, QA, bug reproduction)
+- **Why verified:** Iterative QA loop that finds and fixes bugs with browser evidence; GREEN scan, no dangerous patterns.
 
-*Want to be first? Review a skill you've used in production and [open a PR](https://github.com/indhra/agent-hunter/pulls).*
+### review
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `review/SKILL.md`
+- **Version reviewed:** v1.0.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (code review, diff analysis)
+- **Why verified:** Code review skill checking boundary violations, conditional side effects, and structural issues; GREEN scan, no shell exec.
+
+### autoplan
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `autoplan/SKILL.md`
+- **Version reviewed:** v1.0.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (planning, CEO/eng/design review automation)
+- **Why verified:** Runs CEO, design, eng, and DX review skills sequentially with auto-decisions; GREEN scan; orchestration-only with no direct shell/file writes.
+
+### codex
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `codex/SKILL.md`
+- **Version reviewed:** v1.0.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (code review, adversarial testing, second opinion)
+- **Why verified:** OpenAI Codex CLI wrapper for independent diff review and adversarial testing; GREEN scan; does not write files directly.
+
+### canary
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `canary/SKILL.md`
+- **Version reviewed:** v1.0.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (monitoring, post-deploy verification)
+- **Why verified:** Post-deploy canary monitoring using browse daemon; GREEN scan; read-only observation pattern, no writes or shell exec.
+
+### health
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `health/SKILL.md`
+- **Version reviewed:** v1.0.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (code quality, linting, test coverage)
+- **Why verified:** Code quality dashboard wrapping existing project tools; GREEN scan; does not modify files, orchestration-only.
+
+### retro
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `retro/SKILL.md`
+- **Version reviewed:** v2.0.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (retrospective, code quality metrics, trend tracking)
+- **Why verified:** Sprint retrospective with persistent quality metric history; GREEN scan; reads project state, writes only to `.retro/` local directory.
+
+### document-release
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `document-release/SKILL.md`
+- **Version reviewed:** v1.0.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (documentation, changelog, README sync)
+- **Why verified:** Post-ship doc updater that reads diff and updates project docs; GREEN scan; no network writes or shell exec beyond git.
+
+### learn
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `learn/SKILL.md`
+- **Version reviewed:** v1.0.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (session memory, lessons learned, knowledge management)
+- **Why verified:** Records and retrieves lessons learned across sessions; GREEN scan; writes only to designated session log files, no exec patterns.
+
+### freeze
+- **Repo:** https://github.com/garrytan/gstack
+- **Path:** `freeze/SKILL.md`
+- **Version reviewed:** v0.1.0
+- **SHA at review:** b512be7117eda1016f3ebf1fef0687f2c6b1cc37
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (safety, edit scoping, debugging guardrails)
+- **Why verified:** Restricts Claude edits to a specified directory for the session; GREEN scan; safety guardrail with no shell exec.
+
+### trusty
+- **Repo:** https://github.com/indhra/trusty
+- **Path:** `SKILL.md`
+- **Version reviewed:** (installed via ~/.copilot/skills/trusty)
+- **SHA at review:** (local, no remote tracked)
+- **License:** MIT
+- **Reviewer:** @indhra
+- **Review date:** 2026-05-06
+- **Stack:** any (security, skill auditing, OWASP LLM Top 10)
+- **Why verified:** Security scanner for GitHub Copilot skills and agents; GREEN scan on itself; offline, zero install, grounded in OWASP LLM Top 10.
 
 ---
 

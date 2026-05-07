@@ -539,11 +539,13 @@ class TestHuntIntegration:
         # Deduplication should mean only one result for this repo
         assert sum(1 for r in results if r.repo_url == "https://github.com/owner/skill-x") <= 1
 
+    @patch("hunter.Hunter._search_npm")
     @patch("hunter.Hunter._fetch_skill_content")
     @patch("hunter.Hunter._fetch_repo_metadata")
-    def test_low_star_results_excluded(self, mock_meta, mock_content):
+    def test_low_star_results_excluded(self, mock_meta, mock_content, mock_npm):
         mock_meta.return_value = REPO_META_OK
         mock_content.return_value = "# SKILL"
+        mock_npm.return_value = []
         h = make_hunter(min_stars=100)
 
         from context_extractor import ContextProfile
@@ -710,3 +712,155 @@ class TestMCPHunting:
         mcps = [r for r in results if r.result_type == "mcp"]
         assert len(skills) >= 0
         assert len(mcps) >= 0
+
+
+# ---------------------------------------------------------------------------
+# _search_npm
+# ---------------------------------------------------------------------------
+
+
+NPM_PACKAGE_OBJECT = {
+    "package": {
+        "name": "@modelcontextprotocol/server-filesystem",
+        "description": "MCP server providing filesystem access",
+        "version": "1.0.2",
+        "links": {
+            "repository": "https://github.com/modelcontextprotocol/servers",
+            "npm": "https://www.npmjs.com/package/@modelcontextprotocol/server-filesystem",
+        },
+    },
+    "score": {"detail": {"popularity": 0.85}},
+}
+
+
+def _npm_response(objects: list | None = None, status_code: int = 200) -> MagicMock:
+    resp = MagicMock()
+    resp.status_code = status_code
+    resp.json.return_value = {"objects": objects or []}
+    return resp
+
+
+class TestSearchNpm:
+    def test_returns_results_on_success(self):
+        h = make_hunter()
+        with patch("hunter.requests.get") as mock_get:
+            mock_get.return_value = _npm_response([NPM_PACKAGE_OBJECT])
+            results = h._search_npm(["filesystem"])
+        assert len(results) >= 1
+        r = results[0]
+        assert r.name == "@modelcontextprotocol/server-filesystem"
+        assert r.result_type == "mcp_npm"
+        assert r.trust_tier == "raw"
+
+    def test_install_command_uses_npx(self):
+        h = make_hunter()
+        with patch("hunter.requests.get") as mock_get:
+            mock_get.return_value = _npm_response([NPM_PACKAGE_OBJECT])
+            results = h._search_npm(["filesystem"])
+        assert any("npx" in r.mcp_install_command for r in results)
+
+    def test_repo_url_stripped_of_git_suffix(self):
+        obj = {
+            "package": {
+                "name": "mcp-test",
+                "description": "test",
+                "version": "1.0.0",
+                "links": {"repository": "https://github.com/owner/mcp-test.git"},
+            },
+            "score": {"detail": {"popularity": 0.5}},
+        }
+        h = make_hunter()
+        with patch("hunter.requests.get") as mock_get:
+            mock_get.return_value = _npm_response([obj])
+            results = h._search_npm(["python"])
+        assert results[0].repo_url == "https://github.com/owner/mcp-test"
+
+    def test_dedup_same_package_not_returned_twice(self):
+        h = make_hunter()
+        with patch("hunter.requests.get") as mock_get:
+            # Same object returned by two different search queries
+            mock_get.return_value = _npm_response([NPM_PACKAGE_OBJECT])
+            results = h._search_npm(["filesystem", "file"])
+        names = [r.name for r in results]
+        assert names.count("@modelcontextprotocol/server-filesystem") == 1
+
+    def test_network_error_returns_empty_list(self):
+        import requests as req_mod
+
+        h = make_hunter()
+        with patch("hunter.requests.get", side_effect=req_mod.RequestException("timeout")):
+            results = h._search_npm(["fastapi"])
+        assert results == []
+
+    def test_non_200_status_skips_gracefully(self):
+        h = make_hunter()
+        with patch("hunter.requests.get") as mock_get:
+            mock_get.return_value = _npm_response(status_code=503)
+            results = h._search_npm(["fastapi"])
+        assert results == []
+
+    def test_empty_objects_returns_empty_list(self):
+        h = make_hunter()
+        with patch("hunter.requests.get") as mock_get:
+            mock_get.return_value = _npm_response([])
+            results = h._search_npm(["fastapi"])
+        assert results == []
+
+    def test_respects_keyword_limit(self):
+        h = make_hunter()
+        call_count = []
+
+        def count_calls(*a, **kw):
+            call_count.append(1)
+            return _npm_response([])
+
+        with patch("hunter.requests.get", side_effect=count_calls):
+            h._search_npm(["a", "b", "c", "d", "e"])  # 5 keywords — only 3 tech used
+
+        # 1 base query (@modelcontextprotocol) + up to 3 tech keywords = 4 max calls
+        assert len(call_count) <= 4
+
+    def test_hunt_appends_npm_results_when_include_mcp_true(self):
+        """hunt() calls _search_npm when include_mcp=True."""
+        h = make_hunter(include_mcp=True)
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+
+        npm_result = HuntResult(
+            name="mcp-fastapi",
+            repo_url="https://github.com/x/mcp-fastapi",
+            result_type="mcp_npm",
+            trust_tier="raw",
+            mcp_install_command="npx mcp-fastapi",
+        )
+
+        with (
+            patch.object(h, "_check_auth", return_value=True),
+            patch.object(h, "_build_queries", return_value=[]),
+            patch.object(h, "_prefilter_parallel", return_value=[]),
+            patch.object(h, "_get_verified_urls", return_value=set()),
+            patch.object(h, "_search_npm", return_value=[npm_result]) as mock_npm,
+        ):
+            results = h.hunt(profile)
+
+        mock_npm.assert_called_once()
+        assert any(r.result_type == "mcp_npm" for r in results)
+
+    def test_hunt_skips_npm_when_include_mcp_false(self):
+        """hunt() does not call _search_npm when include_mcp=False."""
+        h = make_hunter(include_mcp=False)
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+
+        with (
+            patch.object(h, "_check_auth", return_value=True),
+            patch.object(h, "_build_queries", return_value=[]),
+            patch.object(h, "_prefilter_parallel", return_value=[]),
+            patch.object(h, "_get_verified_urls", return_value=set()),
+            patch.object(h, "_search_npm") as mock_npm,
+        ):
+            h.hunt(profile)
+
+        mock_npm.assert_not_called()

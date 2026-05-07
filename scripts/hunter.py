@@ -40,6 +40,7 @@ from mcp_parser import parse_mcp_json, is_mcp_server_py
 
 GITHUB_API = "https://api.github.com"
 SEARCH_ENDPOINT = f"{GITHUB_API}/search/code"
+NPM_SEARCH = "https://registry.npmjs.org/-/v1/search"
 PRE_FILTER_MIN_STARS = 10
 PRE_FILTER_MAX_AGE_DAYS = 180
 RATE_LIMIT_BACKOFF_SECONDS = 60
@@ -140,6 +141,13 @@ class Hunter:
             if r.repo_url in verified_urls:
                 r.trust_tier = "verified"
             # Community tier: TODO in v0.2.1 — check community-reviewed list
+
+        # --- npm MCP server search (unauthenticated, no token required) ---
+        if self.include_mcp:
+            npm_results = self._search_npm(profile.tech_stack[:5])
+            for r in npm_results:
+                if r.repo_url not in {x.repo_url for x in filtered}:
+                    filtered.append(r)
 
         return filtered
 
@@ -462,6 +470,71 @@ class Hunter:
             pass
 
         return None
+
+    def _search_npm(self, keywords: list[str]) -> list[HuntResult]:
+        """Search the npm registry for MCP server packages.
+
+        Queries for packages matching MCP server naming conventions using
+        the npm search API (unauthenticated, no token required).
+
+        Args:
+            keywords: Tech keywords from the project context profile (up to 5).
+
+        Returns:
+            List of HuntResult with result_type='mcp_npm' and trust_tier='raw'.
+            Empty list on any network failure.
+        """
+        results: list[HuntResult] = []
+        seen: set[str] = set()
+
+        # Build search text variations: MCP server packages per tech keyword
+        searches = ["@modelcontextprotocol"]
+        for kw in keywords[:3]:
+            searches.append(f"mcp-server {kw}")
+
+        for text in searches:
+            try:
+                resp = requests.get(
+                    NPM_SEARCH,
+                    params={"text": text, "size": 20},
+                    timeout=10,
+                )
+            except requests.RequestException as exc:
+                print(f"[agent-hunter] npm search failed for '{text}': {exc}")
+                continue
+
+            if resp.status_code != 200:
+                print(f"[agent-hunter] npm API error {resp.status_code} for '{text}'")
+                continue
+
+            for obj in resp.json().get("objects", []):
+                pkg = obj.get("package", {})
+                name = pkg.get("name", "")
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+
+                links = pkg.get("links", {})
+                repo_url = links.get("repository", "") or links.get("homepage", "")
+                # Normalise: strip .git suffix for consistent dedup
+                if repo_url.endswith(".git"):
+                    repo_url = repo_url[:-4]
+
+                downloads = obj.get("score", {}).get("detail", {}).get("popularity", 0)
+
+                r = HuntResult(
+                    name=name,
+                    repo_url=repo_url,
+                    raw_url="",
+                    description=pkg.get("description", ""),
+                    stars=0,  # npm has no star count; use downloads as proxy
+                    result_type="mcp_npm",
+                    trust_tier="raw",
+                    mcp_install_command=f"npx {name}",
+                )
+                results.append(r)
+
+        return results
 
     def _load_verified_urls(self) -> set[str]:
         """Load verified skill repo URLs from VERIFIED_SKILLS.md.

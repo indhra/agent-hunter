@@ -154,17 +154,6 @@ To contribute a verified skill, see [CONTRIBUTING.md](../CONTRIBUTING.md#type-3-
 - **Stack:** any (safety, edit scoping, debugging guardrails)
 - **Why verified:** Restricts Claude edits to a specified directory for the session; GREEN scan; safety guardrail with no shell exec.
 
-### trusty
-- **Repo:** https://github.com/indhra/trusty
-- **Path:** `SKILL.md`
-- **Version reviewed:** (installed via ~/.copilot/skills/trusty)
-- **SHA at review:** (local, no remote tracked)
-- **License:** MIT
-- **Reviewer:** @indhra
-- **Review date:** 2026-05-06
-- **Stack:** any (security, skill auditing, OWASP LLM Top 10)
-- **Why verified:** Security scanner for GitHub Copilot skills and agents; GREEN scan on itself; offline, zero install, grounded in OWASP LLM Top 10.
-
 ---
 
 ## Known Malicious Skills

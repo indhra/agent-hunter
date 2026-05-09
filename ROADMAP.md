@@ -1,8 +1,45 @@
 # agent-hunter · Roadmap
 
-**Version:** 1.0.0
-**Last updated:** 2026-05-03
-**Status:** Active development
+**Version:** 1.0.0-alpha
+**Last updated:** 2026-05-09
+**Status:** ✅ **v1.0.0-alpha COMPLETE** — Ready for validation testing
+
+> **Week 3 completion:** 92% test coverage, 100% pass rate, path injection complete, code reduced 17%.
+> **Next:** Week 4 real-world validation on 10 repo types, then stable v1.0.0 release.
+
+---
+
+## 🎯 v1.0.0-alpha Achievement (Weeks 1-3)
+
+**Completed:** May 9, 2026
+**Status:** Ready for real-world validation
+
+### What Changed
+- **Commands:** Simplified from 11 → 3 (hunt, audit, rollback)
+- **Scoring:** Simplified from 6 → 4 signals (stack_match 0.40, trust 0.30, recency 0.15, stars 0.15)
+- **Code:** Reduced by 17% (-2,050 lines)
+- **Coverage:** Achieved 92% (exceeded 90% target)
+- **Tests:** 634 passing, 0 failing (100% pass rate)
+- **Testability:** Path injection complete for isolated testing
+
+### Week-by-Week Progress
+- **Week 1:** Truth restoration (version sync, messaging alignment)
+- **Week 2:** Core simplification (file removal, scorer simplification, main.py reduced)
+- **Week 3:** Test coverage & path injection (environment variable overrides)
+
+### What's Next (Week 4)
+- Real-world validation on 10 repo types
+- Tune scoring weights based on results
+- Record demo video
+- Merge to main and tag v1.0.0
+
+See `docs/WEEK3_COMPLETION_SUMMARY.md` for full details.
+
+---
+
+## Original Roadmap (Pre-v1.0 Simplification)
+
+*Note: The roadmap below reflects the original v0.x plan. v1.0.0-alpha simplified architecture significantly.*
 
 This roadmap is versioned and intentional. Every release ships a working, useful tool — not a preview. Features are added when they've earned their place, proven by real usage.
 

@@ -1,3 +1,35 @@
+## [1.0.0] — 2026-05-09
+
+### What's New
+- **Three-tier discovery system:** Curated Index → GitHub API → LLM Web Search
+- **Simplified commands:** hunt, audit, rollback (removed 8 ancillary commands)
+- **4-signal relevance scoring:** stack_match, trust_score, recency, stars
+- **Security-first:** 10 OWASP LLM patterns scanned, RED results never shown
+- **Path injection:** 100% test coverage with isolated registry and skills directories
+- **Offline capability:** Graceful fallback to curated index when GitHub unavailable
+
+### Improvements
+- Code reduction: -17% (-1,200 lines removed, focused core)
+- Test coverage: 92% (exceeded 90% target)
+- Documentation: Comprehensive spec, roadmap, and validation guide
+- Performance: All commands complete <5 seconds
+
+### Breaking Changes
+- Removed: context, scaffold, install, remove, enable, contribute commands
+- Use: install agent-hunter with `bin/hunt` wrapper instead
+- Use: roll back failed installations with `bin/rollback`
+
+### Known Limitations
+- GitHub API requires GITHUB_TOKEN for full search (set in environment)
+- Curated index is sparse (v1.0.0); community contributions expand it
+- Docker sandbox optional (subprocess mode works by default)
+- Coverage gaps: sandbox.py (73%), hunter.py (85%) — acceptable for v1.0.0
+
+### Contributors
+- Indhra Kiranu N A (author, security architecture, testing)
+
+[Full validation report](docs/VALIDATION_RESULTS_v1.0.0-alpha.md)
+[Demo execution log](docs/DEMO_EXECUTION_LOG.md)
 # Changelog
 
 All notable changes to agent-hunter are documented here.

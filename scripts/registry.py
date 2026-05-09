@@ -51,6 +51,10 @@ class RegistryEntry:
     last_audit_at: str = ""
     audit_status: str = "unknown"  # "healthy", "update_available", "tampered", "security_issue"
     notes: str = ""
+    # Version compatibility tracking (v0.7.0+)
+    python_version_tested: str = ""  # e.g., "3.10", "3.11"
+    node_version_tested: str = ""  # e.g., "18.0", "20.0"
+    ruby_version_tested: str = ""  # e.g., "3.0", "3.1"
 
 
 # ---------------------------------------------------------------------------
@@ -331,6 +335,50 @@ class Registry:
         self.registry_path.write_text(
             json.dumps(data, indent=2, ensure_ascii=False),
             encoding="utf-8",
+        )
+
+    def check_version_compatibility(
+        self, entry: RegistryEntry, current_python: Optional[str] = None
+    ) -> tuple[str, str]:
+        """Check if skill's tested version matches host environment.
+
+        Args:
+            entry: RegistryEntry with version_tested fields
+            current_python: Current Python version (e.g., "3.12"). If None, detected from sys.
+
+        Returns:
+            (status, message)
+            status: "green" (compatible), "yellow" (warning), "red" (incompatible)
+            message: Human-readable explanation
+        """
+        if current_python is None:
+            import sys
+
+            current_python = f"{sys.version_info.major}.{sys.version_info.minor}"
+
+        # No version metadata = green (assume it works)
+        if not entry.python_version_tested:
+            return ("green", "")
+
+        tested = entry.python_version_tested
+        current_major, current_minor = map(int, current_python.split(".")[:2])
+        tested_major, tested_minor = map(int, tested.split(".")[:2])
+
+        # Same major version = green
+        if tested_major == current_major:
+            return ("green", "")
+
+        # Minor version mismatch = yellow (may work, not guaranteed)
+        if tested_major == current_major and tested_minor != current_minor:
+            return (
+                "yellow",
+                f"Tested on Python {tested}, you're using {current_python}. May work, not guaranteed.",
+            )
+
+        # Major version mismatch = red (likely incompatible)
+        return (
+            "red",
+            f"Tested on Python {tested}, you're using {current_python}. Likely incompatible.",
         )
 
 

@@ -60,6 +60,7 @@ from audit import Auditor  # noqa: E402
 from installer import Installer, build_action_list, PendingAction  # noqa: E402
 from update import SkillUpdater  # noqa: E402
 from registry import Registry  # noqa: E402
+from dep_resolver import audit_installed_skills  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -457,7 +458,11 @@ def cmd_audit(_args: list[str]) -> int:
     """Run the full audit on all installed skills.
 
     Creates a pre-audit snapshot before running audit (v0.5.0+).
+
+    Flags:
+        --deps     Show dependency conflicts (v0.7.0+)
     """
+    show_deps = "--deps" in _args
 
     try:
         # Create pre-audit snapshot for safe recovery (v0.5.0)
@@ -467,6 +472,25 @@ def cmd_audit(_args: list[str]) -> int:
 
         auditor = Auditor()
         report = auditor.run()
+
+        # Show dependency conflicts if requested (v0.7.0)
+        if show_deps:
+            skills_dir = Path.home() / ".claude" / "skills"
+            dep_audit = audit_installed_skills(skills_dir)
+            if dep_audit.conflicts:
+                print("\n[agent-hunter] Dependency Conflicts Detected:")
+                for conflict in dep_audit.conflicts:
+                    print(
+                        f"  - {conflict.package_name}: {len(conflict.conflicting_skills)} skills affected"
+                    )
+                    for skill, version in conflict.conflicting_skills.items():
+                        print(f"      {skill}: {version}")
+                    if conflict.proposed_resolution:
+                        print(f"      Proposed: {conflict.proposed_resolution}")
+                    print(f"      Severity: {conflict.severity}")
+            else:
+                print("[agent-hunter] No dependency conflicts detected.")
+
         return 1 if report.has_issues else 0
     except Exception as exc:
         print(f"[agent-hunter] Audit failed: {exc}")

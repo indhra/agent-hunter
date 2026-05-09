@@ -106,6 +106,32 @@ def _deep_merge(base: dict, override: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _warn_typo_squats(scored: list) -> None:
+    """Print typo-squat warnings for hunt results similar to verified skills (v0.8.0).
+
+    Args:
+        scored: List of ScoredResult from score_results().
+    """
+    try:
+        from typo_detect import TypoDetector
+        from pathlib import Path
+
+        detector = TypoDetector(
+            verified_skills_path=Path(__file__).parent.parent / "references" / "VERIFIED_SKILLS.md"
+        )
+        for s in scored:
+            name = s.hunt_result.name
+            match = detector.detect(name)
+            if match.is_typo:
+                print(
+                    f"[agent-hunter] ⚠️  '{name}' is similar to verified skill "
+                    f"'{match.similar_to}' (edit distance {match.distance}) — "
+                    f"double-check you meant this one."
+                )
+    except Exception:
+        pass  # Typo detection is advisory; never block the pipeline
+
+
 def _list_installed_skills() -> set[str]:
     """Return set of currently installed skill directory names."""
     skills_dir = Path.home() / ".claude" / "skills"
@@ -325,6 +351,9 @@ def cmd_hunt(args: list[str]) -> int:
 
     # --- Score and rank ---
     scored = score_results(results, profile, metadata_map)
+
+    # --- Typo-squat detection: warn before showing results (v0.8.0) ---
+    _warn_typo_squats(scored)
 
     # --- Render report ---
     top_n = hunt_cfg.get("top_n_shown", 5)

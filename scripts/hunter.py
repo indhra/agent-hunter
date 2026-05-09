@@ -287,6 +287,14 @@ class Hunter:
         if not verified_skills:
             return []
 
+        # Signature verifier — validate each entry before accepting it (v0.8.0)
+        try:
+            from verify_sig import SignatureVerifier
+
+            verifier: Optional["SignatureVerifier"] = SignatureVerifier()
+        except ImportError:
+            verifier = None
+
         results = []
         for skill in verified_skills:
             if not isinstance(skill, dict):
@@ -294,6 +302,16 @@ class Hunter:
 
             name = skill.get("name", "")
             repo_url = skill.get("repo_url", "")
+
+            # Verify cryptographic signature before trusting this entry
+            if verifier is not None and verifier.trusted_keys:
+                sig_result = verifier.verify_skill_entry(skill)
+                if not sig_result.is_valid:
+                    print(
+                        f"[agent-hunter] 🔴 Signature mismatch for '{name}' — "
+                        f"this skill may have been tampered ({sig_result.message}). Skipped."
+                    )
+                    continue
 
             # Simple matching: check if any tech stack keyword is in skill name
             is_relevant = any(tech.lower() in name.lower() for tech in profile.tech_stack)

@@ -1749,7 +1749,10 @@ class TestHuntFlags:
         monkeypatch.setattr("builtins.input", fail_if_called)
 
         from installer import ActionResult
-        success = ActionResult(action="install", skill_name="fastapi-skill", success=True, message="OK")
+
+        success = ActionResult(
+            action="install", skill_name="fastapi-skill", success=True, message="OK"
+        )
 
         with (
             patch("main.Hunter") as mh,
@@ -1798,6 +1801,7 @@ class TestHuntFlags:
     def test_print_actions_json_is_valid(self, tmp_path, monkeypatch, capsys):
         """--print-actions stdout must be parseable JSON with pending_actions key."""
         import json as json_mod
+
         mock_result, mock_scored, mock_scan, mock_action = self._setup_mocks(tmp_path, monkeypatch)
 
         with (
@@ -1826,7 +1830,6 @@ class TestHuntFlags:
 
     def test_print_actions_no_actions_returns_0(self, tmp_path, monkeypatch, capsys):
         """--print-actions with no pending actions returns 0 with empty list."""
-        import json as json_mod
         mock_result, mock_scored, mock_scan, _ = self._setup_mocks(tmp_path, monkeypatch)
 
         with (
@@ -1846,9 +1849,10 @@ class TestHuntFlags:
         # No actions → "No new actions" path, returns 0
         assert code == 0
 
-    def test_yes_and_print_actions_together_prefers_print_actions(self, tmp_path, monkeypatch, capsys):
+    def test_yes_and_print_actions_together_prefers_print_actions(
+        self, tmp_path, monkeypatch, capsys
+    ):
         """When both --yes and --print-actions are given, --print-actions takes precedence."""
-        import json as json_mod
         mock_result, mock_scored, mock_scan, mock_action = self._setup_mocks(tmp_path, monkeypatch)
 
         with (

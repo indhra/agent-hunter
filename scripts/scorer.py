@@ -1,12 +1,13 @@
 """
 scorer.py — Score and rank HuntResult objects by relevance.
 
-Scoring formula (v0.2.1+):
-    total = (stack_match  × 0.30
-           + domain_match × 0.20
-           + star_score   × 0.15
-           + recency      × 0.15
-           + trust_score  × 0.20) × yagni_multiplier
+Scoring formula (v0.8.0+, 6-signal):
+    total = (intent_match × 0.30
+           + stack_match  × 0.20
+           + domain_match × 0.15
+           + star_score   × 0.10
+           + recency      × 0.10
+           + trust_score  × 0.15) × yagni_multiplier × (1 - seo_penalty)
 
     YAGNI multiplier:
         active  (commits in last 7d):  2.0×
@@ -174,6 +175,17 @@ def _score_single(
         + s.trust_score * w["trust_score"]
     )
     s.total_score = min(raw * s.yagni_multiplier * (1.0 - s.seo_poisoning_penalty), 1.0)
+
+    # --- Author trust bonus (v0.8.0, web-of-trust via registry.py) ---
+    try:
+        from registry import check_author_trust
+
+        is_trusted, bonus = check_author_trust(r.repo_url)
+        if is_trusted and bonus > 0.0:
+            s.total_score = min(s.total_score * (1.0 + bonus), 1.0)
+            s.explanation = (s.explanation + " [AUTHOR_TRUSTED]").strip()
+    except Exception:
+        pass  # Author trust is advisory; never fail scoring
 
     return s
 

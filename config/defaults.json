@@ -21,11 +21,12 @@
 
   "scoring": {
     "weights": {
-      "stack_match":    0.30,
-      "domain_match":   0.20,
-      "star_score":     0.15,
-      "recency_score":  0.15,
-      "trust_score":    0.20
+      "intent_match":   0.30,
+      "stack_match":    0.20,
+      "domain_match":   0.15,
+      "star_score":     0.10,
+      "recency_score":  0.10,
+      "trust_score":    0.15
     },
     "yagni_multipliers": {
       "active":   2.0,

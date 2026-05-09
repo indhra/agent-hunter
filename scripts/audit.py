@@ -20,6 +20,7 @@ No LLM calls.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -31,6 +32,19 @@ import requests
 from registry import Registry, RegistryEntry, check_sha_tamper
 from security_scan import scan_skill, ScanResult
 from context_extractor import _extract_session_skills
+
+
+# ---------------------------------------------------------------------------
+# Paths (with environment variable overrides for testability)
+# ---------------------------------------------------------------------------
+
+
+def _get_install_log() -> Path:
+    """Get install log path with env var override support."""
+    override = os.getenv("AGENT_HUNTER_INSTALL_LOG")
+    if override:
+        return Path(override)
+    return Path.home() / ".agent-hunter" / "install_log.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +270,7 @@ def _check_dormant_skill(skill_name: str, threshold_days: int = 30) -> tuple[boo
 
     Returns: (is_dormant, days_since_install)
     """
-    install_log_path = Path.home() / ".agent-hunter" / "install_log.jsonl"
+    install_log_path = _get_install_log()
     if not install_log_path.exists():
         return False, 0
 

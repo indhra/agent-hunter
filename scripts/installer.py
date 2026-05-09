@@ -30,6 +30,7 @@ No LLM calls. Shell commands via subprocess only.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -43,11 +44,29 @@ from registry import Registry
 
 
 # ---------------------------------------------------------------------------
-# Constants
+# Paths (with environment variable overrides for testability)
 # ---------------------------------------------------------------------------
 
-SKILLS_DIR = Path.home() / ".claude" / "skills"
-INSTALL_LOG = Path.home() / ".agent-hunter" / "install_log.jsonl"
+
+def _get_skills_dir() -> Path:
+    """Get skills directory with env var override support."""
+    override = os.getenv("AGENT_HUNTER_SKILLS_DIR")
+    if override:
+        return Path(override)
+    return Path.home() / ".claude" / "skills"
+
+
+def _get_install_log() -> Path:
+    """Get install log path with env var override support."""
+    override = os.getenv("AGENT_HUNTER_INSTALL_LOG")
+    if override:
+        return Path(override)
+    return Path.home() / ".agent-hunter" / "install_log.jsonl"
+
+
+# Module-level constants (for backward compatibility)
+SKILLS_DIR = _get_skills_dir()
+INSTALL_LOG = _get_install_log()
 
 GH_AVAILABLE = shutil.which("gh") is not None
 

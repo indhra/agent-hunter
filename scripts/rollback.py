@@ -17,6 +17,7 @@ No LLM calls. No network access (only local git operations).
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -25,6 +26,19 @@ from pathlib import Path
 from typing import Optional
 
 from registry import Registry, BACKUPS_DIR
+
+
+# ---------------------------------------------------------------------------
+# Paths (with environment variable overrides for testability)
+# ---------------------------------------------------------------------------
+
+
+def _get_skills_dir() -> Path:
+    """Get skills directory with env var override support."""
+    override = os.getenv("AGENT_HUNTER_SKILLS_DIR")
+    if override:
+        return Path(override)
+    return Path.home() / ".claude" / "skills"
 
 
 def rollback(
@@ -175,7 +189,7 @@ def _restore_skill_shas(registry: Registry) -> dict[str, bool]:
         {skill_name: success_bool}
     """
     results = {}
-    skills_dir = Path.home() / ".claude" / "skills"
+    skills_dir = _get_skills_dir()
 
     for entry in registry.all():
         skill_name = entry.name

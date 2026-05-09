@@ -12,6 +12,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 - No unreleased changes yet.
 
+## [1.0.0-alpha] - 2026-05-09
+
+### Changed
+- Repositioned agent-hunter as a repo-aware skill package manager focused on the default `hunt` workflow.
+- Simplified the product surface around the top 3 recommendations with sharper why-this-fits messaging.
+- Tightened first-run docs and setup messaging around global `~/.claude/CLAUDE.md` activation.
+
+### Fixed
+- Aligned repo-facing version/status messaging on `v1.0.0-alpha` across docs, packaging metadata, and release notes.
+
 ## [0.8.0] - 2026-05-09
 
 ### Added
@@ -111,7 +121,8 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ██████████████████████████████████████████████
 -->
 
-[Unreleased]: https://github.com/indhra/agent-hunter/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/indhra/agent-hunter/compare/v1.0.0-alpha...HEAD
+[1.0.0-alpha]: https://github.com/indhra/agent-hunter/compare/v0.8.0...v1.0.0-alpha
 [0.8.0]: https://github.com/indhra/agent-hunter/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/indhra/agent-hunter/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/indhra/agent-hunter/compare/v0.5.0...v0.6.0

@@ -69,6 +69,6 @@ bin/github-search "filename:SKILL.md fastapi"
 
 Implemented and tested: all core scripts including `hunter`, `main`, `skill_parser`, `context_extractor`, `security_scan`, `scorer`, `registry`, `reporter`, `rollback`, `sandbox`, `scaffold`, `dep_resolver`, `mcp_parser`, `typo_detect`, `verify_sig`, `update`, `release`.
 
-Code is at v0.8.0. All 854 tests pass. Ready for real-world user testing. Do not add future roadmap features before smoothing the core UX.
+Code is at v1.0.0-alpha. The repo has been refocused around the top-3 recommendation workflow, and the current branch is green with 634 tests passing. Main priority is real-world validation and launch-proof polishing, not new feature breadth.
 
 See `.github/copilot-instructions.md` for the exact tasks.

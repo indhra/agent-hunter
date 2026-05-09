@@ -139,15 +139,15 @@ All 854 tests must pass before any commit.
 
 ---
 
-## What to implement next (v0.9.0 sprint / Real World QA)
+## What to implement next (v1.0.0-alpha / Real World QA)
 
-Code is at v0.8.0. All features through cryptographic signing and typo-squat detection are shipped.
+Code is at v1.0.0-alpha. The core product refocus is shipped; now validate the real-world UX and close launch-proof gaps before calling it stable.
 Before writing new features, your main assignment is:
 1. Try using the tool exactly as a user would (type `/agent-hunter` in Claude Code).
 2. Identify bugs or friction in the end-to-end user flow.
 3. Note: `GITHUB_TOKEN` is now optional. Curated index (`references/VERIFIED_SKILLS.md`) returns results without any token. Token enables broader GitHub discovery.
 
-Do not start v1.0.0 roadmap tasks (benchmarking, CVE index) until the v0.8.0 UX is verified.
+Do not start post-v1.0.0 feature work until the v1.0.0-alpha UX is verified on real repos.
 
 ## GitHub API notes
 

@@ -38,11 +38,21 @@
 
 **Requirements:** Claude Code, Git, Python 3.10+
 
-### Step 1: Install on your machine
+### Step 1: Install globally
 
-Open Claude Code and paste this. Claude does the rest.
+```bash
+git clone --single-branch --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter
+cd ~/.claude/skills/agent-hunter
+./setup
+```
 
-> Install agent-hunter: run `git clone --single-branch --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter && cd ~/.claude/skills/agent-hunter && ./setup` then add an "agent-hunter" section to CLAUDE.md that says to use /agent-hunter to discover, security-scan, and install SKILL.md files and MCP servers relevant to the current project — run it before manually searching for skills, and lists the available skills: /agent-hunter, /agent-hunter-update. Then ask the user if they also want to add agent-hunter to the current project so teammates get it.
+`./setup` does three important things:
+
+- installs the local Python environment and wrappers
+- registers `agent-hunter` in your global `~/.claude/CLAUDE.md`
+- makes `/agent-hunter` available immediately in any repo, including brand new projects with no local `CLAUDE.md`
+
+Project-level `CLAUDE.md` setup is optional and comes later if you want the behavior shared with teammates.
 
 ### Step 2: Set your GitHub token (optional — for broader discovery)
 
@@ -75,14 +85,16 @@ Then remove the `## agent-hunter` section from your CLAUDE.md.
 
 Skill not showing up? `cd ~/.claude/skills/agent-hunter && ./setup`
 
-Claude says it can't see the skills? Make sure your project's CLAUDE.md has an agent-hunter section:
+Claude says it can't see the skill? Check your global `~/.claude/CLAUDE.md` first. `agent-hunter` is designed to work globally before a project has any local instructions.
+
+If you want the same behavior shared with teammates, add this block to the project's `CLAUDE.md`:
 
 ```
 ## agent-hunter
 
-Use /agent-hunter to discover, security-scan, and install SKILL.md files and
-MCP servers relevant to the current project. Run /agent-hunter before manually
-searching for skills.
+Use /agent-hunter to discover, security-scan, and install SKILL.md files and MCP
+servers relevant to the current project. Use it before manually searching for
+skills or building a tool from scratch.
 
 Available skills: /agent-hunter, /agent-hunter-update
 ```
@@ -174,63 +186,50 @@ git log (last 50)              no code, no paths)               GitHub Search (f
 ### Installation
 
 ```bash
-# Install agent-hunter as a Claude skill
-gh skill install indhra/agent-hunter
-
-# Or manually
-cp -r agent-hunter ~/.claude/skills/agent-hunter
+git clone --single-branch --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter
+cd ~/.claude/skills/agent-hunter
+./setup
 ```
+
+After setup, `/agent-hunter` is available globally through `~/.claude/CLAUDE.md`.
+That means it works on a brand new repo even if there is no local project `CLAUDE.md` yet.
 
 ### Your First Hunt
 
-Imagine you're working on a FastAPI + PostgreSQL project. Just ask Claude to hunt:
+Open any repo and ask Claude:
 
 ```
-Hunt for skills relevant to this project
+What should I install for this project?
 ```
 
 agent-hunter will:
-1. **Read your project** — detects FastAPI, PostgreSQL, Docker, pytest
-2. **Hunt GitHub** — finds 8 skills matching your stack
-3. **Security scan** — flags 2 RED (injected shells), hides them
-4. **Rank results** — shows 6 green, scored by relevance + trust
-5. **Print report**:
+1. **Read your project signals** — framework and tooling names only
+2. **Hunt verified and GitHub sources** — skills and MCPs relevant to your repo
+3. **Security scan results** — unsafe matches are blocked before recommendation
+4. **Rank the top matches** — default output is the best few results, not a noisy list
+5. **Show install-ready guidance** — what fits, why it fits, and what to avoid
 
 ```
-─────────────────────────────────────────────────────────
-HUNT RESULTS — agent-hunter v0.1.0
-─────────────────────────────────────────────────────────
-Your stack: fastapi, postgresql, docker, pytest, pydantic
-Domain: backend
-─────────────────────────────────────────────────────────
+1. 🟢 skill-a
+   Safe to install. Strong match for your current stack.
+   Why: your repo uses FastAPI, pytest, and Docker, and this skill targets backend testing workflow.
 
-1. ⭐⭐⭐⭐⭐ trusty (by /someone)
-   Security scanner for Claude skills. 🟢 VERIFIED
-   Score: 4.8/5.0  Trust: verified  Stars: 2400
-   Reason: Exact stack match (fastapi+pydantic). Active (2d).
+2. 🟡 skill-b
+   Review before installing.
+   Why: relevant to your stack, but flagged for caution during scan.
 
-2. ⭐⭐⭐⭐  autotest (by /author)
-   Auto-generate pytest tests from docstrings.  🟢 COMMUNITY
-   Score: 4.3/5.0  Trust: community  Stars: 890
-   Reason: Stack match (pytest). Used in your sessions (8 days ago).
-
-3. ⭐⭐⭐⭐  db-migrate (by /someone-else)
-   PostgreSQL schema versioning + rollback. 🟡 RAW
-   Score: 3.9/5.0  Trust: raw  Stars: 340
-   Reason: Domain match (backend+database). Newer (4d).
-
-[Install any? Type: agent-hunter install trusty]
-
-2 results RED-scanned (hidden) — use --show-scan-details to review
-─────────────────────────────────────────────────────────
+3. 🟢 mcp-c
+   Safe to install. Useful if you want a tighter MCP workflow for this repo.
 ```
 
 Then:
 ```bash
-agent-hunter install trusty autotest
+/agent-hunter
+# or
+agent-hunter hunt .
 ```
 
-That's it. The skills are cloned to `~/.claude/skills/` and immediately available. No restart needed.
+If the recommendations are useful, add the same block to the project's `CLAUDE.md` so teammates get the workflow too.
 
 ---
 
@@ -263,6 +262,21 @@ Invoke via Claude Code (type a trigger phrase) or run the bin scripts directly:
 
 The `~/.local/bin/agent-hunter` symlink is created by `./setup`, so after adding
 `~/.local/bin` to your PATH you can also run `agent-hunter hunt .` directly.
+
+---
+
+## Global vs Project CLAUDE.md
+
+agent-hunter uses a two-level model:
+
+- **Global `~/.claude/CLAUDE.md`**: installed by `./setup`; makes `/agent-hunter` available in every repo, including new ones with no local setup
+- **Project `CLAUDE.md`**: optional; add after first value if you want the behavior shared with teammates
+
+The intended flow is:
+
+1. install once globally
+2. use immediately on any repo
+3. promote to project-level instructions when the workflow proves useful
 
 ---
 

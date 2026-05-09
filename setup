@@ -151,13 +151,16 @@ Available skills: /agent-hunter, /agent-hunter-update
 GLOBAL_BLOCK
   green "✓ Registered agent-hunter in $GLOBAL_CLAUDE_MD"
   green "  /agent-hunter is now available in every Claude Code session"
+  green "  It will work even in brand new repos with no local CLAUDE.md yet"
 fi
 
 # ── 5b. Print the CLAUDE.md block ────────────────────────────────────────────
 echo ""
 bold "Setup complete."
 echo ""
-echo "Add this section to your project's CLAUDE.md so Claude can use the skill:"
+echo "Global setup is enough to start using agent-hunter immediately."
+echo "The block below is optional — add it to a project's CLAUDE.md when you want"
+echo "the same behavior shared with teammates in that repo."
 echo ""
 printf '\033[0;36m'
 cat << 'CLAUDE_BLOCK'
@@ -205,6 +208,10 @@ if [ "$(pwd)" != "$SKILL_DIR" ] && [ -f "$CURRENT_CLAUDE_MD" ]; then
       green "✓ Added to $CURRENT_CLAUDE_MD"
     fi
   fi
+elif [ "$(pwd)" != "$SKILL_DIR" ]; then
+  yellow "  No project CLAUDE.md found in $(pwd)"
+  yellow "  That's fine — agent-hunter is already active globally via $GLOBAL_CLAUDE_MD"
+  yellow "  Add a project CLAUDE.md later if you want team-wide behavior in this repo"
 fi
 
 echo ""
@@ -212,6 +219,8 @@ bold "Quick start:"
 echo "  In Claude Code, type: /agent-hunter"
 echo "  Or run directly:      $SKILL_DIR/bin/agent-hunter hunt ."
 echo ""
-echo "For a GitHub token (required — GitHub Code Search needs auth since 2024):"
+echo "GitHub token:"
+echo "  Optional for broader discovery. The curated verified index works without it."
+echo "  GitHub Code Search itself still needs auth since 2024."
 echo "  export GITHUB_TOKEN=your_token"
 echo ""

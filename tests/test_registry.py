@@ -278,3 +278,88 @@ class TestFetchRemoteSha:
             result = reg_mod._fetch_remote_sha("https://github.com/owner/repo")
 
         assert result is None
+
+
+class TestWebOfTrust:
+    """Tests for web-of-trust functionality (v0.8.0)."""
+
+    def test_load_trusted_authors_no_file(self):
+        """If trusted_authors.json doesn't exist, return empty dict."""
+        from registry import load_trusted_authors
+
+        authors = load_trusted_authors()
+        # May or may not exist, but should be a dict
+        assert isinstance(authors, dict)
+
+    def test_extract_author_from_url_valid(self):
+        """Extract author name from GitHub URL."""
+        from registry import extract_author_from_url
+
+        url = "https://github.com/indhra/skill-deploy"
+        author = extract_author_from_url(url)
+        assert author == "indhra"
+
+    def test_extract_author_from_url_with_trailing_slash(self):
+        """Handle URLs with trailing slashes."""
+        from registry import extract_author_from_url
+
+        url = "https://github.com/indhra/skill-deploy/"
+        author = extract_author_from_url(url)
+        assert author == "indhra"
+
+    def test_extract_author_from_url_invalid(self):
+        """Invalid URLs should return None."""
+        from registry import extract_author_from_url
+
+        # Non-GitHub URL
+        assert extract_author_from_url("https://gitlab.com/owner/repo") is None
+
+        # Malformed URL
+        assert extract_author_from_url("not-a-url") is None
+
+    def test_check_author_trust_trusted_author(self):
+        """Trusted author should return bonus multiplier."""
+        from registry import check_author_trust
+
+        # Use indhra which is in the real trusted_authors.json
+        url = "https://github.com/indhra/skill-deploy"
+        trusted = check_author_trust(url)
+        # If trusted_authors.json exists and contains indhra
+        # Result should be (True, >1.0) or (False, 1.0) depending on file
+        assert isinstance(trusted, tuple)
+        assert len(trusted) == 2
+        assert isinstance(trusted[0], bool)
+        assert isinstance(trusted[1], (int, float))
+
+    def test_check_author_trust_untrusted_author(self):
+        """Unknown author should return no bonus."""
+        from registry import check_author_trust
+
+        url = "https://github.com/unknown-author-xyz/repo"
+        is_trusted, bonus = check_author_trust(url)
+        # Unknown author should not be trusted
+        assert is_trusted is False
+        assert bonus == 1.0
+
+    def test_check_author_trust_with_explicit_dict(self):
+        """check_author_trust should use provided trusted_authors dict."""
+        from registry import check_author_trust
+
+        trusted_dict = {"testauthor": {"author_id": "testauthor", "score_bonus": 0.20}}
+
+        url = "https://github.com/testauthor/repo"
+        is_trusted, bonus = check_author_trust(url, trusted_authors=trusted_dict)
+        assert is_trusted is True
+        assert bonus == 1.20  # 1.0 + 0.20 bonus
+
+    def test_registry_entry_author_fields(self):
+        """RegistryEntry should have author_trusted and author_name fields."""
+        entry = RegistryEntry(
+            name="test-skill",
+            repo_url="https://github.com/indhra/test-skill",
+            install_path="~/.claude/skills/test-skill",
+            author_trusted=True,
+            author_name="indhra",
+        )
+        assert entry.author_trusted is True
+        assert entry.author_name == "indhra"

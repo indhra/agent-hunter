@@ -83,6 +83,8 @@ class ScoredResult:
     recency_score: float = 0.0
     trust_score: float = 0.0
     yagni_multiplier: float = 1.0
+    seo_poisoning_penalty: float = 0.0  # 0.20 if detected (v0.8.0)
+    seo_poisoning_details: str = ""  # explanation of detected SEO signals
 
     explanation: str = ""  # "why this for you" sentence, set by host agent
 
@@ -156,6 +158,9 @@ def _score_single(
     # --- Trust score ---
     s.trust_score = TRUST_TIER_SCORES.get(r.trust_tier, 0.4)
 
+    # --- SEO poisoning detection (v0.8.0) ---
+    s.seo_poisoning_penalty, s.seo_poisoning_details = _detect_seo_poisoning(r, meta)
+
     # --- YAGNI multiplier ---
     s.yagni_multiplier = _compute_yagni(r, profile)
 
@@ -168,7 +173,7 @@ def _score_single(
         + s.recency_score * w["recency_score"]
         + s.trust_score * w["trust_score"]
     )
-    s.total_score = min(raw * s.yagni_multiplier, 1.0)
+    s.total_score = min(raw * s.yagni_multiplier * (1.0 - s.seo_poisoning_penalty), 1.0)
 
     return s
 
@@ -275,6 +280,54 @@ def _compute_yagni(r: HuntResult, profile: ContextProfile) -> float:
         return YAGNI_MULTIPLIERS["dormant"]
 
     return YAGNI_MULTIPLIERS["unknown"]
+
+
+def _detect_seo_poisoning(r: HuntResult, meta: Optional[SkillMetadata]) -> tuple[float, str]:
+    """Detect SEO poisoning signals (keyword stuffing, artificial stars, etc).
+
+    Returns:
+        (penalty, details)
+        penalty: 0.0 (clean) or 0.20 (suspicious)
+        details: explanation of detected signals
+    """
+    signals = []
+
+    # Signal 1: Artificially high stars + low activity (likely star farming)
+    # High stars (>100) but no commit in last 90 days = suspicious
+    if r.stars > 100 and r.last_commit_date:
+        # Handle timezone-aware and naive datetimes
+        now = datetime.now(timezone.utc)
+        last_commit = r.last_commit_date
+        if last_commit.tzinfo is None:
+            last_commit = last_commit.replace(tzinfo=timezone.utc)
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=timezone.utc)
+
+        days_since_commit = (now - last_commit).days
+        if days_since_commit > 90:
+            signals.append("Suspicious star count + low activity (likely star farming)")
+
+    # Signal 2: Keyword-stuffed README (entropy heuristic)
+    # If description has >20% keyword repetition, flag it
+    if r.description:
+        words = r.description.lower().split()
+        if len(words) > 10:
+            unique_ratio = len(set(words)) / len(words)
+            if unique_ratio < 0.5:  # < 50% unique words = keyword stuffed
+                signals.append("Keyword-stuffed description (low vocabulary entropy)")
+
+    # Signal 3: No code files detected
+    # A repo with no code files but high stars is suspicious
+    if meta and hasattr(meta, "has_code_files") and not meta.has_code_files:
+        if r.stars > 50:
+            signals.append("Repository with no code files but high star count")
+
+    # Return penalty if multiple signals detected
+    if len(signals) >= 2:
+        details = " + ".join(signals)
+        return (0.20, f"🟠 {details}")
+
+    return (0.0, "")
 
 
 def _check_installed_skill_usage(skill_name: str, profile: ContextProfile) -> Optional[str]:

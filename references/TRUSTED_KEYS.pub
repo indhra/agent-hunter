@@ -1,0 +1,10 @@
+# agent-hunter Trusted Signer Keys
+# Format: signer-id:key_material
+# These keys are used to verify signatures on VERIFIED_SKILLS.md entries
+# Add a new signer by appending a new line with the format above
+
+# Primary maintainer key
+indhra:7a3f8e2c5d1b4a9e6f2c8a1d7e5b3f9c2a8d1e7f5a3b9c4e6d2f8a1b7e3c5
+
+# Secondary maintainer key (for redundancy/rotation)
+verify-sig-bot:4c9e2f7a1b8d3e5c6f4a2d9b7e1c8a3f5b2c7e4a1d6f9b3e8c5a2f7d4b1e

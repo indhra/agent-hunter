@@ -55,6 +55,9 @@ class RegistryEntry:
     python_version_tested: str = ""  # e.g., "3.10", "3.11"
     node_version_tested: str = ""  # e.g., "18.0", "20.0"
     ruby_version_tested: str = ""  # e.g., "3.0", "3.1"
+    # Web-of-trust tracking (v0.8.0+)
+    author_trusted: bool = False  # True if author is in trusted_authors list
+    author_name: str = ""  # GitHub owner/author name
 
 
 # ---------------------------------------------------------------------------
@@ -442,6 +445,83 @@ def _fetch_remote_sha(repo_url: str, token: Optional[str] = None) -> Optional[st
     except Exception:
         pass
     return None
+
+
+# ---------------------------------------------------------------------------
+# Web-of-trust support (v0.8.0)
+# ---------------------------------------------------------------------------
+
+
+def load_trusted_authors() -> dict[str, dict]:
+    """Load trusted authors from references/trusted_authors.json.
+
+    Returns:
+        Dict mapping author_id → author metadata including score_bonus.
+        Returns empty dict if file not found or parsing fails.
+    """
+    trusted_path = Path(__file__).parent.parent / "references" / "trusted_authors.json"
+    if not trusted_path.exists():
+        return {}
+
+    try:
+        with open(trusted_path, encoding="utf-8") as f:
+            authors = json.load(f)
+            if not isinstance(authors, list):
+                return {}
+            # Convert list to dict keyed by author_id
+            return {author["author_id"]: author for author in authors if "author_id" in author}
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def extract_author_from_url(repo_url: str) -> Optional[str]:
+    """Extract GitHub author/owner from a repo URL.
+
+    Args:
+        repo_url: GitHub URL, e.g., "https://github.com/indhra/skill-deploy"
+
+    Returns:
+        Author ID (owner name) or None if URL cannot be parsed.
+    """
+    # Example: https://github.com/owner/repo → owner
+    if "github.com" not in repo_url:
+        return None
+
+    parts = repo_url.rstrip("/").split("/")
+    if len(parts) >= 4:
+        return parts[-2]  # second-to-last part is the owner
+    return None
+
+
+def check_author_trust(repo_url: str, trusted_authors: Optional[dict] = None) -> tuple[bool, float]:
+    """Check if a repo's author is trusted and return score bonus.
+
+    Args:
+        repo_url: GitHub repository URL
+        trusted_authors: Optional pre-loaded trusted authors dict.
+                        If None, loads from file.
+
+    Returns:
+        (is_trusted, score_bonus)
+        - is_trusted: True if author is in trusted list
+        - score_bonus: multiplier (1.0 if not trusted, e.g. 1.15 if trusted)
+    """
+    if trusted_authors is None:
+        trusted_authors = load_trusted_authors()
+
+    if not trusted_authors:
+        return False, 1.0
+
+    author = extract_author_from_url(repo_url)
+    if not author:
+        return False, 1.0
+
+    if author in trusted_authors:
+        bonus = trusted_authors[author].get("score_bonus", 0.10)
+        # Apply as multiplier: score_bonus of 0.15 → 1.15× multiplier
+        return True, 1.0 + bonus
+
+    return False, 1.0
 
 
 # ---------------------------------------------------------------------------

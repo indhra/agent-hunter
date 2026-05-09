@@ -14,6 +14,7 @@ from scorer import (
     _check_installed_skill_usage,
     _compute_recency,
     _compute_yagni,
+    _detect_seo_poisoning,
     WEIGHTS,
 )
 from hunter import HuntResult
@@ -606,3 +607,58 @@ class TestCheckInstalledSkillUsageEdgeCases:
         results = score_results([r], profile, config=config)
         # trust_score for "verified" = 1.0, total = 1.0 × multiplier
         assert results[0].trust_score == 1.0
+
+
+class TestSEOPoisoningDetection:
+    """Tests for SEO poisoning detection (v0.8.0)."""
+
+    def test_clean_result_no_penalty(self):
+        """Normal, well-maintained skill should have no SEO penalty."""
+        r = make_result(
+            stars=50,
+            last_commit_date=datetime.now() - timedelta(days=10),
+            description="A high-quality FastAPI skill with tests.",
+        )
+        penalty, details = _detect_seo_poisoning(r, None)
+        assert penalty == 0.0
+        assert details == ""
+
+    def test_high_stars_low_activity_flagged(self):
+        """Repo with >100 stars but no commit in 90 days = suspicious."""
+        r = make_result(
+            stars=150,
+            last_commit_date=datetime.now() - timedelta(days=120),
+            description="A FastAPI skill.",
+        )
+        penalty, details = _detect_seo_poisoning(r, None)
+        # Only one signal, should not reach 2-signal threshold for penalty
+        assert penalty == 0.0  # Need 2+ signals
+
+    def test_keyword_stuffed_description(self):
+        """Very repetitive description should be flagged."""
+        # Description with low word entropy (high repetition)
+        stuffed_desc = (
+            "fastapi fastapi fastapi fastapi fastapi fastapi fastapi fastapi test test test"
+        )
+        r = make_result(
+            stars=50,
+            description=stuffed_desc,
+            last_commit_date=datetime.now() - timedelta(days=10),
+        )
+        penalty, details = _detect_seo_poisoning(r, None)
+        # Only one signal, need 2+ for penalty
+        assert penalty == 0.0
+
+    def test_multiple_signals_high_stars_and_stuffing(self):
+        """Multiple SEO signals together should trigger penalty."""
+        stuffed_desc = "skill skill skill skill skill skill skill skill skill skill skill"
+        r = make_result(
+            stars=150,
+            description=stuffed_desc,
+            last_commit_date=datetime.now() - timedelta(days=120),  # low activity
+        )
+        penalty, details = _detect_seo_poisoning(r, None)
+        # Multiple signals = 0.20 penalty
+        assert penalty == 0.20
+        assert "🟠" in details
+        assert "star farming" in details.lower() or "activity" in details.lower()

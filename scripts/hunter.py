@@ -118,10 +118,20 @@ class Hunter:
             deduplicated by repo URL. Trust tier assigned.
             Returns empty list if GitHub API is unreachable or unauthenticated.
         """
-        if not self._check_auth():
-            return []
-
         results: dict[str, HuntResult] = {}  # keyed by repo_url for dedup
+
+        # --- Query curated index FIRST (highest priority) ---
+        curated = self._search_curated_index(profile)
+        for r in curated:
+            if r.repo_url not in results:
+                results[r.repo_url] = r
+
+        # --- GitHub search (lower priority, doesn't overwrite curated) ---
+        if not self._check_auth():
+            # If no auth but we have curated results, return them
+            if results:
+                return list(results.values())
+            return []
 
         # --- Query construction ---
         queries = self._build_queries(profile)
@@ -235,6 +245,73 @@ class Hunter:
         if self._verified_urls_cache is None:
             self._verified_urls_cache = self._load_verified_urls()
         return self._verified_urls_cache
+
+    def _search_curated_index(self, profile: ContextProfile) -> list[HuntResult]:
+        """Query the curated index from references/VERIFIED_SKILLS.md (v0.8.0).
+
+        The curated index contains pre-vetted, verified skills with cryptographic
+        signatures. Results are tagged with [CURATED] and assigned trust_tier='verified'.
+
+        Returns:
+            List of HuntResult matching the context profile, or empty list if
+            the curated index file is not found or cannot be parsed.
+        """
+        import json
+        import re
+
+        curated_path = Path(__file__).parent.parent / "references" / "VERIFIED_SKILLS.md"
+        if not curated_path.exists():
+            return []
+
+        try:
+            with open(curated_path, encoding="utf-8") as f:
+                content = f.read()
+        except OSError:
+            return []
+
+        # Parse JSON blocks from markdown
+        # Look for the "Verified Skills" section which contains the actual array
+        json_blocks = re.findall(r"```json\n(.*?)\n```", content, re.DOTALL)
+
+        verified_skills = []
+        for block in json_blocks:
+            try:
+                parsed = json.loads(block.strip())
+                # Only use blocks that are arrays (the actual skill list)
+                if isinstance(parsed, list):
+                    verified_skills = parsed
+                    break
+            except json.JSONDecodeError:
+                continue
+
+        if not verified_skills:
+            return []
+
+        results = []
+        for skill in verified_skills:
+            if not isinstance(skill, dict):
+                continue
+
+            name = skill.get("name", "")
+            repo_url = skill.get("repo_url", "")
+
+            # Simple matching: check if any tech stack keyword is in skill name
+            is_relevant = any(tech.lower() in name.lower() for tech in profile.tech_stack)
+            if not is_relevant and profile.domain_tags:
+                is_relevant = any(tag.lower() in name.lower() for tag in profile.domain_tags)
+
+            if is_relevant and repo_url:
+                r = HuntResult(
+                    name=name,
+                    repo_url=repo_url,
+                    description=f"[CURATED] {name}",  # Tag with [CURATED]
+                    stars=100,  # Curated skills get baseline high score
+                    trust_tier="verified",  # Directly verified
+                    result_type="skill",
+                )
+                results.append(r)
+
+        return results
 
     def _search_github(self, query: str, result_type: str) -> list[HuntResult]:
         """Execute a GitHub code search query with simple pagination.
@@ -519,8 +596,6 @@ class Hunter:
                 # Normalise: strip .git suffix for consistent dedup
                 if repo_url.endswith(".git"):
                     repo_url = repo_url[:-4]
-
-                downloads = obj.get("score", {}).get("detail", {}).get("popularity", 0)
 
                 r = HuntResult(
                     name=name,

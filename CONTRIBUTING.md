@@ -50,23 +50,68 @@ agent-hunter accepts four types of contributions. Each has a different review ba
 **What "verified" means:**
 - You read the full SKILL.md (not just the description)
 - You checked the repo history for sudden ownership changes
-- You ran `agent-hunter`'s security scan against it (or equivalent)
+- You ran `agent-hunter`'s security scan against it (returns 🟢, no 🔴 flags)
 - You have actually used it in a real project
+- Your review is independent (you are not the skill's author)
+- Two community members have approved the verification
+
+**Verification Criteria Checklist:**
+- ✅ Skill repo has 50+ GitHub stars (active project signal)
+- ✅ Repo has commits within last 60 days (actively maintained)
+- ✅ `security_scan.py` returns 🟢 for all checks
+- ✅ No RED (🔴) findings in static or runtime analysis
+- ✅ SKILL.md frontmatter is valid and complete
+- ✅ You have tested the skill in a working project
+- ✅ Two independent sign-offs from reviewers (not including skill author)
+
+**Signing Process (v0.8.0+):**
+
+Once a skill passes review and gets approval, a maintainer with a key in `references/TRUSTED_KEYS.pub` signs the entry:
+
+```bash
+# Maintainer adds entry to VERIFIED_SKILLS.md and signs it
+python3 << EOF
+from scripts.verify_sig import SignatureVerifier
+
+verifier = SignatureVerifier()
+skill_entry = {
+    "name": "skill-deploy",
+    "repo_url": "https://github.com/owner/skill-deploy",
+    "verified_at": "2026-05-09T00:00:00Z"
+}
+
+# Sign with maintainer key
+signature = verifier.sign_skill_entry(skill_entry, "indhra", signer_key)
+print(f"Signature: {signature}")
+EOF
+```
+
+Add the signed entry to `references/VERIFIED_SKILLS.md` in the JSON array:
+```json
+{
+  "name": "skill-deploy",
+  "repo_url": "https://github.com/owner/skill-deploy",
+  "verified_at": "2026-05-09T00:00:00Z",
+  "signature": "indhra:d3e923da62c022df70bfa30ee5584d02638178d187c02df24ec56e859dc9e805"
+}
+```
 
 **Format for new entry:**
 ```markdown
-### skill-name
+### skill-name (v0.8.0 format)
 - **Repo:** https://github.com/owner/repo
-- **Version reviewed:** v1.2.3
-- **SHA at review:** abc123def456...
+- **Stars:** 150+ (as of review date)
+- **Last commit:** Within 60 days
 - **License:** MIT
-- **Reviewer:** @your-github-handle
+- **Security scan:** 🟢 (all checks passed)
+- **Reviewers:** @reviewer1, @reviewer2 (not including author @author)
 - **Review date:** YYYY-MM-DD
 - **Why verified:** [One sentence: what does this skill do and why is it trustworthy]
 - **Tested on:** [Your stack — e.g. "FastAPI + Postgres project"]
+- **Cryptographic signature:** indhra:abc123...
 ```
 
-**Review bar:** One maintainer approval + reviewer must not be the skill's author.
+**Review bar:** Two independent community approvals + maintainer sign-off + cryptographic signature.
 
 ---
 

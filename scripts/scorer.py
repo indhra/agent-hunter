@@ -1,13 +1,11 @@
 """
 scorer.py — Score and rank HuntResult objects by relevance.
 
-Scoring formula (v0.8.0+, 6-signal):
-    total = (intent_match × 0.30
-           + stack_match  × 0.20
-           + domain_match × 0.15
-           + star_score   × 0.10
-           + recency      × 0.10
-           + trust_score  × 0.15) × yagni_multiplier × (1 - seo_penalty)
+Scoring formula (v1.0.0-alpha, 4-signal):
+    total = (stack_match   × 0.40
+           + trust_score   × 0.30
+           + recency_score × 0.15
+           + star_score    × 0.15) × yagni_multiplier
 
     YAGNI multiplier:
         active  (commits in last 7d):  2.0×
@@ -27,11 +25,9 @@ No LLM calls. No network access.
 
 from __future__ import annotations
 
-import json
 import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
 from context_extractor import ContextProfile
@@ -44,12 +40,10 @@ from skill_parser import SkillMetadata
 # ---------------------------------------------------------------------------
 
 WEIGHTS = {
-    "intent_match": 0.30,
-    "stack_match": 0.20,
-    "domain_match": 0.15,
-    "star_score": 0.10,
-    "recency_score": 0.10,
-    "trust_score": 0.15,
+    "stack_match": 0.40,
+    "trust_score": 0.30,
+    "recency_score": 0.15,
+    "star_score": 0.15,
 }
 
 YAGNI_MULTIPLIERS = {
@@ -77,15 +71,11 @@ class ScoredResult:
     skill_metadata: Optional[SkillMetadata]
 
     total_score: float = 0.0
-    intent_match_score: float = 0.0
     stack_match_score: float = 0.0
-    domain_match_score: float = 0.0
     star_score: float = 0.0
     recency_score: float = 0.0
     trust_score: float = 0.0
     yagni_multiplier: float = 1.0
-    seo_poisoning_penalty: float = 0.0  # 0.20 if detected (v0.8.0)
-    seo_poisoning_details: str = ""  # explanation of detected SEO signals
 
     explanation: str = ""  # "why this for you" sentence, set by host agent
 
@@ -141,14 +131,9 @@ def _score_single(
     w = weights if weights is not None else WEIGHTS
     s = ScoredResult(hunt_result=r, skill_metadata=meta)
 
-    # --- Intent match (0.0 - 1.0) ---
-    s.intent_match_score = _compute_intent_match(r, profile)
-
     # --- Stack match (0.0 – 1.0) ---
+    # Combines tech stack, domain tags, and intent keywords into one signal
     s.stack_match_score = _compute_stack_match(r, meta, profile)
-
-    # --- Domain match (0.0 – 1.0) ---
-    s.domain_match_score = _compute_domain_match(r, meta, profile)
 
     # --- Star score: log-normalized, cap at 10k stars = 1.0 ---
     s.star_score = min(math.log10(max(r.stars, 1)) / 4.0, 1.0)
@@ -159,48 +144,19 @@ def _score_single(
     # --- Trust score ---
     s.trust_score = TRUST_TIER_SCORES.get(r.trust_tier, 0.4)
 
-    # --- SEO poisoning detection (v0.8.0) ---
-    s.seo_poisoning_penalty, s.seo_poisoning_details = _detect_seo_poisoning(r, meta)
-
     # --- YAGNI multiplier ---
     s.yagni_multiplier = _compute_yagni(r, profile)
 
     # --- Total ---
     raw = (
-        s.intent_match_score * w.get("intent_match", 0.0)
-        + s.stack_match_score * w["stack_match"]
-        + s.domain_match_score * w["domain_match"]
+        s.stack_match_score * w["stack_match"]
         + s.star_score * w["star_score"]
         + s.recency_score * w["recency_score"]
         + s.trust_score * w["trust_score"]
     )
-    s.total_score = min(raw * s.yagni_multiplier * (1.0 - s.seo_poisoning_penalty), 1.0)
-
-    # --- Author trust bonus (v0.8.0, web-of-trust via registry.py) ---
-    try:
-        from registry import check_author_trust
-
-        is_trusted, bonus = check_author_trust(r.repo_url)
-        if is_trusted and bonus > 0.0:
-            s.total_score = min(s.total_score * (1.0 + bonus), 1.0)
-            s.explanation = (s.explanation + " [AUTHOR_TRUSTED]").strip()
-    except Exception:
-        pass  # Author trust is advisory; never fail scoring
+    s.total_score = min(raw * s.yagni_multiplier, 1.0)
 
     return s
-
-
-def _compute_intent_match(
-    r: HuntResult,
-    profile: ContextProfile,
-) -> float:
-    """How well does this skill match the explicit user intent?"""
-    if not getattr(profile, "intent_keywords", None):
-        return 0.0
-
-    text = f"{r.name} {r.description} {r.repo_name} {getattr(r, 'raw_content', '')}".lower()
-    matches = sum(1 for kw in profile.intent_keywords if kw in text)
-    return min(matches / len(profile.intent_keywords), 1.0)
 
 
 def _compute_stack_match(
@@ -208,34 +164,47 @@ def _compute_stack_match(
     meta: Optional[SkillMetadata],
     profile: ContextProfile,
 ) -> float:
-    """How well does this skill's tech stack overlap with the project's?"""
-    if not profile.tech_stack:
+    """How well does this skill match the project's tech stack, domain, and intent?
+
+    Combines:
+    - Tech stack overlap (framework/library names)
+    - Domain tags (web, ml, cli, etc.)
+    - Intent keywords (if provided by user)
+
+    All signals are folded into one unified "does it fit my project?" score.
+    """
+    if not profile.tech_stack and not profile.domain_tags:
         return 0.5  # no context = neutral
 
-    # Use skill name + description + repo name as proxy when full body unavailable
+    # Build text corpus from skill
     text = f"{r.name} {r.description} {r.repo_name}".lower()
     if meta:
         text += f" {meta.description} {meta.body[:500]}".lower()
 
-    matches = sum(1 for t in profile.tech_stack if t in text)
-    return min(matches / max(len(profile.tech_stack), 1), 1.0)
+    # Count matches across all signals
+    total_signals = []
+    matched_signals = []
 
+    # Tech stack signals
+    if profile.tech_stack:
+        total_signals.extend(profile.tech_stack)
+        matched_signals.extend([t for t in profile.tech_stack if t in text])
 
-def _compute_domain_match(
-    r: HuntResult,
-    meta: Optional[SkillMetadata],
-    profile: ContextProfile,
-) -> float:
-    """How well does this skill's domain match the project's domain tags?"""
-    if not profile.domain_tags:
+    # Domain signals
+    if profile.domain_tags:
+        total_signals.extend(profile.domain_tags)
+        matched_signals.extend([d for d in profile.domain_tags if d in text])
+
+    # Intent signals (if provided)
+    if hasattr(profile, "intent_keywords") and profile.intent_keywords:
+        total_signals.extend(profile.intent_keywords)
+        matched_signals.extend([kw for kw in profile.intent_keywords if kw in text])
+
+    if not total_signals:
         return 0.5
 
-    text = f"{r.name} {r.description} {r.repo_name}".lower()
-    if meta:
-        text += f" {meta.description}".lower()
-
-    matches = sum(1 for d in profile.domain_tags if d in text)
-    return min(matches / max(len(profile.domain_tags), 1), 1.0)
+    # Return match ratio, capped at 1.0
+    return min(len(matched_signals) / len(total_signals), 1.0)
 
 
 def _compute_recency(r: HuntResult) -> float:
@@ -267,135 +236,21 @@ def _compute_yagni(r: HuntResult, profile: ContextProfile) -> float:
     """
     YAGNI multiplier: reward skills matching domains actively in use.
 
-    Also checks install_log.jsonl to detect dormant installed skills
-    (installed >30 days ago with 0 session mentions) and apply the
-    dormant multiplier. This closes Gap 3: install_log → scorer feedback.
+    Checks git activity signals to detect:
+    - Active domains (commits in last 7d) → 2.0×
+    - Recent domains (commits in last 30d) → 1.0×
+    - Dormant domains (no commits in 90+d) → 0.5×
     """
     text = f"{r.name} {r.repo_name}".lower()
 
-    # First: check git activity signals (existing logic)
-    if any(t in text for t in profile.active_domains):
+    # Check git activity signals
+    if hasattr(profile, "active_domains") and any(t in text for t in profile.active_domains):
         return YAGNI_MULTIPLIERS["active"]
-    if any(t in text for t in profile.recent_domains):
+
+    if hasattr(profile, "recent_domains") and any(t in text for t in profile.recent_domains):
         return YAGNI_MULTIPLIERS["recent"]
 
-    # Second: check if this skill is installed AND dormant (new feedback loop)
-    install_status = _check_installed_skill_usage(r.name, profile)
-    if install_status == "dormant":
-        return YAGNI_MULTIPLIERS["dormant"]
-    elif install_status == "active":
-        # Boost active installed skills (up to 1.1× cap)
-        return min(1.1, YAGNI_MULTIPLIERS["recent"])
-
-    # Third: check dormant git domains (existing logic)
-    if profile.dormant_domains and any(t in text for t in profile.dormant_domains):
+    if hasattr(profile, "dormant_domains") and any(t in text for t in profile.dormant_domains):
         return YAGNI_MULTIPLIERS["dormant"]
 
     return YAGNI_MULTIPLIERS["unknown"]
-
-
-def _detect_seo_poisoning(r: HuntResult, meta: Optional[SkillMetadata]) -> tuple[float, str]:
-    """Detect SEO poisoning signals (keyword stuffing, artificial stars, etc).
-
-    Returns:
-        (penalty, details)
-        penalty: 0.0 (clean) or 0.20 (suspicious)
-        details: explanation of detected signals
-    """
-    signals = []
-
-    # Signal 1: Artificially high stars + low activity (likely star farming)
-    # High stars (>100) but no commit in last 90 days = suspicious
-    if r.stars > 100 and r.last_commit_date:
-        # Handle timezone-aware and naive datetimes
-        now = datetime.now(timezone.utc)
-        last_commit = r.last_commit_date
-        if last_commit.tzinfo is None:
-            last_commit = last_commit.replace(tzinfo=timezone.utc)
-        if now.tzinfo is None:
-            now = now.replace(tzinfo=timezone.utc)
-
-        days_since_commit = (now - last_commit).days
-        if days_since_commit > 90:
-            signals.append("Suspicious star count + low activity (likely star farming)")
-
-    # Signal 2: Keyword-stuffed README (entropy heuristic)
-    # If description has >20% keyword repetition, flag it
-    if r.description:
-        words = r.description.lower().split()
-        if len(words) > 10:
-            unique_ratio = len(set(words)) / len(words)
-            if unique_ratio < 0.5:  # < 50% unique words = keyword stuffed
-                signals.append("Keyword-stuffed description (low vocabulary entropy)")
-
-    # Signal 3: No code files detected
-    # A repo with no code files but high stars is suspicious
-    if meta and hasattr(meta, "has_code_files") and not meta.has_code_files:
-        if r.stars > 50:
-            signals.append("Repository with no code files but high star count")
-
-    # Return penalty if multiple signals detected
-    if len(signals) >= 2:
-        details = " + ".join(signals)
-        return (0.20, f"🟠 {details}")
-
-    return (0.0, "")
-
-
-def _check_installed_skill_usage(skill_name: str, profile: ContextProfile) -> Optional[str]:
-    """
-    Check if a skill is installed and whether it's been used recently.
-
-    Returns:
-        "dormant":  installed >30d ago, 0 session mentions
-        "active":   installed, has session mentions in last 30d
-        None:       not installed or insufficient data
-    """
-    install_log_path = Path.home() / ".agent-hunter" / "install_log.jsonl"
-    if not install_log_path.exists():
-        return None
-
-    try:
-        install_history = {}
-        with open(install_log_path) as f:
-            for line in f:
-                try:
-                    entry = json.loads(line)
-                    name = entry.get("skill_name", "").lower()
-                    if name == skill_name.lower():
-                        # Track most recent install/enable time
-                        action = entry.get("action", "")
-                        if action in ("install", "enable"):
-                            ts = entry.get("timestamp")
-                            if ts:
-                                install_history[name] = datetime.fromisoformat(ts)
-                except (json.JSONDecodeError, ValueError):
-                    continue
-    except OSError:
-        return None
-
-    # If skill isn't in install_log, it's not installed
-    if skill_name.lower() not in install_history:
-        return None
-
-    installed_at = install_history[skill_name.lower()]
-    now = datetime.now(timezone.utc).replace(tzinfo=None)
-    if isinstance(installed_at, datetime) and installed_at.tzinfo:
-        installed_at = installed_at.replace(tzinfo=None)
-
-    days_since_install = (now - installed_at).days
-
-    # Check session mentions
-    session_skills_dict = {s.skill_name.lower(): s for s in profile.session_skills}
-    skill_session = session_skills_dict.get(skill_name.lower())
-
-    # Dormant if installed >30d ago AND no recent session mentions
-    if days_since_install > 30:
-        if not skill_session or skill_session.mention_count == 0:
-            return "dormant"
-
-    # Active if there are recent session mentions
-    if skill_session and skill_session.mention_count > 0:
-        return "active"
-
-    return None

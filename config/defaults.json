@@ -4,7 +4,7 @@
 
   "hunt": {
     "max_results": 10,
-    "top_n_shown": 5,
+    "top_n_shown": 3,
     "min_stars": 10,
     "max_age_days": 180,
     "include_mcp_servers": true,
@@ -14,19 +14,17 @@
 
   "phase": "growth",
   "_phase_presets": {
-    "seed":   { "min_stars": 5,  "max_age_days": 365, "top_n_shown": 8 },
-    "growth": { "min_stars": 10, "max_age_days": 180, "top_n_shown": 5 },
-    "scale":  { "min_stars": 50, "max_age_days": 90,  "top_n_shown": 5 }
+    "seed":   { "min_stars": 5,  "max_age_days": 365, "top_n_shown": 3 },
+    "growth": { "min_stars": 10, "max_age_days": 180, "top_n_shown": 3 },
+    "scale":  { "min_stars": 50, "max_age_days": 90,  "top_n_shown": 3 }
   },
 
   "scoring": {
     "weights": {
-      "intent_match":   0.30,
-      "stack_match":    0.20,
-      "domain_match":   0.15,
-      "star_score":     0.10,
-      "recency_score":  0.10,
-      "trust_score":    0.15
+      "stack_match":    0.40,
+      "trust_score":    0.30,
+      "recency_score":  0.15,
+      "star_score":     0.15
     },
     "yagni_multipliers": {
       "active":   2.0,

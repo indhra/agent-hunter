@@ -115,14 +115,20 @@ Run from Claude Code: `/agent-hunter`
 
 ## GitHub Token (Optional)
 
-agent-hunter works out of the box using the curated index. GitHub Code Search unlocks discovery beyond the curated list.
+**agent-hunter works WITHOUT a token** using the curated index (`references/VERIFIED_SKILLS.md`) — security-vetted, high-quality skills and MCP servers.
+
+**Adding a token enables broader GitHub discovery** beyond the curated set (searches all of GitHub for relevant skills/MCP servers).
 
 ```bash
 export GITHUB_TOKEN=your_token_here
 # or add to ~/.zshrc / ~/.bash_profile
 ```
 
-Generate at <https://github.com/settings/tokens> (no scopes needed). Skip if you only want curated results.
+Generate at <https://github.com/settings/tokens> (no scopes needed).
+
+**What you get:**
+- **Without token**: ~100 curated, verified skills/MCP servers (zero-config, works offline)
+- **With token**: Curated set PLUS broader GitHub discovery (1000s more results)
 
 ---
 

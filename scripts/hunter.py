@@ -218,30 +218,61 @@ class Hunter:
         return filtered
 
     def _check_auth(self) -> bool:
-        """Probe GitHub API to verify credentials before firing all queries.
+        """Probe GitHub API to verify credentials AND rate limit before firing all queries.
 
-        GitHub Code Search has required authentication since February 2024.
+        As of May 2026, ALL GitHub API endpoints require authentication:
+        - Code search (/search/code)
+        - Repository search (/search/repositories)
+        - Individual repo metadata (/repos/{owner}/{repo})
+
+        WITHOUT a token: agent-hunter uses the curated index only
+        (references/VERIFIED_SKILLS.md) - verified, security-vetted skills.
+
+        WITH a token: enables broader GitHub discovery beyond the curated set.
+
         This probe uses /rate_limit (cheap, no search quota consumed) to
-        detect 401 early and print a clear, actionable error message.
+        detect 401 early and print a clear, actionable message.
 
         Returns:
-            True if the API responds with a usable status, False on 401.
+            True if the API responds with usable auth AND has remaining quota,
+            False on 401/403 or exhausted rate limit (curated-only mode).
         """
         try:
             resp = self._session.get(f"{GITHUB_API}/rate_limit", timeout=5)
         except requests.RequestException as exc:
             print(f"[agent-hunter] Could not reach GitHub API: {exc}")
+            print("[agent-hunter] Continuing with curated index only...")
             return False
 
-        if resp.status_code == 401:
+        if resp.status_code == 401 or resp.status_code == 403:
             print(
-                "[agent-hunter] GitHub authentication required.\n"
-                "  GitHub Code Search has required a token since 2024.\n"
-                "  Get a free token (no special scopes needed):\n"
-                "    https://github.com/settings/tokens\n"
-                "  Then set: export GITHUB_TOKEN=<your_token>"
+                "[agent-hunter] GitHub token not provided — using curated index only.\n"
+                f"[agent-hunter] Found {len(self._load_verified_urls())} verified skills/MCP servers.\n"
+                "[agent-hunter] \n"
+                "[agent-hunter] To enable broader GitHub discovery, add a token:\n"
+                "  1. Get a free token: https://github.com/settings/tokens\n"
+                "  2. Set: export GITHUB_TOKEN=<your_token>\n"
+                "  3. Re-run agent-hunter hunt\n"
             )
             return False
+
+        # Check rate limit remaining
+        try:
+            data = resp.json()
+            remaining = data.get("rate", {}).get("remaining", 0)
+            if remaining < 5:  # Need at least a few requests for queries
+                print(
+                    "[agent-hunter] GitHub API rate limit exhausted (0 remaining) — using curated index only.\n"
+                    f"[agent-hunter] Found {len(self._load_verified_urls())} verified skills/MCP servers.\n"
+                    "[agent-hunter] \n"
+                    "[agent-hunter] To enable broader GitHub discovery, add a token:\n"
+                    "  1. Get a free token: https://github.com/settings/tokens\n"
+                    "  2. Set: export GITHUB_TOKEN=<your_token>\n"
+                    "  3. Re-run agent-hunter hunt\n"
+                )
+                return False
+        except (ValueError, KeyError):
+            pass  # If we can't parse, continue anyway
 
         return True
 

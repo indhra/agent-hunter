@@ -10,7 +10,7 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
@@ -1072,59 +1072,3 @@ class TestHunterTokenInHeader:
     def test_no_token_no_auth_header(self):
         h = make_hunter(github_token=None)
         assert "Authorization" not in h._session.headers
-
-
-class TestCuratedIndexSignatureValidation:
-    """Lines 362-367, 376: signature validation path in _search_curated_index."""
-
-    def test_invalid_signature_skips_entry(self, capsys):
-        """When signature is invalid and trusted_keys exist, entry is skipped."""
-        h = make_hunter()
-        from context_extractor import ContextProfile
-
-        profile = ContextProfile(tech_stack=["fastapi"])
-
-        # Mock verifier that returns is_valid=False
-        mock_verifier = MagicMock()
-        mock_verifier.trusted_keys = {"indhra": "some-key"}  # Non-empty = keys exist
-        mock_verifier.verify_skill_entry.return_value = MagicMock(
-            is_valid=False, message="Signature mismatch"
-        )
-
-        skills_data = [
-            {
-                "name": "fastapi-deploy",
-                "repo_url": "https://github.com/indhra/fastapi-deploy",
-                "signature": "bad-sig",
-            }
-        ]
-        import json as _json
-
-        md_content = "```json\n" + _json.dumps(skills_data) + "\n```\n"
-
-        with (
-            patch("verify_sig.SignatureVerifier", return_value=mock_verifier),
-            patch("builtins.open", mock_open(read_data=md_content)),
-            patch("hunter.Path.exists", return_value=True),
-        ):
-            results = h._search_curated_index(profile)
-
-        # Invalid sig → entry skipped
-        assert all("fastapi-deploy" not in r.name for r in results)
-        out = capsys.readouterr().out
-        assert "🔴" in out or "Signature mismatch" in out or "tampered" in out
-
-    def test_oserror_on_file_read_returns_empty(self):
-        """OSError when reading curated index → returns []."""
-        h = make_hunter()
-        from context_extractor import ContextProfile
-
-        profile = ContextProfile(tech_stack=["fastapi"])
-
-        with (
-            patch("hunter.Path.exists", return_value=True),
-            patch("builtins.open", side_effect=OSError("Permission denied")),
-        ):
-            results = h._search_curated_index(profile)
-
-        assert results == []

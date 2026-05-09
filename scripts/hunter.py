@@ -45,7 +45,7 @@ def parse_mcp_json(content: str) -> dict | None:
         content: Raw JSON content from mcp.json file.
 
     Returns:
-        Dict with name, description, etc., or None if parsing fails.
+        Dict with name, description, transport, command, capabilities, or None if parsing fails.
     """
     import json
 
@@ -60,11 +60,14 @@ def parse_mcp_json(content: str) -> dict | None:
     if not isinstance(data, dict):
         return None
 
-    # Return simplified metadata dict
+    # Return metadata dict with MCP-specific fields
     return {
         "name": data.get("name", ""),
         "version": data.get("version", ""),
         "description": data.get("description", ""),
+        "transport_type": data.get("transport", ""),
+        "install_command": data.get("command", ""),
+        "capabilities": data.get("capabilities", {}),
     }
 
 
@@ -503,10 +506,10 @@ class Hunter:
                 r.raw_content = content
                 mcp_meta = parse_mcp_json(content)
                 if mcp_meta:
-                    r.name = mcp_meta.name or r.repo_name
-                    r.mcp_transport_type = mcp_meta.transport_type
-                    r.mcp_install_command = mcp_meta.install_command
-                    r.mcp_capabilities = mcp_meta.capabilities
+                    r.name = mcp_meta.get("name") or r.repo_name
+                    r.mcp_transport_type = mcp_meta.get("transport_type")
+                    r.mcp_install_command = mcp_meta.get("install_command")
+                    r.mcp_capabilities = mcp_meta.get("capabilities")
 
         return True
 

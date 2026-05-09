@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# resolve-deps — check SKILL.md declared skill dependencies
-# Usage: resolve-deps
-# Output: JSON map of role → {status, trust_tier, use_fallback, fallback, path}
-SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-exec "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/scripts/skill_parser.py" --resolve-deps "$@"

@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-# scaffold — generate a SKILL.md stub for a new skill
-# Usage: scaffold <skill-name> [--project <project_root>]
-# Output: generated stub written to ./skills/<name>/SKILL.md
-SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-exec "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/scripts/scaffold.py" "$@"

@@ -34,7 +34,7 @@
 
 ## Install — 30 seconds
 
-**Platform:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (primary). VS Code Copilot adapter planned for v0.6.0.
+**Platform:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (primary). VS Code Copilot adapter planned for v0.6.5.
 
 **Requirements:** Claude Code, Git, Python 3.10+
 
@@ -44,16 +44,16 @@ Open Claude Code and paste this. Claude does the rest.
 
 > Install agent-hunter: run `git clone --single-branch --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter && cd ~/.claude/skills/agent-hunter && ./setup` then add an "agent-hunter" section to CLAUDE.md that says to use /agent-hunter to discover, security-scan, and install SKILL.md files and MCP servers relevant to the current project — run it before manually searching for skills, and lists the available skills: /agent-hunter, /agent-hunter-update. Then ask the user if they also want to add agent-hunter to the current project so teammates get it.
 
-### Step 2: Set your GitHub token (required)
+### Step 2: Set your GitHub token (optional — for broader discovery)
 
-GitHub Code Search has required a token since February 2024. Without one, the hunt returns 0 results.
+agent-hunter works out of the box using the curated verified skills index. GitHub Code Search is additive — it unlocks discovery of skills beyond the curated list.
 
 ```bash
 export GITHUB_TOKEN=your_token_here
 # or add to ~/.zshrc / ~/.bash_profile for persistence
 ```
 
-Generate at https://github.com/settings/tokens — no scopes needed.
+Generate at https://github.com/settings/tokens — no scopes needed. Skip this step if you only want curated results.
 
 ### Update
 
@@ -365,10 +365,10 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
 
 See [ROADMAP.md](./ROADMAP.md) for the full versioned plan.
 
-**Now:** v0.4.0 — core pipeline, security scan, Claude Code native, slash commands
-**Next:** v0.5.0 — slash command activation polish, npm MCP discovery, VERIFIED_SKILLS seeding
-**Then:** v0.6.0 — VS Code Copilot adapter (different skill-loading mechanism)
-**GA:** v1.0.0 — benchmarked, CVE integration, production-ready, demo recorded
+**Shipped:** v0.8.0 — cryptographic signing, typo-squat detection, author trust, Docker sandbox, dep conflict manager, npm MCP discovery
+**Next:** v0.9.0 — real-world UX hardening, benchmark suite, CVE index integration
+**Then:** v0.6.5 — VS Code Copilot adapter (different skill-loading mechanism)
+**GA:** v1.0.0 — benchmarked, production-ready, demo recorded
 
 ---
 

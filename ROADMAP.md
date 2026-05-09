@@ -10,16 +10,15 @@ This roadmap is versioned and intentional. Every release ships a working, useful
 
 ## Versioning Convention
 
-`MAJOR.MINOR.PATCH.BUILD`
+`MAJOR.MINOR.PATCH`
 
 - **MAJOR** — breaking changes to SKILL.md interface, registry schema, or report format
 - **MINOR** — new commands, new sources, new scan capabilities (backward-compatible)
 - **PATCH** — robustness enhancements, security hardening, core gaps closed
-- **BUILD** — incremental (0 = initial, 1+ = hot fixes before next minor bump)
 
-Examples: `v0.1.0.0` (alpha), `v0.2.1.3` (patch + 3 hotfixes), `v1.0.0.0` (GA).
+Examples: `v0.1.0` (alpha), `v0.2.1` (patch release), `v1.0.0` (GA).
 
-Versions below `v1.0.0.0` are pre-release. `v1.0.0.0` is the first production-stable release.
+Versions below `v1.0.0` are pre-release. `v1.0.0` is the first production-stable release.
 
 ---
 
@@ -273,7 +272,7 @@ Raw GitHub search is the weakest link — easily SEO-poisoned, typo-squatted, or
 
 ## v0.4.0 · Beta — Compound Loop Completion (Feedback + Contribution)
 
-**Status:** 📋 Planned
+**Status:** ✅ Shipped
 **Target:** Week 13
 
 This version closes the two open links in the compound learning loop. Without these, the scorer is static — it ranks by stars and recency forever. With them, it gets smarter from actual usage.
@@ -323,9 +322,9 @@ This version closes the two open links in the compound learning loop. Without th
 
 ---
 
-## v0.5.0.0 · Beta — Safe-State Recovery (Gap 2 Closure)
+## v0.5.0 · Beta — Safe-State Recovery (Gap 2 Closure)
 
-**Status:** 📋 Planned
+**Status:** ✅ Shipped
 **Target:** Week 15
 
 Robustness gap 2: Poisoned SHAs with no rollback points. A single GitHub Account compromise or malicious commit can silently inject backdoors. This version hardens rollback with pre-audit snapshots and a complete recovery playbook.
@@ -377,9 +376,9 @@ Robustness gap 2: Poisoned SHAs with no rollback points. A single GitHub Account
 
 ---
 
-## v0.6.0.0 · Beta — Runtime Sandboxing (Gap 1 Closure)
+## v0.6.0 · Beta — Runtime Sandboxing (Gap 1 Closure)
 
-**Status:** 📋 Planned
+**Status:** ✅ Shipped
 **Target:** Week 17
 
 Robustness gap 1: Obfuscated malware bypasses static analysis. Minor code obfuscation (base64 decode, dynamic eval) defeats regex-based scanning. This version adds behavioral analysis + hardened Docker isolation.
@@ -431,7 +430,7 @@ Robustness gap 1: Obfuscated malware bypasses static analysis. Minor code obfusc
 
 ---
 
-## v0.6.5.0 · Beta — VS Code Copilot Adapter
+## v0.6.5 · Beta — VS Code Copilot Adapter
 
 **Status:** 📋 Planned
 **Target:** Week 18 (parallel with v0.7.0 work)
@@ -475,10 +474,9 @@ context). This adapter bridges the gap.
 
 ---
 
-## v0.7.0.0 · Beta — Dependency Conflict Management (Gap 3 Closure)
+## v0.7.0 · Beta — Dependency Conflict Management (Gap 3 Closure)
 
-**Status:** 📋 Planned
-**Target:** Week 19
+**Status:** ✅ Shipped
 
 Robustness gap 3: Python/Node/Ruby version conflicts crash the agent. Installing Skill A (`pydantic<2.0`) then Skill B (`pydantic>=2.0`) breaks both. This version adds dependency resolution and containerization option.
 
@@ -527,9 +525,9 @@ Robustness gap 3: Python/Node/Ruby version conflicts crash the agent. Installing
 
 ---
 
-## v0.8.0.0 · Beta — Web-of-Trust & Verified Indexing (Gap 4 Closure)
+## v0.8.0 · Beta — Web-of-Trust & Verified Indexing (Gap 4 Closure)
 
-**Status:** 📋 Planned
+**Status:** ✅ Shipped
 **Target:** Week 21
 
 Robustness gap 4: GitHub Search is rate-limited and vulnerable to SEO poisoning + typo-squatting. An attacker can register `skll-deploy` (typo) or use GitHub SEO tricks to get ranked high. This version implements cryptographic verification and a curated index backend.
@@ -590,12 +588,12 @@ Robustness gap 4: GitHub Search is rate-limited and vulnerable to SEO poisoning 
 
 ---
 
-## v1.0.0.0 · General Availability — Production Ready
+## v1.0.0 · General Availability — Production Ready
 
 **Status:** 📋 Planned
 **Target:** Week 24
 
-This is the release that earns the 1.0.0.0 label. The tool is now hardened against:
+This is the release that earns the 1.0.0 label. The tool is now hardened against:
 - Obfuscated malware (v0.6.0)
 - Poisoned SHA versions (v0.5.0)
 - Dependency conflicts (v0.7.0)
@@ -630,7 +628,7 @@ Plus all v0.1.0–v0.4.0 features (hunt, score, audit, update, sandbox, contribu
 - `references/KNOWN_MALICIOUS.md` — 10+ documented cases from Snyk + community reports
 - `references/CURATED_SOURCES.md` — 5+ trusted registries linked
 
-### v1.0.0.0 Benchmark Targets (hard gates — release blocked if not met)
+### v1.0.0 Benchmark Targets (hard gates — release blocked if not met)
 
 | Metric | Target |
 |---|---|
@@ -656,9 +654,9 @@ Plus all v0.1.0–v0.4.0 features (hunt, score, audit, update, sandbox, contribu
 
 ---
 
-## v2.0.0.0+ (Post-v1.0.0 — Future Vision)
+## v2.0.0+ (Post-v1.0.0 — Future Vision)
 
-Once v1.0.0.0 ships stable, these features are candidates:
+Once v1.0.0 ships stable, these features are candidates:
 
 | Feature | Rationale | Target |
 |---------|-----------|--------|

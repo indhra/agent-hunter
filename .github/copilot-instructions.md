@@ -53,17 +53,23 @@ context_extractor → hunter → security_scan (per result) → scorer → repor
 ## Current Implementation Status
 
 ### Fully implemented (do not rewrite unless fixing a bug)
-- `skill_parser.py` — complete, 11 tests passing
-- `context_extractor.py` — complete, 9 tests passing
-- `security_scan.py` — complete, 22 tests passing (10 patterns, static analysis)
-- `scorer.py` — complete, 8 tests passing
+- `skill_parser.py` — complete
+- `context_extractor.py` — complete
+- `security_scan.py` — complete (10+ patterns, obfuscation detection, sandbox integration)
+- `scorer.py` — complete (install_log feedback loop, dormant detection)
 - `registry.py` — complete (SHA tracking, snapshot/restore)
 - `reporter.py` — complete (terminal rich table + markdown save)
 - `rollback.py` — complete
-- `sandbox.py` — complete (subprocess mode; Docker is a v0.3.0 stub)
+- `sandbox.py` — complete (subprocess mode default; Docker opt-in when available)
 - `scaffold.py` — complete
+- `dep_resolver.py` — complete (v0.7.0 dependency conflict detection)
+- `mcp_parser.py` — complete (v0.5.0 MCP config parsing)
+- `typo_detect.py` — complete (v0.8.0 typo-squat detection)
+- `verify_sig.py` — complete (v0.8.0 cryptographic signature verification)
+- `update.py` — complete (v0.5.0 skill update command)
+- `release.py` — complete (v0.5.0 release helper)
 - **`scripts/main.py`** — the CLI entry point that wires all scripts together
-- **`bin/`** — all 10 bash wrappers complete (gstack model; Claude calls these directly)
+- **`bin/`** — all 11 bash wrappers complete (gstack model; Claude calls these directly)
   - `bin/github-search` is pure bash/curl — no Python dependency
 
 ---
@@ -114,7 +120,7 @@ pytest tests/test_security_scan.py -v -k "clean"
 pytest tests/ --cov=scripts --cov-report=term-missing
 ```
 
-All 674 tests must pass before any commit.
+All 854 tests must pass before any commit.
 
 ---
 
@@ -133,15 +139,15 @@ All 674 tests must pass before any commit.
 
 ---
 
-## What to implement next (v0.5.0+ sprint / Real World QA)
+## What to implement next (v0.9.0 sprint / Real World QA)
 
-The core pipeline is fully built out and passing tests. The bin/ interface matches gstack's model.
-Before writing new features (like Docker sandboxing or cryptography), your main assignment is:
+Code is at v0.8.0. All features through cryptographic signing and typo-squat detection are shipped.
+Before writing new features, your main assignment is:
 1. Try using the tool exactly as a user would (type `/agent-hunter` in Claude Code).
 2. Identify bugs or friction in the end-to-end user flow.
-3. Ensure `GITHUB_TOKEN` is clearly surfaced wherever needed.
+3. Note: `GITHUB_TOKEN` is now optional. Curated index (`references/VERIFIED_SKILLS.md`) returns results without any token. Token enables broader GitHub discovery.
 
-Do not start implementing advanced roadmap tasks (v0.6.0+) until the v0.4.0 core is verified by real users in real environments.
+Do not start v1.0.0 roadmap tasks (benchmarking, CVE index) until the v0.8.0 UX is verified.
 
 ## GitHub API notes
 

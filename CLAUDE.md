@@ -67,12 +67,8 @@ bin/github-search "filename:SKILL.md fastapi"
 
 ## Current state
 
-Implemented and tested: all core scripts including `hunter`, `main`, `skill_parser`, `context_extractor`, `security_scan`, `scorer`, `registry`, `reporter`, `rollback`, `sandbox`, `scaffold`.
+Implemented and tested: all core scripts including `hunter`, `main`, `skill_parser`, `context_extractor`, `security_scan`, `scorer`, `registry`, `reporter`, `rollback`, `sandbox`, `scaffold`, `dep_resolver`, `mcp_parser`, `typo_detect`, `verify_sig`, `update`, `release`.
 
-Ready for real-world user testing. Do not add future roadmap features before smoothing the core UX.
-
-Implemented and tested: `skill_parser`, `context_extractor`, `security_scan`, `scorer`, `registry`, `reporter`, `rollback`, `sandbox`, `scaffold`.
-
-**
+Code is at v0.8.0. All 854 tests pass. Ready for real-world user testing. Do not add future roadmap features before smoothing the core UX.
 
 See `.github/copilot-instructions.md` for the exact tasks.

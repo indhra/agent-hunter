@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 import requests
-from hunter import Hunter, HuntResult, _to_raw_url
+from hunter import Hunter, HuntResult, _to_raw_url, _extract_skill_name
 
 
 # ---------------------------------------------------------------------------
@@ -117,6 +117,50 @@ class TestToRawUrl:
         url = "https://github.com/owner/repo/blob/abc1234def/SKILL.md"
         raw = _to_raw_url(url)
         assert raw == "https://raw.githubusercontent.com/owner/repo/abc1234def/SKILL.md"
+
+
+# ---------------------------------------------------------------------------
+# _extract_skill_name — Bug #1 fix validation
+# ---------------------------------------------------------------------------
+
+
+class TestExtractSkillName:
+    def test_uses_repo_name_when_provided(self):
+        name = _extract_skill_name("my-awesome-skill", "https://github.com/owner/repo")
+        assert name == "my-awesome-skill"
+
+    def test_extracts_from_url_when_repo_name_empty(self):
+        name = _extract_skill_name("", "https://github.com/owner/my-skill")
+        assert name == "my-skill"
+
+    def test_strips_skill_prefix(self):
+        name = _extract_skill_name("skill-fastapi", "https://github.com/owner/skill-fastapi")
+        assert name == "fastapi"
+
+    def test_strips_claude_prefix(self):
+        name = _extract_skill_name("claude-helper", "https://github.com/owner/claude-helper")
+        assert name == "helper"
+
+    def test_strips_mcp_prefix(self):
+        name = _extract_skill_name(
+            "mcp-server-notion", "https://github.com/owner/mcp-server-notion"
+        )
+        assert name == "notion"
+
+    def test_strips_mcp_server_prefix(self):
+        name = _extract_skill_name(
+            "mcp-server-github", "https://github.com/owner/mcp-server-github"
+        )
+        assert name == "github"
+
+    def test_fallback_to_unknown_when_both_empty(self):
+        name = _extract_skill_name("", "")
+        assert name == "unknown-skill"
+
+    def test_fallback_when_name_becomes_empty_after_stripping(self):
+        # Edge case: if name is just "skill" or "mcp", it shouldn't become empty
+        name = _extract_skill_name("skill", "https://github.com/owner/skill")
+        assert name == "skill"  # Doesn't strip because it would be empty
 
 
 # ---------------------------------------------------------------------------
@@ -438,11 +482,12 @@ class TestLoadVerifiedUrls:
         # Patch hunt internals to avoid API calls
         # _build_queries must return at least one entry so the loop runs
         with patch.object(h, "_build_queries", return_value=[("q", "skill")]):
-            with patch.object(h, "_search_github", return_value=[r]):
-                with patch.object(h, "_passes_prefilter", return_value=True):
-                    results = h.hunt(
-                        __import__("context_extractor").ContextProfile(tech_stack=["fastapi"])
-                    )
+            with patch.object(h, "_check_auth", return_value=True):  # Allow GitHub search
+                with patch.object(h, "_search_github", return_value=[r]):
+                    with patch.object(h, "_passes_prefilter", return_value=True):
+                        results = h.hunt(
+                            __import__("context_extractor").ContextProfile(tech_stack=["fastapi"])
+                        )
         verified = [res for res in results if res.trust_tier == "verified"]
         assert len(verified) == 1
 

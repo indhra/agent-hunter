@@ -170,6 +170,7 @@ def _compute_stack_match(
     - Tech stack overlap (framework/library names)
     - Domain tags (web, ml, cli, etc.)
     - Intent keywords (if provided by user)
+    - Purpose filtering (Bug #2 fix: exclude non-helper skills)
 
     All signals are folded into one unified "does it fit my project?" score.
     """
@@ -180,6 +181,34 @@ def _compute_stack_match(
     text = f"{r.name} {r.description} {r.repo_name}".lower()
     if meta:
         text += f" {meta.description} {meta.body[:500]}".lower()
+
+    # Bug #2 fix: Exclude obvious mismatches (spell checkers, dictionaries, UI components, etc.)
+    # These match keywords but aren't actually helpful for development
+    mismatch_patterns = [
+        "spell",
+        "spellcheck",
+        "cspell",
+        "dictionary",
+        "dict-",
+        "storybook",
+        "figma",
+        "sketch",
+        "design-system",
+        "is-",
+        "has-",
+        "check-",
+        "-checker",  # runtime type checkers, not dev helpers
+        "logo",
+        "icon",
+        "font",
+        "theme",
+    ]
+
+    # If skill name/description contains mismatch patterns, penalize heavily
+    mismatch_count = sum(1 for pattern in mismatch_patterns if pattern in text)
+    if mismatch_count > 0:
+        # Strong signal that this is not a development helper
+        return 0.1  # Very low score, almost filtered out
 
     # Count matches across all signals
     total_signals = []
@@ -203,8 +232,35 @@ def _compute_stack_match(
     if not total_signals:
         return 0.5
 
-    # Return match ratio, capped at 1.0
-    return min(len(matched_signals) / len(total_signals), 1.0)
+    # Bug #2 fix: Bonus for PURPOSE indicators (helps, builds, generates, tests, etc.)
+    purpose_indicators = [
+        "help",
+        "build",
+        "generate",
+        "test",
+        "create",
+        "manage",
+        "deploy",
+        "monitor",
+        "debug",
+        "analyze",
+        "optimize",
+        "automate",
+        "skill",
+        "mcp",
+        "agent",
+        "tool",  # Generic skill/agent/tool indicators
+    ]
+    has_purpose = any(indicator in text for indicator in purpose_indicators)
+
+    # Calculate base match ratio
+    match_ratio = len(matched_signals) / len(total_signals)
+
+    # Boost score if skill demonstrates clear purpose
+    if has_purpose:
+        match_ratio = min(match_ratio * 1.2, 1.0)  # 20% bonus for purpose clarity
+
+    return min(match_ratio, 1.0)
 
 
 def _compute_recency(r: HuntResult) -> float:

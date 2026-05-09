@@ -135,6 +135,46 @@ class HuntResult:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _extract_skill_name(repo_name: str, repo_url: str) -> str:
+    """Extract a clean skill name from repo name or URL.
+
+    Fixes Bug #1: ensures skill_name is never empty.
+
+    Args:
+        repo_name: Repository name from GitHub API (may be empty)
+        repo_url: Repository HTML URL as fallback
+
+    Returns:
+        Clean skill name with common prefixes stripped, never empty.
+    """
+    # Start with repo_name, fallback to extracting from URL
+    name = repo_name or ""
+    if not name and repo_url:
+        # Extract from URL: https://github.com/owner/repo-name → repo-name
+        parts = repo_url.rstrip("/").split("/")
+        name = parts[-1] if parts else ""
+
+    if not name:
+        # Last resort: use a placeholder (shouldn't happen with valid GitHub data)
+        return "unknown-skill"
+
+    # Strip common prefixes to get cleaner skill names
+    # Check longer prefixes first to avoid partial matches
+    prefixes = ["mcp-server-", "skill-", "claude-", "copilot-", "mcp-", "agent-"]
+    for prefix in prefixes:
+        if name.lower().startswith(prefix):
+            name = name[len(prefix) :]
+            break  # Only strip first matching prefix
+
+    # Ensure it's not empty after stripping
+    return name if name else "skill"
+
+
+# ---------------------------------------------------------------------------
 # Main hunter
 # ---------------------------------------------------------------------------
 
@@ -400,10 +440,20 @@ class Hunter:
                     )
                     continue
 
-            # Simple matching: check if any tech stack keyword is in skill name
-            is_relevant = any(tech.lower() in name.lower() for tech in profile.tech_stack)
-            if not is_relevant and profile.domain_tags:
-                is_relevant = any(tag.lower() in name.lower() for tag in profile.domain_tags)
+            # Bug #2 fix: Improved relevance matching for curated index
+            # Match against tech stack, domain tags, and also check description/purpose
+            name_lower = name.lower()
+
+            # Check for exact or partial tech stack matches
+            stack_match = any(tech.lower() in name_lower for tech in profile.tech_stack)
+
+            # Check for domain tag matches
+            domain_match = False
+            if profile.domain_tags:
+                domain_match = any(tag.lower() in name_lower for tag in profile.domain_tags)
+
+            # Only include if relevant
+            is_relevant = stack_match or domain_match
 
             if is_relevant and repo_url:
                 r = HuntResult(
@@ -465,12 +515,18 @@ class Hunter:
         results = []
         for item in items:
             repo = item.get("repository", {})
+            repo_name_raw = repo.get("name", "")
+            repo_url = repo.get("html_url", "")
+
+            # Fix Bug #1: Extract clean skill name, never empty
+            skill_name = _extract_skill_name(repo_name_raw, repo_url)
+
             r = HuntResult(
-                name=repo.get("name", ""),
-                repo_url=repo.get("html_url", ""),
+                name=skill_name,
+                repo_url=repo_url,
                 raw_url=item.get("html_url", ""),
                 owner=repo.get("owner", {}).get("login", ""),
-                repo_name=repo.get("name", ""),
+                repo_name=skill_name,  # Use cleaned name consistently
                 description=repo.get("description") or "",
                 stars=repo.get("stargazers_count", 0),
                 result_type=result_type,

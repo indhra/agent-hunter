@@ -10,466 +10,300 @@ triggers:
   - "hunt for skills"
   - "find relevant skills"
   - "what skills exist for this project"
+  - "what skills should I install"
   - "are there any skills I should install"
   - "agent-hunter hunt"
   - "agent-hunter audit"
   - "agent-hunter rollback"
-  - "agent-hunter context"
-  - "agent-hunter scaffold"
-  - "agent-hunter update"
 mcp_dependencies: []
-skill_dependencies:
-  - name: "skill-audit"
-    repo: "pors/skill-audit"
-    role: "security_scan_delegate"
-    min_trust_tier: "community"
-    optional: true
-    fallback: "built_in_scanner"
-  - name: "skill-scanner"
-    repo: "cisco-ai-defense/skill-scanner"
-    role: "secondary_scanner"
-    min_trust_tier: "community"
-    optional: true
-    fallback: "none"
 ---
 
 # agent-hunter
 
-**Hunt the right skills. Block the bad ones.**
-Finds proven skills and MCP servers that match what you're actually building.
-Security-scans every result before showing it. Never installs without your confirmation.
+**Repo-aware skill package manager for Claude Code.**
+
+Given your repo, tells you the top 3 skills or MCPs you should use now, why they fit, and which ones to avoid.
+Security-scans every result. Never installs without confirmation.
 
 ---
 
-## Preamble (run first)
+## When to Use
 
-```bash
-_AH_DIR="${AGENT_HUNTER_DIR:-$HOME/.claude/skills/agent-hunter}"
-_AH_BIN="$_AH_DIR/bin"
-echo "agent-hunter ready: $_AH_DIR"
-```
+Use agent-hunter when:
+- Starting a new project and deciding what tools to install
+- User asks "what skills should I install for this?"
+- Before building a feature that might already exist as a skill/MCP
+- User mentions exploring or discovering skills
 
-All commands below use `~/.claude/skills/agent-hunter/bin/` as the bin prefix.
-If you installed to a custom location, set `AGENT_HUNTER_DIR` to that path.
+**Maximum 1 automatic hunt per session** (loop guard below).
 
 ---
 
 ## Session Loop Guard
 
-**CRITICAL — READ FIRST:**
+**CRITICAL — CHECK THIS FIRST:**
 
-Before doing anything, check whether `AGENT_HUNTER_RAN` is set in this session.
+Check if `AGENT_HUNTER_RAN` is set in this session:
 
-If it is already set to `true`:
-- Do NOT run another automatic hunt.
-- If the user explicitly asked for a hunt (typed a trigger phrase), run it.
-- If this is a background proactive trigger, skip silently.
+- **Already set to `true`**: Do NOT run another automatic hunt. If user explicitly requests it, proceed. Otherwise skip silently.
+- **Not set**: Proceed with hunt, then set `AGENT_HUNTER_RAN = true`
 
-If it is NOT set:
-- Proceed with the hunt below.
-- Set `AGENT_HUNTER_RAN = true` after completing.
-
-Maximum 1 automatic hunt per session. This prevents infinite loops and token waste.
+This prevents infinite loops and token waste.
 
 ---
 
-## Privacy Contract — Read Before Extracting Any Context
+## Privacy Contract
 
-You may ONLY extract and transmit the following from the user's project:
+**You may ONLY extract tech keywords from the user's project.**
 
-**ALLOWED:** Framework names, library names, tool names from the explicit tech allowlist
-(e.g. "fastapi", "postgres", "react"). These are tech signal keywords only.
+**ALLOWED:**
+- Framework names (FastAPI, React, Django)
+- Library names (pytest, numpy, tailwindcss)
+- Tool names (Docker, PostgreSQL, Redis)
 
-**NEVER ALLOWED:**
+**NEVER extract:**
 - File paths
 - Variable names, function names, class names
-- Commit message text (extract tech keywords only, not the message itself)
+- Commit message text
 - Repository name
-- Project-specific strings of any kind
-- Anything that could identify the user's specific project or code
+- Any project-specific strings
 
-Before running context extraction, tell the user:
-> "I'll read your project files to identify your tech stack. Only framework/library names
-> will be used — no file paths, variable names, or project-specific code."
+Before extracting context:
+> "I'll read your project files to identify your tech stack. Only framework/library names will be used — no file paths, variable names, or project-specific code."
 
-After extraction, SHOW the user the extracted signals and confirm before proceeding:
-> "Found these tech signals: [list]. Does this look right? I'll use these to hunt for relevant skills."
+After extraction, SHOW the user the tech signals:
+> "Found: FastAPI, PostgreSQL, pytest, Docker"
+>
+> "Does this look right? I'll use these to hunt for relevant skills."
 
 ---
 
-## Step 0 — Resolve Skill Dependencies
+## The Hunt Workflow
 
-Before running the hunt, check whether any trusted installed skills can enhance this session.
-This is the pandas/numpy model: agent-hunter declares optional sub-components; if they're
-present and trusted, it delegates to them; if not, it uses its own built-in logic.
+### Step 1: Run the Hunt
 
-Run:
 ```bash
-~/.claude/skills/agent-hunter/bin/resolve-deps
+agent-hunter hunt .
 ```
 
-This outputs a JSON map of `role → {status, trust_tier, use_fallback, fallback, path}`.
+This command:
+1. Extracts tech stack from project files (privacy-safe)
+2. Searches curated index + GitHub (if GITHUB_TOKEN set)
+3. Security-scans every result
+4. Ranks by relevance to your project
+5. Shows top 3 recommendations
 
-**Role: `security_scan_delegate`** (declared dep: `pors/skill-audit`)
-- If `status == "satisfied"`: in Step 3, invoke that skill's scanner first, then apply
-  agent-hunter's own static scan as a final gate. The delegate may catch additional
-  vectors the built-in misses. Union results — if either says RED, the skill is blocked.
-- If `use_fallback == true` and `fallback == "built_in_scanner"`: run Step 3 as normal
-  (built-in `security_scan.py` only). This is the default path.
-- **Never invoke a dependency with status `"not_installed"`, `"trust_insufficient"`, or
-  `"disabled"`.** The resolver enforces this gate — trust it.
+### Step 2: Review Results
 
-**Role: `secondary_scanner`** (declared dep: `cisco-ai-defense/skill-scanner`)
-- If `status == "satisfied"`: after Step 3, invoke this as a second pass. Union results
-  (conservative: any RED from either scanner blocks the skill).
-- If `use_fallback == true` and `fallback == "none"`: skip the secondary pass silently.
+The hunt prints a report like this:
 
-**If a dependency is `optional: false` and `use_fallback == true`**: abort with:
-> "Required skill dependency `<name>` is not satisfied (status: <status>).
-> Install it first: agent-hunter install <owner> <repo>"
+```
+📍 Found: FastAPI, PostgreSQL, pytest, Docker
 
-**Trust tier ordering:** `verified` > `community` > `raw`.
-A skill installed as `raw` never satisfies a `min_trust_tier: community` gate.
-This prevents a newly-discovered unvetted skill from taking over agent-hunter's security scan.
+Top 3 recommendations:
 
----
+1. 🟢 fastapi-backend-testing
+   Safe to install.
+   Why: Your repo uses FastAPI, pytest, and Docker. This skill targets
+   backend test and deployment workflows directly.
 
-## Step 1 — Autonomous Intent Extraction & Hunt Execution
+2. 🟢 postgres-mcp-server
+   Safe to install.
+   Why: Your project connects to PostgreSQL. This MCP gives Claude direct
+   database query and schema inspection tools.
 
-When the user gives a new prompt or feature request, autonomously formulate an intent string (e.g. "migrate to postgres").
+3. 🟡 api-security-scanner
+   Review before installing.
+   Why: Useful for REST API security audits, but flagged for filesystem
+   access patterns. Review SKILL.md before proceeding.
 
-Run:
+🔴 2 results blocked (security scan)
+```
+
+### Trust Signals
+
+- 🟢 **Safe to install** — Verified or clean security scan
+- 🟡 **Review before installing** — Minor security flags, user should review
+- 🔴 **Blocked** — Failed security scan, not shown to user
+
+**RED results are NEVER shown.** Only counted.
+
+### Step 3: Explain Each Recommendation
+
+For each result in the top 3, provide ONE specific sentence explaining why it fits this project.
+
+**Good:**
+> "Ranked #1 because your project uses FastAPI and PostgreSQL, and this skill handles exactly the migration workflow you need."
+
+**Bad:**
+> "This is a good skill for Python projects."
+
+Reference something specific from the user's context.
+
+### Step 4: Install (If User Confirms)
+
+If the user wants to install any recommended skills, guide them:
+
 ```bash
-~/.claude/skills/agent-hunter/bin/hunt . --intent "<intent_string>"
+# For each skill they want:
+cd ~/.claude/skills && git clone https://github.com/owner/skill-name
 ```
 
-This orchestrated command reads dependency files and appends the dynamic intent string into the GitHub search query. The script handles context extraction, hunting, security scanning, scoring, and registry updates in one action.
+Or use the suggested command from the hunt report.
 
-The script prints extracted signals and the final scored table to stdout. Show the results to the user.
-
-If context extraction fails (no supported files found) or rate limits apply, follow the CLI output instructions.
-
----
-
-## Step 2 — Read Scan & Score Output
-
-The `main.py hunt` command abstracts away step-by-step scripts. It queries the GitHub Search API for SKILL.md files matching your stack and intent.
-
-**If user config/env lacks GITHUB_TOKEN**, tell them to set it.
-
-**Trust tier order (shown in the table):**
-1. **Verified** — entries in `references/VERIFIED_SKILLS.md`. Show as `[VERIFIED]`.
-2. **Community-reviewed** — coming in v0.2.1. Show as `[COMMUNITY]`.
-3. **Raw GitHub** — unvetted search results. Show as `[RAW]`. Apply higher scrutiny.
-
----
-
-## Step 3 — Security Scan Integration
-
-**Non-negotiable: NEVER show a result without scanning it first.**
-
-The `main.py hunt` command automatically runs `security_scan.py` for every result. It respects the following severity rules:
-
-**Severity rules (hard):**
-- 🔴 **RED** — EXCLUDED from results entirely. Count only. Do not show the skill.
-  The script will report: "N result(s) were blocked by security scan."
-- 🟡 **YELLOW** — INCLUDED with a prominent warning. Explain what was flagged. Let user decide.
-- 🟢 **GREEN** — Included normally.
-
-**Never rationalize showing a RED result.** If the script blocked it, do not attempt to bypass it to show it. Full stop.
-
----
-
-## Step 4 — Score and Rank
-
-For each result that passed security scan (GREEN or YELLOW only):
-
-The scoring is handled by `scripts/scorer.py`. The key formula:
-
-```
-total_score = (
-    stack_match  × 0.30
-  + domain_match × 0.20
-  + star_score   × 0.15
-  + recency      × 0.15
-  + trust_score  × 0.20
-) × yagni_multiplier
-```
-
-YAGNI multiplier:
-- Tech area with commits in last 7 days → 2.0×
-- Tech area with commits in last 30 days → 1.0×
-- Tech area dormant for 90+ days → 0.5×
-
-Trust score: verified=1.0, community=0.7, raw=0.4
-
----
-
-## Step 5 — Generate "Why This For You" Explanation
-
-For each of the top 5–10 results, write ONE sentence explaining why this specific skill
-is relevant to this specific project. Use the context profile to make it personal.
-
-Good example: "Ranked #1 because your project actively uses FastAPI and Postgres,
-this skill handles exactly the migration workflow you'll need."
-
-Bad example: "This is a good skill for Python projects."
-
-The explanation must reference something specific from the user's context profile.
-
----
-
-## Step 6 — Render the Hunt Report
-
-Call `scripts/reporter.py` or format the report as follows:
-
-### Terminal format:
-
-```
-══════════════════════════════════════════════════════════════════════
-  agent-hunter · Hunt Report · YYYY-MM-DD HH:MM
-  Project: [project root]
-══════════════════════════════════════════════════════════════════════
-
-  RECOMMENDED SKILLS
-
-  1. 🟢 skill-name                          [VERIFIED]
-     ████████░░  0.82  · 342⭐ · github.com/owner/skill-name
-     → Why this for you: [one sentence]
-
-  2. 🟡 another-skill                       [RAW]
-     ██████░░░░  0.61  · 89⭐ · github.com/owner/another-skill
-     🟡 Contains eval() — review before installing
-     → Why this for you: [one sentence]
-
-  ──────────────────────────────────────────────────────────────────
-
-  DANGEROUS INSTALLED SKILLS (flagged by security scan)
-
-  🔴 suspicious-skill  →  will be DISABLED (renamed to _suspicious-skill)
-
-  ──────────────────────────────────────────────────────────────────
-
-  ⚠️  2 result(s) blocked by security scan and excluded from recommendations.
-══════════════════════════════════════════════════════════════════════
-```
-
-Save the report:
-```bash
-~/.claude/skills/agent-hunter/bin/hunt . --save-report
-# saves to ~/.agent-hunter/reports/hunt_report_YYYY-MM-DD.md
-```
-
----
-
-## Step 7 — Build Action Summary and Ask for Confirmation
-
-After showing the report, get the pending action list from the pipeline and present it in chat.
-The Python CLI handles the action list construction; SKILL.md handles the UX confirmation.
-
-**Get the action list as JSON (no prompt, no blocking):**
-```bash
-~/.claude/skills/agent-hunter/bin/hunt . --print-actions
-```
-
-This outputs JSON like:
-```json
-{
-  "pending_actions": [
-    {"action": "install", "skill_name": "my-skill", "repo_url": "owner/repo", "reason": "..."},
-    {"action": "disable", "skill_name": "bad-skill", "repo_url": "", "reason": "RED security scan"}
-  ]
-}
-```
-
-**Format the action summary in chat:**
-
-```
-──────────────────────────────────────────────────────────────────
-  READY TO ACT — here's what I'll do:
-
-  INSTALL  (3 skills → ~/.claude/skills/)
-    ✦  skill-name        [VERIFIED · score 0.82]  owner/skill-name
-    ✦  another-skill     [RAW · score 0.61]        owner/another-skill
-    ✦  third-skill       [COMMUNITY · score 0.55]  owner/third-skill
-
-  DISABLE  (1 dangerous skill — soft-disable, reversible)
-    ✦  suspicious-skill  [🔴 security scan failed]
-
-  Note: YELLOW skills are included — review the security findings
-  above before confirming. You can remove any from the list.
-
-  Proceed? [y/N] or type the numbers to exclude (e.g. "skip 2,3"):
-──────────────────────────────────────────────────────────────────
-```
-
-**Rules for building the action list:**
-- Include skills ranked in top N that are GREEN or YELLOW and NOT already installed
-- Include DISABLE for any installed skill that returned RED in the most recent audit re-scan
-- NEVER include a RED result from the hunt as an install action
-- Default scope: `~/.claude/skills/` (personal, available in all Claude Code sessions)
-
-**Wait for the user's response before proceeding to Step 8.**
-
-If the user types `n` or `N`: stop. Tell them what commands to run manually if they change their mind.
-If the user types `y` or `Y`: proceed to Step 8.
-If the user excludes items (e.g. "skip 2,3"): remove those from the action list, confirm the reduced list, then proceed.
-
----
-
-## Step 8 — Execute Actions
-
-After user confirms, execute each action by calling the installer directly (not `hunt --yes`).
-This gives the user's `y/n` in chat full control — the Python side never grabs stdin.
-
-For each confirmed action in sequence:
-- **install**: `~/.claude/skills/agent-hunter/bin/installer install <owner> <repo> [--sha <sha>]`
-- **disable**: `~/.claude/skills/agent-hunter/bin/installer disable <skill_name>`
-- **rollback**: `~/.claude/skills/agent-hunter/bin/installer rollback <owner> <repo> <sha>`
-- **uninstall**: `~/.claude/skills/agent-hunter/bin/installer uninstall <skill_name>` (only if user explicitly asked)
-
-**Print each result as it completes:**
-```
-  ✅  install       skill-name        Installed owner/skill-name via gh skill install
-  ✅  install       another-skill     Installed owner/another-skill to ~/.claude/skills/
-  ✅  disable       suspicious-skill  Disabled: suspicious-skill → _suspicious-skill
-  ❌  install       third-skill       git clone timed out — run manually: gh skill install owner/third-skill
-```
-
-**After all actions complete, print a summary:**
-```
-══════════════════════════════════════════════════════════════════════
-  agent-hunter · Actions Complete
-  ✅ 2 installed  ✅ 1 disabled  ❌ 1 failed
-  Your skill set is now updated. Run /agent-hunter audit anytime to check health.
-══════════════════════════════════════════════════════════════════════
-```
-
-**On any failure:** Do NOT stop mid-list. Complete all remaining actions. Report failures at the end. Tell the user the manual command they can run for anything that failed.
+**Never auto-install.** User must confirm first.
 
 ---
 
 ## Audit Command
 
-When triggered by "agent-hunter audit" or "audit installed skills":
+Run when user says "audit installed skills" or "check skill health":
 
-1. Write a pre-audit snapshot first (enables rollback):
-   ```bash
-   ~/.claude/skills/agent-hunter/bin/registry snapshot
-   ```
+```bash
+agent-hunter audit
+```
 
-2. Run the audit:
-   ```bash
-   ~/.claude/skills/agent-hunter/bin/audit
-   ```
+This command:
+1. Creates a pre-audit snapshot (for rollback)
+2. Checks all installed skills for:
+   - Security issues
+   - Tamper detection (SHA mismatch)
+   - Dependency conflicts
+3. Reports health status
 
-3. Show the health table. For any 🔴 issue:
-   - SHA tamper → tell user to run `agent-hunter rollback` to restore
-   - Security issue → advise uninstalling the affected skill
-   - Conflict → show which two skills conflict and suggest resolution
+Show the results in a table:
+
+```
+Skill Health Check:
+
+🟢 skill-a          Healthy
+🟢 skill-b          Healthy
+🟡 skill-c          Warning: SHA mismatch (may have been modified)
+🔴 skill-d          BLOCKED: Security scan failed
+
+Recommendation: Disable skill-d immediately
+```
+
+For any 🔴 or 🟡 issues:
+- Explain what was detected
+- Recommend action (disable, rollback, review)
+- Show the command to fix it
 
 ---
 
 ## Rollback Command
 
-When triggered by "agent-hunter rollback" or after a tamper flag:
+Run when audit detects tampered skills or user wants to restore previous state:
 
 ```bash
-~/.claude/skills/agent-hunter/bin/rollback
+agent-hunter rollback
 ```
 
-This restores the registry to the pre-audit/pre-update state.
-Confirm with the user before running — show them what will be restored.
+This restores the registry to the last known good snapshot (created before audit/update).
+
+**Always confirm with user before rolling back:**
+> "This will restore your skill registry to the state before the last audit/update. Continue? [y/N]"
 
 ---
 
-## Context Command
+## If No Results Found
 
-When triggered by "agent-hunter context":
+If hunt returns 0 results:
+
+1. Explain why:
+   > "No results found. This could mean:
+   > - Your stack is very specialized
+   > - GitHub rate limit hit (set GITHUB_TOKEN for more quota)
+   > - Tech keywords weren't detected correctly"
+
+2. Show what was detected:
+   > "I detected: [tech signals]"
+
+3. Suggest next steps:
+   > "You can manually search GitHub for 'filename:SKILL.md <your-tech>' or build something new."
+
+---
+
+## GitHub Token (Optional)
+
+For broader discovery beyond the curated index:
 
 ```bash
-~/.claude/skills/agent-hunter/bin/context-extract .
+export GITHUB_TOKEN=your_token_here
 ```
 
-Show the full ContextProfile in a readable format:
-- Tech stack detected
-- Domain tags inferred
-- Active / recent / dormant breakdown
-- Source files read
+Generate at https://github.com/settings/tokens (no scopes needed).
 
-This is a transparency command — the user should be able to verify exactly what
-agent-hunter knows about their project before it hunts.
-
----
-
-## Scaffold Command
-
-When triggered by "agent-hunter scaffold <name>" or when hunt returns 0 results:
-
-1. Tell the user: "No existing skills found for your stack. I'll scaffold a stub for you."
-
-2. Run:
-   ```bash
-   ~/.claude/skills/agent-hunter/bin/scaffold <name> --project .
-   ```
-
-3. Show the user the generated stub and walk them through customizing it.
-
-4. Remind them: "When you're happy with it, share it back to the community:
-   open a PR to add it to references/VERIFIED_SKILLS.md so others can find it."
-
----
-
-## Update Command
-
-When triggered by "agent-hunter update":
-
-1. Run audit first (Step 1 of audit command above).
-2. For each skill with `update_available` status, show:
-   - What version is installed vs. available
-   - What changed (if detectable from commit messages)
-   - Confirm before each update
-3. Run install commands individually, one skill at a time.
-4. Never batch-update without confirmation.
-
----
-
-## Zero Results Handling
-
-If the hunt returns 0 results after pre-filtering and security scan:
-
-1. Tell the user exactly why: "No results found. This could mean:
-   - Your stack is very specialized (good — less reinventing needed)
-   - The tech keywords weren't specific enough
-   - GitHub rate limit was hit (set GITHUB_TOKEN to increase limit)"
-
-2. Offer to scaffold:
-   "Would you like me to scaffold a SKILL.md stub for your stack?
-   You'd be building something new that others will benefit from."
-
-3. If they say yes → run scaffold command.
+Without a token, agent-hunter only searches the curated verified skills index.
 
 ---
 
 ## Error Handling
 
-| Error | What to do |
+| Error | Action |
 |---|---|
-| GitHub API 401 | Tell user: set GITHUB_TOKEN. Show how. |
-| GitHub API 429 (rate limit) | Tell user: hit rate limit. Wait 60s and retry once. |
-| GitHub API 503 | Tell user: GitHub is down. Try again later. |
-| context_extractor.py fails | Continue with empty context. Tell user what was missing. |
-| security_scan.py fails | Skip the result — do not show an unscanned skill. |
-| registry.json corrupt | Tell user: registry is corrupt, offer to reset it. |
-| AGENT_HUNTER_RAN already set | Skip automatic hunt silently. |
+| GitHub API 401 | Tell user to set GITHUB_TOKEN |
+| GitHub API 429 (rate limit) | Wait 60s, retry once, then fail gracefully |
+| GitHub API 503 | Tell user GitHub is down, try later |
+| Context extraction fails | Continue with empty context, explain what's missing |
+| Security scan fails on a result | Skip that result silently |
+| Registry corrupt | Offer to reset registry |
+| `AGENT_HUNTER_RAN` already set | Skip automatic hunt silently |
+
+**Never show partial/unscanned results.** Fail clearly instead.
 
 ---
 
-## Important Constraints
+## Core Constraints
 
-1. **No auto-install.** Ever. Show the install command. User runs it.
-2. **No LLM API calls from scripts.** All reasoning happens here (in this SKILL.md), not in Python.
-3. **No silent failures.** If a step fails, say so. Partial results are worse than clear errors.
-4. **Privacy first.** Re-read the Privacy Contract before every hunt. When in doubt, don't extract.
-5. **Security first.** A RED result is not shown. Not for any reason.
-6. **Human in the loop.** Every action that changes the user's environment requires explicit confirmation.
+1. **No auto-install.** Show the command, user runs it.
+2. **No LLM calls from Python scripts.** All reasoning happens in this SKILL.md.
+3. **Top 3 focus.** Show best 3 by default, not 5-10.
+4. **Privacy first.** Only tech keywords, never code or paths.
+5. **Security first.** RED results are not shown, period.
+6. **Human in the loop.** Every action requires user confirmation.
+7. **Fail loudly.** Clear error messages, not silent failures.
+
+---
+
+## Scoring (For Reference)
+
+Results are ranked by 4 signals:
+
+```
+total_score = (
+    stack_match   × 0.40   # Does it match my tech stack?
+  + trust_score   × 0.30   # Is it safe?
+  + recency_score × 0.15   # Is it maintained?
+  + star_score    × 0.15   # Is it popular?
+) × yagni_multiplier
+```
+
+**YAGNI multiplier:**
+- Active (commits <7d): 2.0×
+- Recent (commits <30d): 1.0×
+- Dormant (commits >90d): 0.5×
+
+**Trust tiers:**
+- Verified: 1.0 (in curated index)
+- Community: 0.7 (GitHub, >50 stars)
+- Raw: 0.4 (GitHub, new/unknown)
+
+This is handled automatically by the Python scripts. You don't need to calculate scores manually.
+
+---
+
+## Commands Summary
+
+```bash
+# Main command — hunt for relevant skills/MCPs
+agent-hunter hunt .
+
+# Health check — audit all installed skills
+agent-hunter audit
+
+# Restore — rollback to last known good state
+agent-hunter rollback
+```
+
+That's it. Three commands. Stay focused on the core value: **top 3 recommendations that save time and block bad stuff.**

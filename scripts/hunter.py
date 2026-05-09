@@ -9,12 +9,10 @@ Responsibility:
 Input:  ContextProfile, optional GITHUB_TOKEN
 Output: List[HuntResult] (unscored — scoring is done by scorer.py)
 
-Rate limits (May 2026):
-    Repository Search (NO AUTH REQUIRED):
-        - Unauthenticated: 10 requests/minute
-        - Authenticated (GITHUB_TOKEN set): 30 requests/minute
-    Authentication is OPTIONAL and only improves rate limits.
-    Works perfectly without GITHUB_TOKEN.
+Rate limits:
+    Authenticated (GITHUB_TOKEN set): 5,000 requests/hour
+    Unauthenticated: GitHub Code Search requires a token since 2024.
+    Without GITHUB_TOKEN the hunt will fail with 401.
 
 No LLM calls. Network access to GitHub API only.
 """
@@ -97,7 +95,7 @@ def is_mcp_server_py(content: str) -> bool:
 # ---------------------------------------------------------------------------
 
 GITHUB_API = "https://api.github.com"
-SEARCH_ENDPOINT = f"{GITHUB_API}/search/repositories"  # Repository search works without auth
+SEARCH_ENDPOINT = f"{GITHUB_API}/search/code"
 NPM_SEARCH = "https://registry.npmjs.org/-/v1/search"
 PRE_FILTER_MIN_STARS = 10
 PRE_FILTER_MAX_AGE_DAYS = 180
@@ -220,13 +218,14 @@ class Hunter:
         return filtered
 
     def _check_auth(self) -> bool:
-        """Probe GitHub API to verify we can reach it.
+        """Probe GitHub API to verify credentials before firing all queries.
 
-        Repository search works WITHOUT authentication (10 req/min).
-        Authentication is optional and only improves rate limits (30 req/min).
+        GitHub Code Search has required authentication since February 2024.
+        This probe uses /rate_limit (cheap, no search quota consumed) to
+        detect 401 early and print a clear, actionable error message.
 
         Returns:
-            True if the API is reachable, False on network failure.
+            True if the API responds with a usable status, False on 401.
         """
         try:
             resp = self._session.get(f"{GITHUB_API}/rate_limit", timeout=5)
@@ -235,54 +234,42 @@ class Hunter:
             return False
 
         if resp.status_code == 401:
-            # 401 is fine for unauthenticated requests — repo search still works
-            # Just means we're using the lower rate limit (10/min vs 30/min)
-            if not self.token:
-                print(
-                    "[agent-hunter] Running without GitHub token (10 searches/min).\n"
-                    "  Optional: Get a token for higher rate limits (30/min):\n"
-                    "    https://github.com/settings/tokens\n"
-                    "  Then set: export GITHUB_TOKEN=<your_token>"
-                )
-            return True
-
-        if resp.status_code != 200:
-            print(f"[agent-hunter] GitHub API returned status {resp.status_code}")
+            print(
+                "[agent-hunter] GitHub authentication required.\n"
+                "  GitHub Code Search has required a token since 2024.\n"
+                "  Get a free token (no special scopes needed):\n"
+                "    https://github.com/settings/tokens\n"
+                "  Then set: export GITHUB_TOKEN=<your_token>"
+            )
             return False
 
         return True
 
     def _build_queries(self, profile: ContextProfile) -> list[tuple[str, str]]:
-        """Build a list of (query_string, result_type) tuples for repository search.
-
-        Repository search doesn't support filename: qualifier, so we search for:
-        - SKILL.md in:readme (searches README content)
-        - skill + topic:claude / topic:copilot
-        - MCP server naming conventions
-        """
+        """Build a list of (query_string, result_type) tuples."""
         queries = []
 
         # Intent-driven queries (Highest priority if present)
         if hasattr(profile, "intent_keywords") and profile.intent_keywords:
             intent_q = " ".join(profile.intent_keywords)
-            queries.append((f"SKILL.md {intent_q} in:readme,description", "skill"))
-            queries.append((f"skill {intent_q} topic:claude OR topic:copilot", "skill"))
+            queries.append((f"filename:SKILL.md {intent_q}", "skill"))
+            if getattr(self, "include_mcp", False):
+                queries.append((f"filename:mcp.json {intent_q}", "mcp"))
 
         # Per-technology skill queries
         for tech in profile.tech_stack[:5]:  # top 5 to stay within rate limits
-            queries.append((f"SKILL.md {tech} in:readme", "skill"))
-            queries.append((f"skill {tech} topic:claude", "skill"))
+            queries.append((f"filename:SKILL.md {tech}", "skill"))
 
         # Domain-level skill query
         if profile.domain_tags:
             domain_q = " ".join(profile.domain_tags[:3])
-            queries.append((f"skill {domain_q} topic:claude OR topic:copilot", "skill"))
+            queries.append((f"filename:SKILL.md language:markdown {domain_q}", "skill"))
 
         # MCP server queries
         if self.include_mcp:
             for tech in profile.tech_stack[:3]:
-                queries.append((f"mcp server {tech} in:readme,description", "mcp"))
-                queries.append((f"{tech} topic:mcp OR topic:model-context-protocol", "mcp"))
+                queries.append((f"filename:mcp.json {tech}", "mcp"))
+                queries.append((f'filename:server.py "mcp" {tech}', "mcp"))
 
         return queries
 
@@ -415,13 +402,7 @@ class Hunter:
         return results
 
     def _search_github_page(self, query: str, result_type: str, page: int = 1) -> list[HuntResult]:
-        """Fetch a single page of GitHub repository search results.
-
-        Repository search returns repos directly (not code files), which means:
-        - Works WITHOUT authentication (10 req/min unauthenticated)
-        - Returns complete repo metadata in one call
-        - Need to fetch SKILL.md/mcp.json content separately
-        """
+        """Fetch a single page of GitHub code search results."""
         for attempt in range(3):
             try:
                 resp = self._session.get(
@@ -451,24 +432,14 @@ class Hunter:
             return []
 
         results = []
-        for repo in items:  # Repository search returns repos directly
-            owner_login = repo.get("owner", {}).get("login", "")
-            repo_name = repo.get("name", "")
-
-            # Build skill_name from repo name (fixes Bug #1: never empty)
-            # Remove common prefixes/suffixes to get clean skill name
-            skill_name = repo_name
-            for prefix in ["skill-", "claude-", "copilot-", "mcp-", "mcp-server-"]:
-                if skill_name.lower().startswith(prefix):
-                    skill_name = skill_name[len(prefix) :]
-                    break
-
+        for item in items:
+            repo = item.get("repository", {})
             r = HuntResult(
-                name=skill_name or repo_name,  # Never empty — fallback to repo_name
+                name=repo.get("name", ""),
                 repo_url=repo.get("html_url", ""),
-                raw_url="",  # Will be populated when we fetch SKILL.md content
-                owner=owner_login,
-                repo_name=repo_name,
+                raw_url=item.get("html_url", ""),
+                owner=repo.get("owner", {}).get("login", ""),
+                repo_name=repo.get("name", ""),
                 description=repo.get("description") or "",
                 stars=repo.get("stargazers_count", 0),
                 result_type=result_type,
@@ -524,22 +495,13 @@ class Hunter:
                 r.description = meta["description"] or ""
 
         # 4 & 5. Fetch and parse content (SKILL.md for skills, mcp.json for MCP)
-        # Repository search doesn't give us file URLs, so construct them from owner/repo
-        if r.result_type == "skill" and not r.raw_content and r.owner and r.repo_name:
-            # Try common SKILL.md locations: root, .claude/, .copilot/, skills/
-            skill_paths = ["SKILL.md", ".claude/SKILL.md", ".copilot/SKILL.md", "skills/SKILL.md"]
-            for path in skill_paths:
-                skill_url = f"https://raw.githubusercontent.com/{r.owner}/{r.repo_name}/main/{path}"
-                content = self._fetch_raw_content(skill_url)
-                if content is not None:
-                    r.raw_content = content
-                    r.raw_url = skill_url.replace(
-                        "raw.githubusercontent.com", "github.com"
-                    ).replace("/main/", "/blob/main/")
-                    break
-        elif r.result_type == "mcp" and not r.raw_content and r.owner and r.repo_name:
-            # Try to fetch mcp.json or detect MCP server from repository
-            content = self._fetch_mcp_json_from_repo(r.owner, r.repo_name)
+        if r.result_type == "skill" and r.raw_url and not r.raw_content:
+            content = self._fetch_skill_content(r.raw_url)
+            if content is not None:
+                r.raw_content = content
+        elif r.result_type == "mcp" and r.raw_url and not r.raw_content:
+            # Try to fetch mcp.json first, fall back to server.py detection
+            content = self._fetch_mcp_json(r.raw_url, r.owner, r.repo_name)
             if content:
                 r.raw_content = content
                 mcp_meta = parse_mcp_json(content)
@@ -583,35 +545,6 @@ class Hunter:
             return None
         return None
 
-    def _fetch_raw_content(self, raw_url: str) -> Optional[str]:
-        """Fetch content from a raw.githubusercontent.com URL.
-
-        Simpler than _fetch_skill_content - directly fetches from raw URL
-        without URL conversion. Used when we construct raw URLs ourselves.
-
-        Args:
-            raw_url: Direct raw.githubusercontent.com URL.
-
-        Returns:
-            Raw content string, or None on 404 or network failure.
-        """
-        for attempt in range(3):
-            try:
-                resp = self._session.get(raw_url, timeout=15)
-            except requests.RequestException:
-                return None
-
-            if resp.status_code == 200:
-                return resp.text
-            if resp.status_code == 404:
-                return None  # File doesn't exist at this path
-            if resp.status_code == 429:
-                wait = int(resp.headers.get("Retry-After", RATE_LIMIT_BACKOFF_SECONDS))
-                time.sleep(wait)
-                continue
-            return None
-        return None
-
     def _fetch_skill_content(self, html_url: str) -> Optional[str]:
         """Fetch raw SKILL.md content from GitHub.
 
@@ -651,16 +584,17 @@ class Hunter:
             return None
         return None
 
-    def _fetch_mcp_json_from_repo(self, owner: str, repo_name: str) -> Optional[str]:
-        """Fetch mcp.json or detect MCP server from a GitHub repository.
+    def _fetch_mcp_json(self, html_url: str, owner: str, repo_name: str) -> Optional[str]:
+        """Fetch mcp.json or detect MCP server from GitHub.
 
         Tries in order:
             1. Direct mcp.json file in repo root
             2. server.py file (check for MCP imports)
 
         Args:
-            owner: Repository owner login.
-            repo_name: Repository name.
+            html_url: GitHub HTML URL (usually from search result)
+            owner: Repository owner
+            repo_name: Repository name
 
         Returns:
             mcp.json content if found, server.py content if MCP-like, None otherwise.

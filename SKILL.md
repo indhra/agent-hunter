@@ -1,7 +1,7 @@
 ---
 name: "agent-hunter"
-description: "Proactively hunts for relevant SKILL.md files and MCP servers that match the current project's tech stack. Security-scans every result. Prevents reinventing existing tools. Context-aware. Security-scanned. Self-evolving."
-version: "0.4.0"
+description: "Repo-aware skill package manager for Claude Code. Reads your project context, finds the best skills and MCPs for it, explains why they fit, and blocks risky ones."
+version: "1.0.0-alpha"
 license: "MIT"
 author: "Indhra Kiranu N A"
 compatibility:

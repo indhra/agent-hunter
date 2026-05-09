@@ -1,0 +1,78 @@
+{
+  "_comment": "Default configuration for agent-hunter. Copy to ~/.agent-hunter/config.json to override.",
+  "version": "1",
+
+  "hunt": {
+    "max_results": 10,
+    "top_n_shown": 3,
+    "min_stars": 10,
+    "max_age_days": 180,
+    "include_mcp_servers": true,
+    "sources": ["verified", "community", "github"],
+    "min_trust_tier": "raw"
+  },
+
+  "phase": "growth",
+  "_phase_presets": {
+    "seed":   { "min_stars": 5,  "max_age_days": 365, "top_n_shown": 3 },
+    "growth": { "min_stars": 10, "max_age_days": 180, "top_n_shown": 3 },
+    "scale":  { "min_stars": 50, "max_age_days": 90,  "top_n_shown": 3 }
+  },
+
+  "scoring": {
+    "weights": {
+      "stack_match":    0.40,
+      "trust_score":    0.30,
+      "recency_score":  0.15,
+      "star_score":     0.15
+    },
+    "yagni_multipliers": {
+      "active":   2.0,
+      "recent":   1.0,
+      "dormant":  0.5
+    },
+    "trust_tier_scores": {
+      "verified":  1.0,
+      "community": 0.7,
+      "raw":       0.4
+    }
+  },
+
+  "security": {
+    "exclude_red": true,
+    "sandbox_mode": "subprocess",
+    "_sandbox_modes": ["none", "subprocess", "docker"],
+    "mask_env_vars": [
+      "GITHUB_TOKEN",
+      "ANTHROPIC_API_KEY",
+      "OPENAI_API_KEY",
+      "AWS_ACCESS_KEY_ID",
+      "AWS_SECRET_ACCESS_KEY",
+      "DATABASE_URL",
+      "SECRET_KEY"
+    ],
+    "enable_pors_skill_audit": true,
+    "enable_cisco_scanner": false
+  },
+
+  "audit": {
+    "check_sha": true,
+    "check_conflicts": true,
+    "check_license": true,
+    "check_dependencies": true,
+    "conflict_threshold": 0.8,
+    "backup_on_audit": true,
+    "max_backups_kept": 10
+  },
+
+  "privacy": {
+    "log_extracted_signals": true,
+    "allowlist_source": "builtin"
+  },
+
+  "output": {
+    "rich_terminal": true,
+    "save_report": true,
+    "report_dir": "~/.agent-hunter/reports"
+  }
+}

@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agent-hunter"
+version = "1.0.0-alpha"
+description = "Repo-aware skill package manager for Claude Code. Finds the top 3 skills/MCPs you should use now."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "PyYAML",
+    "requests",
+    "rich"
+]
+
+[project.scripts]
+agent-hunter = "scripts.main:main"
+
+[project.optional-dependencies]
+dev = ["pre-commit", "ruff", "pytest", "pytest-cov"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "setup: integration tests for the ./setup installer script (may take 30-60s on first run)",
+]
+
+[tool.ruff]
+line-length = 100

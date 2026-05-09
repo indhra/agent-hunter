@@ -1,0 +1,16 @@
+[
+  {
+    "author_id": "indhra",
+    "description": "Core maintainer of agent-hunter and ecosystem skills",
+    "verified_at": "2026-05-09T00:00:00Z",
+    "skills_count": 5,
+    "score_bonus": 0.15
+  },
+  {
+    "author_id": "verify-sig-bot",
+    "description": "Automated signature verification service",
+    "verified_at": "2026-05-09T00:00:00Z",
+    "skills_count": 1,
+    "score_bonus": 0.10
+  }
+]

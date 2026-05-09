@@ -1,0 +1,375 @@
+"""
+Tests for sandbox.py — subprocess isolation, env masking, timeout, suspicion detection.
+
+All tests use tmp_path for script files so nothing touches the real filesystem.
+No actual malicious code is executed — scripts are safe Python one-liners.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
+
+from sandbox import (
+    ENV_VARS_TO_MASK,
+    _build_masked_env,
+    _detect_masked_token_reads,
+    run_in_docker,
+    run_in_subprocess,
+    sandbox_run,
+)
+
+
+# ---------------------------------------------------------------------------
+# _build_masked_env
+# ---------------------------------------------------------------------------
+
+
+class TestBuildMaskedEnv:
+    def test_sensitive_vars_are_masked(self):
+        with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_real_secret_here"}):
+            env = _build_masked_env()
+        assert env["GITHUB_TOKEN"] == "***MASKED_BY_AGENT_HUNTER***"
+
+    def test_non_sensitive_vars_pass_through(self):
+        with patch.dict("os.environ", {"MY_APP_CONFIG": "somevalue"}, clear=False):
+            env = _build_masked_env()
+        assert env.get("MY_APP_CONFIG") == "somevalue"
+
+    def test_missing_sensitive_var_not_injected(self):
+        # If GITHUB_TOKEN isn't set, it should not be added by masking
+        env_without_token = {
+            k: v for k, v in __import__("os").environ.items() if k != "GITHUB_TOKEN"
+        }
+        with patch("os.environ", env_without_token):
+            env = _build_masked_env()
+        # Should not contain GITHUB_TOKEN if it wasn't there originally
+        # (masking only replaces existing vars)
+        if "GITHUB_TOKEN" not in __import__("os").environ:
+            assert (
+                "GITHUB_TOKEN" not in env or env["GITHUB_TOKEN"] == "***MASKED_BY_AGENT_HUNTER***"
+            )
+
+    def test_all_listed_vars_in_mask_list(self):
+        # All ENV_VARS_TO_MASK are recognized strings
+        assert "GITHUB_TOKEN" in ENV_VARS_TO_MASK
+        assert "ANTHROPIC_API_KEY" in ENV_VARS_TO_MASK
+        assert "AWS_SECRET_ACCESS_KEY" in ENV_VARS_TO_MASK
+
+
+# ---------------------------------------------------------------------------
+# _detect_masked_token_reads
+# ---------------------------------------------------------------------------
+
+
+class TestDetectMaskedTokenReads:
+    def test_detects_masked_sentinel_in_output(self):
+        output = "The value is ***MASKED_BY_AGENT_HUNTER*** which I found"
+        found = _detect_masked_token_reads(output)
+        assert len(found) > 0
+
+    def test_clean_output_returns_empty(self):
+        output = "Hello world, no secrets here"
+        found = _detect_masked_token_reads(output)
+        assert found == []
+
+    def test_empty_output_returns_empty(self):
+        assert _detect_masked_token_reads("") == []
+
+
+# ---------------------------------------------------------------------------
+# run_in_subprocess — clean scripts
+# ---------------------------------------------------------------------------
+
+
+class TestRunInSubprocessClean:
+    def test_clean_script_succeeds(self, tmp_path):
+        script = tmp_path / "clean.py"
+        script.write_text("print('hello')\n")
+        result = run_in_subprocess(script)
+        assert result.returncode == 0
+        assert result.timed_out is False
+        assert result.is_suspicious is False
+        assert result.error is None
+
+    def test_clean_script_stdout_captured(self, tmp_path):
+        script = tmp_path / "hello.py"
+        script.write_text("print('agent-hunter-test-output')\n")
+        result = run_in_subprocess(script)
+        assert "agent-hunter-test-output" in result.stdout
+
+    def test_mode_is_subprocess(self, tmp_path):
+        script = tmp_path / "s.py"
+        script.write_text("pass\n")
+        result = run_in_subprocess(script)
+        assert result.mode == "subprocess"
+
+    def test_nonexistent_script_returns_error(self, tmp_path):
+        result = run_in_subprocess(tmp_path / "does_not_exist.py")
+        assert result.error is not None
+        assert "not found" in result.error.lower()
+        assert result.returncode is None
+
+    def test_script_with_nonzero_exit(self, tmp_path):
+        script = tmp_path / "fail.py"
+        script.write_text("raise SystemExit(2)\n")
+        result = run_in_subprocess(script)
+        assert result.returncode == 2
+        assert result.is_suspicious is False
+
+
+# ---------------------------------------------------------------------------
+# run_in_subprocess — env masking verification
+# ---------------------------------------------------------------------------
+
+
+class TestRunInSubprocessEnvMasking:
+    def test_masked_token_not_leaked_in_stdout(self, tmp_path):
+        """A script printing GITHUB_TOKEN should get the masked value, not the real one."""
+        script = tmp_path / "print_token.py"
+        script.write_text("import os\nprint(os.environ.get('GITHUB_TOKEN', 'NOT_SET'))\n")
+        with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_supersecrettoken1234"}):
+            result = run_in_subprocess(script)
+
+        # The real token must NOT appear in output
+        assert "ghp_supersecrettoken1234" not in result.stdout
+        assert "ghp_supersecrettoken1234" not in result.stderr
+
+    def test_masked_sentinel_triggers_suspicion(self, tmp_path):
+        """A script that outputs the masked sentinel is flagged as suspicious."""
+        script = tmp_path / "exfil.py"
+        script.write_text("import os\ntoken = os.environ.get('GITHUB_TOKEN', '')\nprint(token)\n")
+        with patch.dict("os.environ", {"GITHUB_TOKEN": "ghp_anytokenvalue"}):
+            result = run_in_subprocess(script)
+
+        # The script will print ***MASKED_BY_AGENT_HUNTER*** — which should be flagged
+        if "***MASKED_BY_AGENT_HUNTER***" in (result.stdout + result.stderr):
+            assert result.is_suspicious is True
+            assert len(result.env_vars_accessed) > 0
+
+
+# ---------------------------------------------------------------------------
+# run_in_subprocess — timeout
+# ---------------------------------------------------------------------------
+
+
+class TestRunInSubprocessTimeout:
+    def test_timeout_kills_script(self, tmp_path):
+        script = tmp_path / "infinite.py"
+        script.write_text("import time\nwhile True:\n    time.sleep(1)\n")
+        result = run_in_subprocess(script, timeout=1)
+        assert result.timed_out is True
+        assert result.error is not None
+
+    def test_fast_script_does_not_timeout(self, tmp_path):
+        script = tmp_path / "fast.py"
+        script.write_text("print('done')\n")
+        result = run_in_subprocess(script, timeout=5)
+        assert result.timed_out is False
+
+
+# ---------------------------------------------------------------------------
+# run_in_docker — full implementation / fallback
+# ---------------------------------------------------------------------------
+
+
+class TestRunInDocker:
+    def test_docker_fallback_when_not_available(self, tmp_path):
+        """When Docker is not installed, fallback to subprocess mode."""
+        script = tmp_path / "s.py"
+        script.write_text("print('hello')\n")
+        result = run_in_docker(script)
+        # Should succeed but report fallback mode if Docker not available
+        # Mode will be either "docker" (if available) or "docker_fallback_to_subprocess"
+        assert result.mode in ["docker", "docker_fallback_to_subprocess"]
+        assert result.returncode == 0
+        assert "hello" in result.stdout
+
+    def test_docker_script_execution_produces_output(self, tmp_path):
+        """Docker script execution captures output correctly."""
+        script = tmp_path / "s.py"
+        script.write_text("print('docker test')\n")
+        result = run_in_docker(script)
+        # Should either run in Docker or fallback to subprocess
+        assert result.returncode == 0
+        assert "docker test" in result.stdout or "docker test" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# sandbox_run — factory dispatch
+# ---------------------------------------------------------------------------
+
+
+class TestSandboxRunFactory:
+    def test_subprocess_mode_dispatches_correctly(self, tmp_path):
+        script = tmp_path / "s.py"
+        script.write_text("pass\n")
+        result = sandbox_run(script, mode="subprocess")
+        assert result.mode == "subprocess"
+
+    def test_docker_mode_dispatches_correctly(self, tmp_path):
+        script = tmp_path / "s.py"
+        script.write_text("pass\n")
+        result = sandbox_run(script, mode="docker")
+        # Docker mode will either be "docker" (if available) or "docker_fallback_to_subprocess"
+        assert result.mode in ["docker", "docker_fallback_to_subprocess"]
+
+    def test_none_mode_returns_disabled(self, tmp_path):
+        script = tmp_path / "s.py"
+        script.write_text("pass\n")
+        result = sandbox_run(script, mode="none")
+        assert result.mode == "none"
+        assert result.error is not None
+
+    def test_is_suspicious_false_for_clean_script(self, tmp_path):
+        script = tmp_path / "clean.py"
+        script.write_text("x = 1 + 1\n")
+        result = sandbox_run(script, mode="subprocess")
+        assert result.is_suspicious is False
+
+
+# ---------------------------------------------------------------------------
+# run_in_subprocess: TimeoutExpired + OSError paths (lines 130-131)
+# ---------------------------------------------------------------------------
+
+
+class TestRunInSubprocessErrors:
+    def test_timeout_expired_sets_timed_out(self, tmp_path):
+        """TimeoutExpired should set result.timed_out=True."""
+        from sandbox import run_in_subprocess
+        import subprocess
+        from unittest.mock import patch
+
+        script = tmp_path / "timeout.py"
+        script.write_text("import time; time.sleep(999)\n")
+
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["python3"], 5)):
+            result = run_in_subprocess(script, timeout=5)
+
+        assert result.timed_out is True
+        assert "timeout" in result.error.lower()
+
+    def test_oserror_sets_error(self, tmp_path):
+        """OSError/PermissionError should set result.error."""
+        from sandbox import run_in_subprocess
+        from unittest.mock import patch
+
+        script = tmp_path / "nope.py"
+        script.write_text("pass\n")
+
+        with patch("subprocess.run", side_effect=PermissionError("cannot exec")):
+            result = run_in_subprocess(script, timeout=10)
+
+        assert result.error == "cannot exec"
+        assert result.timed_out is False
+
+
+# ---------------------------------------------------------------------------
+# _check_docker_available
+# ---------------------------------------------------------------------------
+
+
+class TestCheckDockerAvailable:
+    def test_returns_true_when_docker_succeeds(self):
+        from sandbox import _check_docker_available
+
+        mock_result = MagicMock(returncode=0)
+        with patch("subprocess.run", return_value=mock_result):
+            assert _check_docker_available() is True
+
+    def test_returns_false_when_docker_not_found(self):
+        from sandbox import _check_docker_available
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            assert _check_docker_available() is False
+
+    def test_returns_false_on_timeout(self):
+        import subprocess as sp
+        from sandbox import _check_docker_available
+
+        with patch("subprocess.run", side_effect=sp.TimeoutExpired(["docker"], 5)):
+            assert _check_docker_available() is False
+
+    def test_returns_false_on_called_process_error(self):
+        import subprocess as sp
+        from sandbox import _check_docker_available
+
+        with patch("subprocess.run", side_effect=sp.CalledProcessError(1, ["docker"])):
+            assert _check_docker_available() is False
+
+
+# ---------------------------------------------------------------------------
+# run_in_docker — script not found
+# ---------------------------------------------------------------------------
+
+
+class TestRunInDockerScriptNotFound:
+    def test_script_not_found_sets_error(self, tmp_path):
+        result = run_in_docker(tmp_path / "nonexistent.py")
+        assert result.error is not None
+        assert "not found" in result.error.lower()
+
+    def test_script_not_found_mode_is_docker(self, tmp_path):
+        result = run_in_docker(tmp_path / "nonexistent.py")
+        assert result.mode == "docker"
+
+
+# ---------------------------------------------------------------------------
+# run_in_docker — Docker not available (falls back to subprocess)
+# ---------------------------------------------------------------------------
+
+
+class TestRunInDockerFallback:
+    def test_fallback_to_subprocess_when_docker_unavailable(self, tmp_path):
+        from sandbox import run_in_docker
+
+        script = tmp_path / "clean.py"
+        script.write_text("print('fallback')\n")
+
+        with patch("sandbox._check_docker_available", return_value=False):
+            result = run_in_docker(script)
+
+        # Mode reflects the fallback
+        assert result.mode == "docker_fallback_to_subprocess"
+
+    def test_fallback_captures_stdout(self, tmp_path):
+        from sandbox import run_in_docker
+
+        script = tmp_path / "say.py"
+        script.write_text("print('docker-fallback-output')\n")
+
+        with patch("sandbox._check_docker_available", return_value=False):
+            result = run_in_docker(script)
+
+        assert result.returncode == 0
+        assert "docker-fallback-output" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# sandbox_run — mode='docker'
+# ---------------------------------------------------------------------------
+
+
+class TestSandboxRunDockerMode:
+    def test_sandbox_run_docker_mode_calls_run_in_docker(self, tmp_path):
+        from sandbox import sandbox_run
+
+        script = tmp_path / "x.py"
+        script.write_text("print('hi')\n")
+
+        with patch("sandbox.run_in_docker") as mock_docker:
+            mock_docker.return_value = MagicMock(mode="docker_fallback_to_subprocess")
+            sandbox_run(script, mode="docker")
+        mock_docker.assert_called_once()
+
+    def test_sandbox_run_none_mode_returns_disabled_result(self, tmp_path):
+        from sandbox import sandbox_run
+
+        script = tmp_path / "x.py"
+        script.write_text("pass\n")
+        result = sandbox_run(script, mode="none")
+        assert result.mode == "none"
+        assert result.error == "Sandbox disabled."

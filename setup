@@ -1,0 +1,226 @@
+#!/usr/bin/env bash
+# setup — one-time installer for agent-hunter
+# Usage: ./setup
+# Run from: ~/.claude/skills/agent-hunter/
+
+set -e
+
+SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SKILL_NAME="agent-hunter"
+MIN_PYTHON_MINOR=10
+
+# ── Color helpers ────────────────────────────────────────────────────────────
+red()    { printf '\033[0;31m%s\033[0m\n' "$*"; }
+green()  { printf '\033[0;32m%s\033[0m\n' "$*"; }
+yellow() { printf '\033[0;33m%s\033[0m\n' "$*"; }
+bold()   { printf '\033[1m%s\033[0m\n' "$*"; }
+
+# ── Banner ───────────────────────────────────────────────────────────────────
+echo ""
+bold "agent-hunter setup"
+echo "Hunt the right skills. Block the bad ones."
+echo ""
+
+# ── 1. Check Python ──────────────────────────────────────────────────────────
+PYTHON=""
+for cmd in python3 python; do
+  if command -v "$cmd" >/dev/null 2>&1; then
+    ver=$("$cmd" -c "import sys; print(sys.version_info.minor)" 2>/dev/null)
+    maj=$("$cmd" -c "import sys; print(sys.version_info.major)" 2>/dev/null)
+    if [ "$maj" = "3" ] && [ "$ver" -ge "$MIN_PYTHON_MINOR" ] 2>/dev/null; then
+      PYTHON="$cmd"
+      break
+    fi
+  fi
+done
+
+if [ -z "$PYTHON" ]; then
+  red "ERROR: Python 3.10+ is required but not found."
+  echo "  Install from https://python.org or via your package manager."
+  exit 1
+fi
+
+PYTHON_VERSION=$("$PYTHON" --version 2>&1)
+echo "✓ $PYTHON_VERSION"
+
+# ── 2. Install dependencies into a local venv ───────────────────────────────
+echo ""
+echo "Installing Python dependencies..."
+
+VENV_DIR="$SKILL_DIR/.venv"
+
+# Reuse existing venv or create one
+if [ ! -f "$VENV_DIR/bin/activate" ]; then
+  echo "  Creating virtual environment..."
+  "$PYTHON" -m venv "$VENV_DIR"
+fi
+
+VENV_PIP="$VENV_DIR/bin/pip"
+VENV_PYTHON="$VENV_DIR/bin/python"
+
+if "$VENV_PIP" install -q -r "$SKILL_DIR/requirements.txt"; then
+  green "✓ Dependencies installed (venv: $VENV_DIR)"
+else
+  red "ERROR: Could not install dependencies into venv."
+  echo "  Try: $PYTHON -m venv $VENV_DIR && $VENV_DIR/bin/pip install -r $SKILL_DIR/requirements.txt"
+  exit 1
+fi
+
+# Point PYTHON at the venv python for the self-check below
+PYTHON="$VENV_PYTHON"
+
+# ── 3. Make scripts executable ───────────────────────────────────────────────
+chmod +x "$SKILL_DIR/scripts/"*.py 2>/dev/null || true
+chmod +x "$SKILL_DIR/bin/"* 2>/dev/null || true
+green "✓ Scripts marked executable"
+
+# ── 3b. Symlink sub-skills into ~/.claude/skills/ ────────────────────────────
+CLAUDE_SKILLS_DIR="$HOME/.claude/skills"
+if [ -d "$CLAUDE_SKILLS_DIR" ] || mkdir -p "$CLAUDE_SKILLS_DIR" 2>/dev/null; then
+  for skill_dir in "$SKILL_DIR"/agent-hunter-*/; do
+    skill_name="$(basename "$skill_dir")"
+    target="$CLAUDE_SKILLS_DIR/$skill_name"
+    # Only create symlink if it doesn't already point to the right place
+    if [ ! -L "$target" ] || [ "$(readlink "$target")" != "$skill_dir" ]; then
+      ln -sf "$skill_dir" "$target"
+      green "✓ Linked skill: /$skill_name"
+    fi
+  done
+fi
+
+# ── 4. Write a bin/agent-hunter wrapper that uses the venv ──────────────────
+mkdir -p "$SKILL_DIR/bin"
+cat > "$SKILL_DIR/bin/agent-hunter" << WRAPPER
+#!/usr/bin/env bash
+exec "$VENV_DIR/bin/python" "$SKILL_DIR/scripts/main.py" "\$@"
+WRAPPER
+chmod +x "$SKILL_DIR/bin/agent-hunter"
+green "✓ Wrapper written: $SKILL_DIR/bin/agent-hunter"
+
+# ── 4b. Add to PATH via ~/.local/bin symlink ─────────────────────────────────
+LOCAL_BIN="$HOME/.local/bin"
+mkdir -p "$LOCAL_BIN"
+LOCAL_LINK="$LOCAL_BIN/agent-hunter"
+ln -sf "$SKILL_DIR/bin/agent-hunter" "$LOCAL_LINK"
+green "✓ Linked to PATH: $LOCAL_LINK"
+
+# Remind user if ~/.local/bin isn't in PATH yet
+if ! echo ":$PATH:" | grep -q ":$LOCAL_BIN:"; then
+  yellow "  Note: Add ~/.local/bin to PATH to use 'agent-hunter' from any shell:"
+  yellow "    echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.zshrc  # or ~/.bash_profile"
+fi
+
+# ── 4. Verify the install works ──────────────────────────────────────────────
+echo ""
+echo "Running self-check..."
+if "$PYTHON" "$SKILL_DIR/scripts/main.py" --help >/dev/null 2>&1; then
+  green "✓ agent-hunter is working"
+else
+  yellow "⚠  Self-check failed — see above for details"
+fi
+
+# ── 5. Inject into global ~/.claude/CLAUDE.md ───────────────────────────────
+GLOBAL_CLAUDE_MD="$HOME/.claude/CLAUDE.md"
+_AH_MARKER="agent-hunter"
+
+# Ensure the global CLAUDE.md exists
+if [ ! -f "$GLOBAL_CLAUDE_MD" ]; then
+  mkdir -p "$(dirname "$GLOBAL_CLAUDE_MD")"
+  touch "$GLOBAL_CLAUDE_MD"
+  green "✓ Created $GLOBAL_CLAUDE_MD"
+fi
+
+if grep -q "$_AH_MARKER" "$GLOBAL_CLAUDE_MD" 2>/dev/null; then
+  green "✓ agent-hunter already in $GLOBAL_CLAUDE_MD"
+else
+  # Append the agent-hunter skill registration block
+  cat >> "$GLOBAL_CLAUDE_MD" << 'GLOBAL_BLOCK'
+
+## agent-hunter
+
+Proactively discover, security-scan, and install SKILL.md files and MCP servers
+relevant to the current project. Invoke /agent-hunter proactively when:
+- The user starts a new project or asks "what should I install"
+- The user asks "are there any skills/tools/agents for X"
+- The user is about to build something from scratch that likely has existing tools
+- The user asks to search GitHub for skills or MCP servers
+
+One automatic hunt per session maximum (AGENT_HUNTER_RAN guard handles this).
+
+Available skills: /agent-hunter, /agent-hunter-update
+GLOBAL_BLOCK
+  green "✓ Registered agent-hunter in $GLOBAL_CLAUDE_MD"
+  green "  /agent-hunter is now available in every Claude Code session"
+  green "  It will work even in brand new repos with no local CLAUDE.md yet"
+fi
+
+# ── 5b. Print the CLAUDE.md block ────────────────────────────────────────────
+echo ""
+bold "Setup complete."
+echo ""
+echo "Global setup is enough to start using agent-hunter immediately."
+echo "The block below is optional — add it to a project's CLAUDE.md when you want"
+echo "the same behavior shared with teammates in that repo."
+echo ""
+printf '\033[0;36m'
+cat << 'CLAUDE_BLOCK'
+## agent-hunter
+
+Proactively discover, security-scan, and install SKILL.md files and MCP servers
+relevant to the current project. Invoke /agent-hunter proactively when:
+- The user starts a new project or asks "what should I install"
+- The user asks "are there any skills/tools/agents for X"
+- The user is about to build something from scratch that likely has existing tools
+- The user asks to search GitHub for skills or MCP servers
+
+One automatic hunt per session maximum (AGENT_HUNTER_RAN guard handles this).
+
+Available skills: /agent-hunter, /agent-hunter-update
+CLAUDE_BLOCK
+printf '\033[0m'
+echo ""
+
+# ── 6. Offer to add to current project's CLAUDE.md ──────────────────────────
+CURRENT_CLAUDE_MD="$(pwd)/CLAUDE.md"
+if [ "$(pwd)" != "$SKILL_DIR" ] && [ -f "$CURRENT_CLAUDE_MD" ]; then
+  if grep -q "agent-hunter" "$CURRENT_CLAUDE_MD" 2>/dev/null; then
+    green "✓ agent-hunter section already in $CURRENT_CLAUDE_MD"
+  else
+    echo ""
+    printf "Add the agent-hunter section to %s now? [y/N] " "$CURRENT_CLAUDE_MD"
+    read -r answer
+    if [ "$answer" = "y" ] || [ "$answer" = "Y" ]; then
+      {
+        echo ""
+        echo "## agent-hunter"
+        echo ""
+        echo "Proactively discover, security-scan, and install SKILL.md files and MCP servers"
+        echo "relevant to the current project. Invoke /agent-hunter proactively when:"
+        echo "- The user starts a new project or asks \"what should I install\""
+        echo "- The user asks \"are there any skills/tools/agents for X\""
+        echo "- The user is about to build something from scratch that likely has existing tools"
+        echo "- The user asks to search GitHub for skills or MCP servers"
+        echo ""
+        echo "One automatic hunt per session maximum (AGENT_HUNTER_RAN guard handles this)."
+        echo ""
+        echo "Available skills: /agent-hunter, /agent-hunter-update"
+      } >> "$CURRENT_CLAUDE_MD"
+      green "✓ Added to $CURRENT_CLAUDE_MD"
+    fi
+  fi
+elif [ "$(pwd)" != "$SKILL_DIR" ]; then
+  yellow "  No project CLAUDE.md found in $(pwd)"
+  yellow "  That's fine — agent-hunter is already active globally via $GLOBAL_CLAUDE_MD"
+  yellow "  Add a project CLAUDE.md later if you want team-wide behavior in this repo"
+fi
+
+echo ""
+bold "Quick start:"
+echo "  In Claude Code, type: /agent-hunter"
+echo "  Or run directly:      $SKILL_DIR/bin/agent-hunter hunt ."
+echo ""
+echo "GitHub token:"
+echo "  Optional for broader discovery. The curated verified index works without it."
+echo "  GitHub Code Search itself still needs auth since 2024."
+echo "  export GITHUB_TOKEN=your_token"
+echo ""

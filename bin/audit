@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# audit — health-check all installed skills against the registry
+# Usage: audit
+# Output: audit table to stdout
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/scripts/audit.py" "$@"

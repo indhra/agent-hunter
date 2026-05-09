@@ -148,6 +148,8 @@ def scan_skill(
     description: str = "",
     repo_url: str = "",
     known_malicious_urls: Optional[set[str]] = None,
+    skill_path: Optional[str | Path] = None,
+    sandbox_mode: str = "none",
 ) -> ScanResult:
     """Run all static security checks on a SKILL.md.
 
@@ -157,6 +159,8 @@ def scan_skill(
                      it's the primary attack surface since it loads at session start).
         repo_url: GitHub URL for known-malicious index lookup.
         known_malicious_urls: Pre-loaded set of blocked repo URLs.
+        skill_path: Optional path to the skill file (for sandbox testing).
+        sandbox_mode: "none", "subprocess", or "docker" (default: "none").
 
     Returns:
         ScanResult with severity (GREEN/YELLOW/RED) and findings list.
@@ -272,6 +276,41 @@ def scan_skill(
     else:
         result.severity = "GREEN"
         result.passed_static = True
+
+    # --- Runtime sandbox testing (if enabled and RED found) ---
+    if (
+        sandbox_mode != "none"
+        and result.severity == "RED"
+        and skill_path
+        and any(f.pattern_id == "SP-009" for f in result.findings)
+    ):
+        # Found obfuscation — run sandbox test
+        from sandbox import sandbox_run
+
+        sandbox_result = sandbox_run(skill_path, mode=sandbox_mode)
+        if sandbox_result.is_suspicious or sandbox_result.timed_out:
+            result.passed_sandbox = False
+            # Add sandbox findings
+            if sandbox_result.env_vars_accessed:
+                result.findings.append(
+                    ScanFinding(
+                        pattern_id="SB-001",
+                        severity="RED",
+                        description=f"Suspicious env var access detected in sandbox: {', '.join(sandbox_result.env_vars_accessed)}",
+                        location="body",
+                    )
+                )
+            if sandbox_result.timed_out:
+                result.findings.append(
+                    ScanFinding(
+                        pattern_id="SB-002",
+                        severity="RED",
+                        description="Script timeout in sandbox (possible infinite loop or hanging behavior)",
+                        location="body",
+                    )
+                )
+        else:
+            result.passed_sandbox = True
 
     return result
 

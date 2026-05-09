@@ -128,6 +128,117 @@ Top 3 recommendations:
 
 **RED results are NEVER shown.** Only counted.
 
+### Step 2.5: Web Search Enrichment (Optional)
+
+**Three-tier discovery system:**
+
+```
+Tier 1: Curated Index (always runs, instant, verified)
+   ↓
+Tier 2: GitHub API (runs if GITHUB_TOKEN set)
+   ↓
+Tier 3: LLM Web Search (optional enrichment)
+```
+
+**Activate web search when:**
+1. User explicitly requests: "find more", "search broader", "web search"
+2. Auto-trigger if initial results < 3 skills
+3. User asks about discovery beyond GitHub
+
+**When to offer web search:**
+
+After showing initial hunt results, assess:
+- If **3+ good results** (🟢 or 🟡): Continue to Step 3, don't offer web search
+- If **< 3 results** OR user seems unsatisfied: Offer web search
+
+**Offer prompt:**
+> "Found {N} skills from curated index + GitHub. Want to search broader?
+>
+> Web search can discover 5000+ MCP servers and community skills not in GitHub's index.
+>
+> Search now? [y/n/auto]"
+
+**If user says yes or auto (when < 3 results):**
+
+1. **Construct search query:**
+   ```
+   "GitHub SKILL.md {tech_stack} {domain} development agent skills 2026"
+
+   Examples:
+   - "GitHub SKILL.md FastAPI Python REST API development agent skills 2026"
+   - "GitHub SKILL.md React TypeScript frontend development agent skills 2026"
+   - "GitHub SKILL.md Django PostgreSQL backend development MCP 2026"
+   ```
+
+2. **Execute web search** using `vscode-websearchforcopilot_webSearch` tool
+
+3. **Parse results for:**
+   - GitHub repository URLs (github.com/owner/repo)
+   - SKILL.md file references
+   - MCP server mentions
+   - Skill marketplace links (Smithery, Agensi.io, MCP Market, etc.)
+
+4. **Extract candidate repos:**
+   - Filter for GitHub URLs only
+   - Remove duplicates already in hunt results
+   - Limit to top 5 new discoveries
+
+5. **For each new repo:**
+   - Attempt to fetch SKILL.md from standard locations:
+     - `/SKILL.md`
+     - `/.claude/skills/*/SKILL.md`
+     - `/skills/*/SKILL.md`
+   - If found: Add to candidates for security scan
+   - If marketplace link: Note as reference for user
+
+6. **Security scan** new discoveries (same as GitHub results)
+   - Run through security_scan.py
+   - Block RED results
+   - Flag YELLOW for review
+
+7. **Merge and re-rank:**
+   - Combine web search results with initial hunt results
+   - Re-run scorer.py on combined set
+   - Show updated top 3
+
+8. **Show updated report:**
+   ```
+   🌐 Web search found 3 additional skills:
+
+   Top 3 recommendations (updated):
+
+   1. 🟢 fastapi-official-skill (NEW - web search)
+      Safe to install.
+      Why: Official FastAPI skill from fastapi/fastapi repo
+      Source: Web search
+
+   2. 🟢 postgres-mcp-server
+      Safe to install.
+      Why: [original explanation]
+      Source: Curated index
+
+   3. 🟢 fastapi-ddd-pattern (NEW - web search)
+      Safe to install.
+      Why: Domain-driven design patterns for FastAPI
+      Source: Web search via github.com/iktakahiro
+   ```
+
+**If web search fails:**
+> "Web search timed out or returned no results. Continuing with {N} skills from curated index + GitHub."
+
+**Performance notes:**
+- Web search typically takes 5-15 seconds
+- Show progress: "🌐 Searching web for additional skills..."
+- Timeout after 30 seconds
+- Cache results in session to avoid duplicate searches
+
+**Marketplace references:**
+If web search finds skill marketplaces (Agensi.io, Smithery, MCP Market), mention them:
+> "💡 Also found these skill marketplaces you can browse manually:
+> - Smithery: https://smithery.ai/
+> - Agensi: https://agensi.io/
+> - MCP Market: https://mcpmarket.com/"
+
 ### Step 3: Explain Each Recommendation
 
 For each result in the top 3, provide ONE specific sentence explaining why it fits this project.
@@ -224,17 +335,42 @@ If hunt returns 0 results:
 
 ---
 
-## GitHub Token (Optional)
+## Discovery Modes
 
-For broader discovery beyond the curated index:
+agent-hunter uses a **three-tier discovery system** for maximum coverage:
 
+### Tier 1: Curated Index (Always Active)
+- **Source:** `references/VERIFIED_SKILLS.md`
+- **Count:** ~100 verified, security-scanned skills
+- **Speed:** Instant (offline)
+- **Trust:** Highest (human-reviewed)
+- **No setup needed**
+
+### Tier 2: GitHub API Search (Optional)
+- **Source:** GitHub Code Search API
+- **Count:** 5,000+ repositories with SKILL.md
+- **Speed:** 2-5 seconds
+- **Trust:** Medium (automated filtering)
+- **Setup:** Requires GITHUB_TOKEN
+
+To enable Tier 2:
 ```bash
 export GITHUB_TOKEN=your_token_here
 ```
 
 Generate at https://github.com/settings/tokens (no scopes needed).
 
-Without a token, agent-hunter only searches the curated verified skills index.
+### Tier 3: LLM Web Search (On-Demand)
+- **Source:** Web search across GitHub, marketplaces, documentation
+- **Count:** Unlimited (discovers novel skills)
+- **Speed:** 5-15 seconds
+- **Trust:** Variable (security-scanned before showing)
+- **Activation:** User prompt or auto-trigger when < 3 results
+
+**Recommended setup:**
+- Casual use: Tier 1 only (no token needed)
+- Active development: Tier 1 + 2 (set GITHUB_TOKEN)
+- Exploration: All 3 tiers (web search on demand)
 
 ---
 
@@ -242,9 +378,11 @@ Without a token, agent-hunter only searches the curated verified skills index.
 
 | Error | Action |
 |---|---|
-| GitHub API 401 | Tell user to set GITHUB_TOKEN |
-| GitHub API 429 (rate limit) | Wait 60s, retry once, then fail gracefully |
-| GitHub API 503 | Tell user GitHub is down, try later |
+| GitHub API 401 | Tell user to set GITHUB_TOKEN for Tier 2 discovery |
+| GitHub API 429 (rate limit) | Wait 60s, retry once, then fall back to Tier 1 + 3 |
+| GitHub API 503 | Tell user GitHub is down, offer Tier 3 (web search) |
+| Web search timeout | Continue with Tier 1 + 2 results, explain timeout |
+| Web search no results | Continue with Tier 1 + 2 results |
 | Context extraction fails | Continue with empty context, explain what's missing |
 | Security scan fails on a result | Skip that result silently |
 | Registry corrupt | Offer to reset registry |

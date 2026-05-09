@@ -96,6 +96,63 @@ agent-hunter is different:
 
 ---
 
+## Discovery Modes
+
+agent-hunter uses a **three-tier discovery system** to give you the best coverage:
+
+### 🎯 Tier 1: Curated Index (Always Active)
+
+**Source:** `references/VERIFIED_SKILLS.md` — ~100 verified, security-scanned skills
+**Speed:** Instant (offline)
+**Trust:** Highest (human-reviewed by maintainers)
+**Setup:** None needed
+
+This is your baseline. These skills are manually vetted, tested in real projects, and cryptographically signed. If the curated index has what you need, you'll see it first.
+
+### 🔍 Tier 2: GitHub API Search (Optional)
+
+**Source:** GitHub Code Search — 5,000+ repositories with SKILL.md
+**Speed:** 2-5 seconds
+**Trust:** Medium (automated filtering via Bug #2 fixes)
+**Setup:** Requires `GITHUB_TOKEN`
+
+Broader discovery beyond the curated set. Searches GitHub for SKILL.md files, filters out noise (spell checkers, UI tools, etc.), and ranks by relevance to your project.
+
+**Enable Tier 2:**
+```bash
+export GITHUB_TOKEN=your_token_here
+```
+
+Generate a token at https://github.com/settings/tokens (no scopes needed).
+
+**Without a token:** agent-hunter uses Tier 1 (curated) + Tier 3 (web search) only. You'll see ~100 verified skills plus web-discovered results.
+
+### 🌐 Tier 3: LLM Web Search (On-Demand)
+
+**Source:** Web search across GitHub, skill marketplaces, documentation
+**Speed:** 5-15 seconds
+**Trust:** Variable (security-scanned before showing)
+**Activation:** User prompt or auto-trigger when < 3 results
+
+Discovers skills beyond GitHub's index:
+- Skill marketplaces (Smithery, Agensi.io, MCP Market)
+- Community repos not indexed by GitHub search
+- Official framework skills (FastAPI, Django, etc.)
+- 5,000+ MCP servers across registries
+
+**How it works:**
+1. agent-hunter shows initial results from Tier 1 + 2
+2. If < 3 results found, offers: "Search broader?"
+3. If you say yes: runs web search, parses for GitHub URLs, scans for security
+4. Shows updated top 3 with web-discovered skills marked
+
+**When to use:**
+- Exploring a new stack and want maximum coverage
+- Curated + GitHub results don't cover your use case
+- Looking for official framework skills or MCP servers
+
+---
+
 ## Commands
 
 ```bash
@@ -115,9 +172,9 @@ Run from Claude Code: `/agent-hunter`
 
 ## GitHub Token (Optional)
 
-**agent-hunter works WITHOUT a token** using the curated index (`references/VERIFIED_SKILLS.md`) — security-vetted, high-quality skills and MCP servers.
+**agent-hunter works WITHOUT a token** using the curated index + LLM web search (Tier 1 + Tier 3).
 
-**Adding a token enables broader GitHub discovery** beyond the curated set (searches all of GitHub for relevant skills/MCP servers).
+**Adding a token enables GitHub API search** (Tier 2) for broader discovery across 5,000+ repos.
 
 ```bash
 export GITHUB_TOKEN=your_token_here
@@ -126,9 +183,11 @@ export GITHUB_TOKEN=your_token_here
 
 Generate at <https://github.com/settings/tokens> (no scopes needed).
 
-**What you get:**
-- **Without token**: ~100 curated, verified skills/MCP servers (zero-config, works offline)
-- **With token**: Curated set PLUS broader GitHub discovery (1000s more results)
+**Discovery coverage:**
+- **Without token**: Tier 1 (curated, ~100 verified skills) + Tier 3 (web search on-demand)
+- **With token**: All 3 tiers — curated + GitHub API + web search
+
+See [Discovery Modes](#discovery-modes) above for full details on each tier.
 
 ---
 

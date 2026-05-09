@@ -15,6 +15,7 @@ No LLM calls. Local file I/O + GitHub API (SHA fetch only).
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import zlib
 from dataclasses import asdict, dataclass
@@ -24,12 +25,38 @@ from typing import Optional
 
 
 # ---------------------------------------------------------------------------
-# Paths
+# Paths (with environment variable overrides for testability)
 # ---------------------------------------------------------------------------
 
-REGISTRY_DIR = Path.home() / ".agent-hunter"
-REGISTRY_FILE = REGISTRY_DIR / "registry.json"
-BACKUPS_DIR = REGISTRY_DIR / "backups"
+
+def _get_registry_dir() -> Path:
+    """Get registry directory with env var override support."""
+    override = os.getenv("AGENT_HUNTER_REGISTRY_DIR")
+    if override:
+        return Path(override).parent
+    return Path.home() / ".agent-hunter"
+
+
+def _get_registry_file() -> Path:
+    """Get registry file path with env var override support."""
+    override = os.getenv("AGENT_HUNTER_REGISTRY")
+    if override:
+        return Path(override)
+    return _get_registry_dir() / "registry.json"
+
+
+def _get_backups_dir() -> Path:
+    """Get backups directory with env var override support."""
+    override = os.getenv("AGENT_HUNTER_BACKUPS")
+    if override:
+        return Path(override)
+    return _get_registry_dir() / "backups"
+
+
+# Module-level constants (for backward compatibility)
+REGISTRY_DIR = _get_registry_dir()
+REGISTRY_FILE = _get_registry_file()
+BACKUPS_DIR = _get_backups_dir()
 MAX_BACKUPS = 10
 
 

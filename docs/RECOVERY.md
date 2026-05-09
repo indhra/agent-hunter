@@ -1,6 +1,6 @@
 # agent-hunter Recovery Playbook
 
-**Version:** 0.5.0.0
+**Version:** 0.5.0
 **Last updated:** 2026-05-03
 
 This is the step-by-step guide for recovering from incidents involving installed skills. It assumes agent-hunter v0.5.0+ with pre-audit snapshot support.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Release helper: Create git tags, GitHub Releases, and update version.
+Release helper: Create git tags and GitHub Releases for an existing version.
 
 Usage:
     python scripts/release.py --version 0.4.1

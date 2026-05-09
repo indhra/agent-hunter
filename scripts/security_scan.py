@@ -282,7 +282,7 @@ def scan_skill(
         sandbox_mode != "none"
         and result.severity == "RED"
         and skill_path
-        and any(f.pattern_id == "SP-009" for f in result.findings)
+        and any(f.pattern_id.startswith("SP-009") for f in result.findings)
     ):
         # Found obfuscation — run sandbox test
         from sandbox import sandbox_run

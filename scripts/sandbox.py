@@ -30,10 +30,12 @@ No LLM calls.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import subprocess
 import sys
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -162,8 +164,17 @@ def _detect_masked_token_reads(output: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
-# Docker sandbox (v0.3.0 — stub)
+# Docker sandbox (v0.6.0 — complete implementation)
 # ---------------------------------------------------------------------------
+
+
+def _check_docker_available() -> bool:
+    """Check if Docker is installed and accessible."""
+    try:
+        subprocess.run(["docker", "--version"], capture_output=True, timeout=5, check=True)
+        return True
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        return False
 
 
 def run_in_docker(
@@ -175,14 +186,127 @@ def run_in_docker(
     Container settings:
         - Image: python:3.12-slim
         - No network (--network none)
-        - No volume mounts (read-only copy of script only)
-        - Hard timeout: 5s
+        - Temporary copy of script (no volume mounts for code)
+        - Hard timeout: 5s (killed after)
         - Container destroyed after execution
+        - Working directory: /tmp/sandbox_test
 
-    Status: Stub — implemented in v0.3.0.
+    Returns:
+        SandboxResult with execution details.
+        If Docker is not available, falls back to subprocess.
     """
     result = SandboxResult(mode="docker")
-    result.error = "Docker sandbox is not yet implemented (planned for v0.3.0)."
+    script_path = Path(script_path)
+
+    if not script_path.exists():
+        result.error = f"Script not found: {script_path}"
+        return result
+
+    # Fallback to subprocess if Docker not available
+    if not _check_docker_available():
+        result.error = "Docker not available; falling back to subprocess mode"
+        subprocess_result = run_in_subprocess(script_path, timeout=timeout)
+        # Copy results but keep mode as "docker" to indicate what was intended
+        result.returncode = subprocess_result.returncode
+        result.stdout = subprocess_result.stdout
+        result.stderr = subprocess_result.stderr
+        result.timed_out = subprocess_result.timed_out
+        result.env_vars_accessed = subprocess_result.env_vars_accessed
+        result.mode = "docker_fallback_to_subprocess"
+        return result
+
+    # Build Dockerfile on the fly
+    dockerfile_content = """FROM python:3.12-slim
+WORKDIR /tmp/sandbox_test
+COPY script.py /tmp/sandbox_test/script.py
+RUN chmod +x /tmp/sandbox_test/script.py
+ENTRYPOINT ["python", "script.py"]
+"""
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="agent-hunter-docker-") as tmpdir:
+            tmpdir_path = Path(tmpdir)
+
+            # Write the Dockerfile
+            dockerfile_path = tmpdir_path / "Dockerfile"
+            dockerfile_path.write_text(dockerfile_content)
+
+            # Copy the script
+            script_copy = tmpdir_path / "script.py"
+            script_copy.write_bytes(script_path.read_bytes())
+
+            # Build image (random tag to avoid collisions)
+            image_tag = f"agent-hunter-sandbox-{int(time.time())}-{hashlib.md5(str(script_path).encode()).hexdigest()[:8]}"
+
+            build_cmd = [
+                "docker",
+                "build",
+                "-t",
+                image_tag,
+                str(tmpdir_path),
+            ]
+
+            build_result = subprocess.run(
+                build_cmd,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+
+            if build_result.returncode != 0:
+                result.error = f"Docker build failed: {build_result.stderr[:200]}"
+                return result
+
+            # Run container with network isolation
+            run_cmd = [
+                "docker",
+                "run",
+                "--rm",
+                "--network",
+                "none",
+                "--read-only",
+                "--memory=128m",
+                "--cpus=0.5",
+                image_tag,
+            ]
+
+            try:
+                run_result = subprocess.run(
+                    run_cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+                result.returncode = run_result.returncode
+                result.stdout = run_result.stdout[:2000]
+                result.stderr = run_result.stderr[:2000]
+
+                # Check for suspicious output
+                output = run_result.stdout + run_result.stderr
+                result.env_vars_accessed = _detect_masked_token_reads(output)
+
+            except subprocess.TimeoutExpired:
+                result.timed_out = True
+                result.error = f"Docker container exceeded {timeout}s timeout — killed."
+                # Kill the container
+                subprocess.run(
+                    ["docker", "rm", "-f", image_tag],
+                    capture_output=True,
+                    timeout=5,
+                )
+            finally:
+                # Clean up the image
+                subprocess.run(
+                    ["docker", "image", "rm", "-f", image_tag],
+                    capture_output=True,
+                    timeout=10,
+                )
+
+    except subprocess.TimeoutExpired as e:
+        result.error = f"Docker operation timed out: {str(e)[:100]}"
+    except Exception as e:
+        result.error = f"Docker sandbox error: {str(e)[:100]}"
+
     return result
 
 

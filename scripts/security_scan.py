@@ -90,6 +90,22 @@ ENV_EXFIL_PATTERNS = [
     ),
 ]
 
+OBFUSCATION_PATTERNS = [
+    # Dynamic code unpacking that can bypass static analysis
+    re.compile(r"base64\.b64decode\s*\("),
+    re.compile(r"base64\.decodebytes\s*\("),
+    re.compile(r"codecs\.decode\s*\("),
+    re.compile(r"\.decode\s*\(\s*['\"]base64['\"]\s*\)"),
+    re.compile(r"marshal\.loads\s*\("),
+    re.compile(r"pickle\.loads\s*\("),
+    re.compile(r"dill\.loads\s*\("),
+    re.compile(r"cloudpickle\.loads\s*\("),
+    # Decode+exec pattern (highly suspicious)
+    re.compile(
+        r"(?i)(base64\.b64decode|codecs\.decode|marshal\.loads|pickle\.loads)[\s\S]{0,150}?(eval|exec|compile|__import__)"
+    ),
+]
+
 UNICODE_DIRECTION_OVERRIDE = re.compile(r"[‪-‮⁦-⁩]")  # nosec B613
 ZERO_WIDTH_CHARS = re.compile(r"[\u200b\u200c\u200d\u200e\u200f\ufeff\u2060]")  # nosec B613
 
@@ -203,6 +219,15 @@ def scan_skill(
         "SP-007",
         "YELLOW",
         "Environment variable access",
+        result,
+    )
+    _check_patterns(
+        content,
+        OBFUSCATION_PATTERNS,
+        "body",
+        "SP-009",
+        "RED",
+        "Dynamic code unpacking detected (base64, marshal, pickle)",
         result,
     )
 

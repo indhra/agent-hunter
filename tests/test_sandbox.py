@@ -172,18 +172,30 @@ class TestRunInSubprocessTimeout:
 
 
 # ---------------------------------------------------------------------------
-# run_in_docker — stub
+# run_in_docker — full implementation / fallback
 # ---------------------------------------------------------------------------
 
 
-class TestRunInDockerStub:
-    def test_returns_error_not_implemented(self, tmp_path):
+class TestRunInDocker:
+    def test_docker_fallback_when_not_available(self, tmp_path):
+        """When Docker is not installed, fallback to subprocess mode."""
         script = tmp_path / "s.py"
-        script.write_text("pass\n")
+        script.write_text("print('hello')\n")
         result = run_in_docker(script)
-        assert result.mode == "docker"
-        assert result.error is not None
-        assert "v0.3.0" in result.error
+        # Should succeed but report fallback mode if Docker not available
+        # Mode will be either "docker" (if available) or "docker_fallback_to_subprocess"
+        assert result.mode in ["docker", "docker_fallback_to_subprocess"]
+        assert result.returncode == 0
+        assert "hello" in result.stdout
+
+    def test_docker_script_execution_produces_output(self, tmp_path):
+        """Docker script execution captures output correctly."""
+        script = tmp_path / "s.py"
+        script.write_text("print('docker test')\n")
+        result = run_in_docker(script)
+        # Should either run in Docker or fallback to subprocess
+        assert result.returncode == 0
+        assert "docker test" in result.stdout or "docker test" in result.stderr
 
 
 # ---------------------------------------------------------------------------
@@ -202,7 +214,8 @@ class TestSandboxRunFactory:
         script = tmp_path / "s.py"
         script.write_text("pass\n")
         result = sandbox_run(script, mode="docker")
-        assert result.mode == "docker"
+        # Docker mode will either be "docker" (if available) or "docker_fallback_to_subprocess"
+        assert result.mode in ["docker", "docker_fallback_to_subprocess"]
 
     def test_none_mode_returns_disabled(self, tmp_path):
         script = tmp_path / "s.py"

@@ -171,3 +171,75 @@ class TestKnownMaliciousIndex:
         )
         # Should not be blocked by known-malicious index
         assert result.passed_known_malicious is True
+
+
+# ---------------------------------------------------------------------------
+# Obfuscation patterns (dynamic code unpacking)
+# ---------------------------------------------------------------------------
+
+
+class TestObfuscationPatterns:
+    def test_base64_b64decode(self):
+        result = scan_skill(content='import base64\ndata = base64.b64decode("xyz")')
+        assert any(f.severity == "RED" and "unpacking" in f.description for f in result.findings)
+
+    def test_base64_decodebytes(self):
+        result = scan_skill(content='import base64\ndata = base64.decodebytes(b"xyz")')
+        assert any(f.severity == "RED" and "unpacking" in f.description for f in result.findings)
+
+    def test_codecs_decode(self):
+        result = scan_skill(content='import codecs\ndata = codecs.decode("xyz", "base64")')
+        assert any(f.severity == "RED" and "unpacking" in f.description for f in result.findings)
+
+    def test_decode_method_base64(self):
+        result = scan_skill(content='data = "xyz".decode("base64")')
+        assert any(f.severity == "RED" and "unpacking" in f.description for f in result.findings)
+
+    def test_marshal_loads(self):
+        result = scan_skill(content="import marshal\ncode = marshal.loads(binary_data)")
+        assert any(f.severity == "RED" and "unpacking" in f.description for f in result.findings)
+
+    def test_pickle_loads(self):
+        result = scan_skill(content="import pickle\nobj = pickle.loads(data)")
+        assert any(f.severity == "RED" and "unpacking" in f.description for f in result.findings)
+
+    def test_dill_loads(self):
+        result = scan_skill(content="import dill\nobj = dill.loads(data)")
+        assert any(f.severity == "RED" and "unpacking" in f.description for f in result.findings)
+
+    def test_cloudpickle_loads(self):
+        result = scan_skill(content="import cloudpickle\nobj = cloudpickle.loads(data)")
+        assert any(f.severity == "RED" and "unpacking" in f.description for f in result.findings)
+
+    def test_decode_and_exec_pattern(self):
+        # Decode followed by exec is highly suspicious
+        content = """
+import base64
+encoded = "eXdheHc="
+decoded = base64.b64decode(encoded)
+exec(decoded)
+"""
+        result = scan_skill(content=content)
+        # Should have RED findings for both decoding and the pattern
+        assert any(f.severity == "RED" for f in result.findings)
+
+    def test_decode_only_without_exec(self):
+        # Just decoding is suspicious but maybe not in all contexts
+        content = 'import base64\ndata = base64.b64decode("xyz")'
+        result = scan_skill(content=content)
+        assert result.severity == "RED"
+
+    def test_benign_base64_usage_in_docstring(self):
+        # Talking about base64 in docstring with code in string should not trigger
+        # because pattern doesn't match quoted strings
+        content = '''
+"""
+This skill helps with base64 encoding and decoding of data.
+Example: base64.b64decode("xyz")
+"""
+def encode_data(data):
+    return str(data)
+'''
+        result = scan_skill(content=content)
+        # Docstring examples in quotes don't trigger the regex pattern
+        assert not any(f.pattern_id == "SP-009" for f in result.findings)

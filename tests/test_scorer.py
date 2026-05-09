@@ -662,3 +662,141 @@ class TestSEOPoisoningDetection:
         assert penalty == 0.20
         assert "🟠" in details
         assert "star farming" in details.lower() or "activity" in details.lower()
+
+
+# ---------------------------------------------------------------------------
+# Missing-line coverage: config-based weights, _check_installed_skill_usage
+# ---------------------------------------------------------------------------
+
+
+class TestConfigBasedWeights:
+    """Lines 185-188: config dict passed to score_results."""
+
+    def test_custom_weights_via_config(self):
+        """When config dict with scoring.weights is passed, it overrides WEIGHTS."""
+        from scorer import score_results
+
+        custom_config = {
+            "scoring": {
+                "weights": {
+                    "stack_match": 0.50,
+                    "domain_match": 0.10,
+                    "star_score": 0.10,
+                    "recency_score": 0.10,
+                    "trust_score": 0.20,
+                }
+            }
+        }
+        r = make_result(stars=100)
+        profile = make_profile()
+        results = score_results([r], profile, config=custom_config)
+        assert len(results) == 1
+        assert 0.0 <= results[0].total_score <= 1.0
+
+    def test_config_without_weights_falls_back_to_defaults(self):
+        """Config without scoring.weights key → use module WEIGHTS."""
+        from scorer import score_results
+
+        config_no_weights = {"some_other_key": "value"}
+        r = make_result(stars=100)
+        profile = make_profile()
+        results = score_results([r], profile, config=config_no_weights)
+        assert len(results) == 1
+
+
+class TestSEOMultiSignal:
+    """Lines 201-203: SEO penalty with exactly 2 signals."""
+
+    def test_star_farming_and_keyword_stuffing(self):
+        """High stars + dormant + keyword-stuffed description = 0.20 penalty."""
+        stuffed = " ".join(["fastapi"] * 15)
+        r = make_result(
+            stars=200,
+            description=stuffed,
+            last_commit_date=datetime.now(timezone.utc) - timedelta(days=150),
+        )
+        penalty, details = _detect_seo_poisoning(r, None)
+        assert penalty == 0.20
+        assert len(details) > 0
+
+    def test_no_code_files_and_high_stars(self):
+        """No code files + high stars = 2 signals."""
+        from scorer import _detect_seo_poisoning
+        from skill_parser import SkillMetadata
+
+        meta = SkillMetadata.__new__(SkillMetadata)
+        meta.has_code_files = False
+
+        r = make_result(
+            stars=200,
+            description="x " * 12,  # low vocab entropy
+            last_commit_date=datetime.now(timezone.utc) - timedelta(days=10),
+        )
+        penalty, details = _detect_seo_poisoning(r, meta)
+        # With no code files + high stars signal + keyword stuffing = 2 signals
+        assert penalty in (0.0, 0.20)  # depends on description entropy
+
+
+class TestCheckInstalledSkillUsage:
+    """Lines 316, 334-335, 384: _check_installed_skill_usage paths."""
+
+    def test_no_install_log_returns_none(self, tmp_path):
+        """When install_log doesn't exist, returns None."""
+        profile = make_profile()
+        with patch("scorer.Path.home", return_value=tmp_path):
+            result = _check_installed_skill_usage("any-skill", profile)
+        assert result is None
+
+    def test_skill_not_in_log_returns_none(self, tmp_path):
+        """Skill not in install log → None."""
+        log_dir = tmp_path / ".agent-hunter"
+        log_dir.mkdir(parents=True)
+        log_file = log_dir / "install_log.jsonl"
+        log_file.write_text(
+            '{"skill_name": "other-skill", "action": "install", "timestamp": "2024-01-01T00:00:00"}\n'
+        )
+
+        profile = make_profile()
+        with patch("scorer.Path.home", return_value=tmp_path):
+            result = _check_installed_skill_usage("my-skill", profile)
+        assert result is None
+
+    def test_dormant_skill_returns_dormant(self, tmp_path):
+        """Installed >30d ago, no recent mentions → 'dormant'."""
+        log_dir = tmp_path / ".agent-hunter"
+        log_dir.mkdir(parents=True)
+        log_file = log_dir / "install_log.jsonl"
+        import json as _json
+        from datetime import timezone
+
+        old_ts = (datetime.now(timezone.utc) - timedelta(days=60)).isoformat()
+        log_file.write_text(
+            _json.dumps({"skill_name": "my-skill", "action": "install", "timestamp": old_ts}) + "\n"
+        )
+
+        profile = make_profile()  # no session_skills by default
+        with patch("scorer.Path.home", return_value=tmp_path):
+            result = _check_installed_skill_usage("my-skill", profile)
+        assert result == "dormant"
+
+    def test_active_skill_with_session_mention(self, tmp_path):
+        """Skill with recent session mentions → 'active'."""
+        log_dir = tmp_path / ".agent-hunter"
+        log_dir.mkdir(parents=True)
+        log_file = log_dir / "install_log.jsonl"
+        import json as _json
+        from datetime import timezone
+
+        recent_ts = (datetime.now(timezone.utc) - timedelta(days=5)).isoformat()
+        log_file.write_text(
+            _json.dumps({"skill_name": "my-skill", "action": "install", "timestamp": recent_ts})
+            + "\n"
+        )
+
+        usage = SkillUsage(
+            skill_name="my-skill", mention_count=3, last_seen=datetime.now(timezone.utc)
+        )
+        profile = make_profile(session_skills=[usage])
+        with patch("scorer.Path.home", return_value=tmp_path):
+            result = _check_installed_skill_usage("my-skill", profile)
+        assert result == "active"

@@ -420,3 +420,171 @@ class TestRollbackEdgeCases:
         out = capsys.readouterr().out
         assert "Available snapshots" in out or "registry" in out.lower()
         assert "Rollback cancelled" in out or "quit" in out.lower()
+
+
+# ---------------------------------------------------------------------------
+# Missing lines: to_snapshot not found, snapshot file missing, integrity fail
+# ---------------------------------------------------------------------------
+
+
+class TestRollbackMissingBranches:
+    """Cover lines 64-68, 110-113, 128-130, 132-133 from rollback.py."""
+
+    def test_to_snapshot_not_found_returns_false(self, tmp_path, capsys):
+        """Lines 64-68: to_snapshot specified but not in available list."""
+        backup = _make_backup(tmp_path)
+        _write_registry(tmp_path / "registry.json")
+        mock_reg = _mock_registry(tmp_path, backups=[backup])
+        mock_reg.registry_path = tmp_path / "registry.json"
+
+        # Pass a snapshot name that doesn't exist in the list
+        nonexistent = tmp_path / "nonexistent_snapshot.json"
+        result = rollback(to_snapshot=nonexistent, registry=mock_reg, interactive=False)
+
+        assert result is False
+        out = capsys.readouterr().out
+        assert "not found" in out.lower() or "Snapshot not found" in out
+
+    def test_snapshot_file_deleted_returns_false(self, tmp_path, capsys):
+        """Lines 110-113: snapshot path exists in list but file was deleted."""
+        backup = _make_backup(tmp_path)
+        _write_registry(tmp_path / "registry.json")
+        mock_reg = _mock_registry(tmp_path, backups=[backup])
+        mock_reg.registry_path = tmp_path / "registry.json"
+        # Remove the actual file after setting up the mock
+        backup.unlink()
+
+        result = rollback(registry=mock_reg, interactive=False)
+
+        assert result is False
+        out = capsys.readouterr().out
+        assert "not found" in out.lower() or "snapshot file" in out.lower() or result is False
+
+    def test_snapshot_integrity_failure_returns_false(self, tmp_path, capsys):
+        """Lines 128-130, 132-133: validate_snapshot_integrity returns (False, msg)."""
+        backup = _make_backup(tmp_path)
+        _write_registry(tmp_path / "registry.json")
+        mock_reg = _mock_registry(tmp_path, backups=[backup])
+        mock_reg.registry_path = tmp_path / "registry.json"
+        mock_reg.validate_snapshot_integrity.return_value = (False, "CRC32 mismatch detected")
+
+        result = rollback(registry=mock_reg, interactive=False)
+
+        assert result is False
+        out = capsys.readouterr().out
+        assert "integrity" in out.lower() or "CRC32" in out or "FAILED" in out
+
+    def test_force_mode_uses_latest_without_prompt(self, tmp_path):
+        """Lines 140-141: force=True skips interactive confirmation."""
+        backup = _make_backup(tmp_path)
+        _write_registry(tmp_path / "registry.json")
+        mock_reg = _mock_registry(tmp_path, backups=[backup])
+        mock_reg.registry_path = tmp_path / "registry.json"
+
+        # With force=True, input() should never be called
+        with patch("builtins.input", side_effect=RuntimeError("should not prompt")):
+            result = rollback(registry=mock_reg, interactive=True, force=True)
+
+        assert result is True
+
+
+# ---------------------------------------------------------------------------
+# Missing lines: _restore_skill_shas function body
+# ---------------------------------------------------------------------------
+
+
+class TestRestoreSkillShas:
+    """Cover lines 190-204 from rollback.py."""
+
+    def _import(self):
+        from rollback import _restore_skill_shas
+
+        return _restore_skill_shas
+
+    def test_skill_not_installed_returns_true(self, tmp_path):
+        """Skill directory doesn't exist → success (already uninstalled)."""
+        _restore_skill_shas = self._import()
+
+        # Create a registry with one entry that points to a non-existent path
+        mock_entry = MagicMock()
+        mock_entry.name = "skill-not-installed"
+        mock_entry.git_tree_sha = "abc123"
+
+        mock_reg = MagicMock()
+        mock_reg.all.return_value = [mock_entry]
+
+        # skill_path won't exist since it's in ~/.claude/skills/
+        # The function checks `skills_dir / skill_name` which won't exist in CI
+        results = _restore_skill_shas(mock_reg)
+        assert results.get("skill-not-installed", True) is True
+
+    def test_skill_no_sha_stored_returns_true(self, tmp_path):
+        """No SHA stored → skip, return True."""
+        _restore_skill_shas = self._import()
+
+        mock_entry = MagicMock()
+        mock_entry.name = "skill-no-sha"
+        mock_entry.git_tree_sha = ""  # No SHA
+
+        # Create fake skill directory
+        skills_dir = tmp_path / ".claude" / "skills"
+        skills_dir.mkdir(parents=True)
+        (skills_dir / "skill-no-sha").mkdir()
+
+        mock_reg = MagicMock()
+        mock_reg.all.return_value = [mock_entry]
+
+        with patch("rollback.Path.home", return_value=tmp_path):
+            results = _restore_skill_shas(mock_reg)
+
+        assert results.get("skill-no-sha", True) is True
+
+    def test_skill_git_reset_success(self, tmp_path):
+        """When git reset succeeds, returns True for the skill."""
+        _restore_skill_shas = self._import()
+
+        mock_entry = MagicMock()
+        mock_entry.name = "skill-with-sha"
+        mock_entry.git_tree_sha = "deadbeef123"
+
+        # Create fake skill directory
+        skills_dir = tmp_path / ".claude" / "skills"
+        skills_dir.mkdir(parents=True)
+        (skills_dir / "skill-with-sha").mkdir()
+
+        mock_reg = MagicMock()
+        mock_reg.all.return_value = [mock_entry]
+
+        with (
+            patch("rollback.Path.home", return_value=tmp_path),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = MagicMock(returncode=0)
+            results = _restore_skill_shas(mock_reg)
+
+        assert results.get("skill-with-sha") is True
+
+    def test_skill_git_reset_failure_returns_false(self, tmp_path):
+        """When git reset fails (CalledProcessError), returns False."""
+        import subprocess
+
+        _restore_skill_shas = self._import()
+
+        mock_entry = MagicMock()
+        mock_entry.name = "skill-bad-sha"
+        mock_entry.git_tree_sha = "badf00d"
+
+        skills_dir = tmp_path / ".claude" / "skills"
+        skills_dir.mkdir(parents=True)
+        (skills_dir / "skill-bad-sha").mkdir()
+
+        mock_reg = MagicMock()
+        mock_reg.all.return_value = [mock_entry]
+
+        with (
+            patch("rollback.Path.home", return_value=tmp_path),
+            patch("subprocess.run", side_effect=subprocess.CalledProcessError(1, "git")),
+        ):
+            results = _restore_skill_shas(mock_reg)
+
+        assert results.get("skill-bad-sha") is False

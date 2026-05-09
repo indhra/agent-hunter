@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
@@ -265,3 +265,111 @@ class TestRunInSubprocessErrors:
 
         assert result.error == "cannot exec"
         assert result.timed_out is False
+
+
+# ---------------------------------------------------------------------------
+# _check_docker_available
+# ---------------------------------------------------------------------------
+
+
+class TestCheckDockerAvailable:
+    def test_returns_true_when_docker_succeeds(self):
+        from sandbox import _check_docker_available
+
+        mock_result = MagicMock(returncode=0)
+        with patch("subprocess.run", return_value=mock_result):
+            assert _check_docker_available() is True
+
+    def test_returns_false_when_docker_not_found(self):
+        from sandbox import _check_docker_available
+
+        with patch("subprocess.run", side_effect=FileNotFoundError):
+            assert _check_docker_available() is False
+
+    def test_returns_false_on_timeout(self):
+        import subprocess as sp
+        from sandbox import _check_docker_available
+
+        with patch("subprocess.run", side_effect=sp.TimeoutExpired(["docker"], 5)):
+            assert _check_docker_available() is False
+
+    def test_returns_false_on_called_process_error(self):
+        import subprocess as sp
+        from sandbox import _check_docker_available
+
+        with patch("subprocess.run", side_effect=sp.CalledProcessError(1, ["docker"])):
+            assert _check_docker_available() is False
+
+
+# ---------------------------------------------------------------------------
+# run_in_docker — script not found
+# ---------------------------------------------------------------------------
+
+
+class TestRunInDockerScriptNotFound:
+    def test_script_not_found_sets_error(self, tmp_path):
+        result = run_in_docker(tmp_path / "nonexistent.py")
+        assert result.error is not None
+        assert "not found" in result.error.lower()
+
+    def test_script_not_found_mode_is_docker(self, tmp_path):
+        result = run_in_docker(tmp_path / "nonexistent.py")
+        assert result.mode == "docker"
+
+
+# ---------------------------------------------------------------------------
+# run_in_docker — Docker not available (falls back to subprocess)
+# ---------------------------------------------------------------------------
+
+
+class TestRunInDockerFallback:
+    def test_fallback_to_subprocess_when_docker_unavailable(self, tmp_path):
+        from sandbox import run_in_docker
+
+        script = tmp_path / "clean.py"
+        script.write_text("print('fallback')\n")
+
+        with patch("sandbox._check_docker_available", return_value=False):
+            result = run_in_docker(script)
+
+        # Mode reflects the fallback
+        assert result.mode == "docker_fallback_to_subprocess"
+
+    def test_fallback_captures_stdout(self, tmp_path):
+        from sandbox import run_in_docker
+
+        script = tmp_path / "say.py"
+        script.write_text("print('docker-fallback-output')\n")
+
+        with patch("sandbox._check_docker_available", return_value=False):
+            result = run_in_docker(script)
+
+        assert result.returncode == 0
+        assert "docker-fallback-output" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# sandbox_run — mode='docker'
+# ---------------------------------------------------------------------------
+
+
+class TestSandboxRunDockerMode:
+    def test_sandbox_run_docker_mode_calls_run_in_docker(self, tmp_path):
+        from sandbox import sandbox_run
+
+        script = tmp_path / "x.py"
+        script.write_text("print('hi')\n")
+
+        with patch("sandbox.run_in_docker") as mock_docker:
+            mock_docker.return_value = MagicMock(mode="docker_fallback_to_subprocess")
+            sandbox_run(script, mode="docker")
+        mock_docker.assert_called_once()
+
+    def test_sandbox_run_none_mode_returns_disabled_result(self, tmp_path):
+        from sandbox import sandbox_run
+
+        script = tmp_path / "x.py"
+        script.write_text("pass\n")
+        result = sandbox_run(script, mode="none")
+        assert result.mode == "none"
+        assert result.error == "Sandbox disabled."

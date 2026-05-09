@@ -146,3 +146,150 @@ class TestVerifyVerifiedSkills:
         json_str = skills_json[start:end].strip()
         skills = json.loads(json_str)
         assert len(skills) == 1
+
+
+# ---------------------------------------------------------------------------
+# Edge cases: _load_trusted_keys
+# ---------------------------------------------------------------------------
+
+
+class TestLoadTrustedKeysEdgeCases:
+    def test_oserror_graceful_degradation(self, tmp_path):
+        """OSError reading key file should result in empty trusted_keys."""
+        keys_file = tmp_path / "keys.pub"
+        keys_file.write_text("signer-1:key1\n")
+        keys_file.chmod(0o000)  # make unreadable
+        try:
+            verifier = SignatureVerifier(trusted_keys_path=keys_file)
+            assert len(verifier.trusted_keys) == 0
+        finally:
+            keys_file.chmod(0o644)  # restore so tmp_path cleanup works
+
+    def test_line_without_colon_is_skipped(self, tmp_path):
+        keys_file = tmp_path / "keys.pub"
+        keys_file.write_text("nocolon\nsigner-1:key1\n# comment\n\n")
+        verifier = SignatureVerifier(trusted_keys_path=keys_file)
+        assert "signer-1" in verifier.trusted_keys
+        assert "nocolon" not in verifier.trusted_keys
+
+    def test_multiple_colons_in_key_material(self, tmp_path):
+        """Key material may contain colons — only split on first colon."""
+        keys_file = tmp_path / "keys.pub"
+        keys_file.write_text("signer-1:key:with:colons\n")
+        verifier = SignatureVerifier(trusted_keys_path=keys_file)
+        assert verifier.trusted_keys.get("signer-1") == "key:with:colons"
+
+
+# ---------------------------------------------------------------------------
+# Edge cases: verify_skill_entry
+# ---------------------------------------------------------------------------
+
+
+class TestVerifySkillEntryEdgeCases:
+    def test_no_signature_field_returns_invalid(self, tmp_path):
+        """When trusted keys exist but entry has no 'signature' field."""
+        keys_file = tmp_path / "keys.pub"
+        keys_file.write_text("signer-1:key1\n")
+        verifier = SignatureVerifier(trusted_keys_path=keys_file)
+        skill = {"name": "test", "repo_url": "https://github.com/x/y", "verified_at": "2026-01-01"}
+        result = verifier.verify_skill_entry(skill)
+        assert not result.is_valid
+        assert "No signature" in result.message
+
+    def test_signature_without_colon_format_invalid(self, tmp_path):
+        """Signature missing ':' separator returns invalid."""
+        keys_file = tmp_path / "keys.pub"
+        keys_file.write_text("signer-1:key1\n")
+        verifier = SignatureVerifier(trusted_keys_path=keys_file)
+        skill = {
+            "name": "test",
+            "repo_url": "https://github.com/x/y",
+            "verified_at": "2026-01-01",
+            "signature": "invalidsignaturenocodon",
+        }
+        result = verifier.verify_skill_entry(skill)
+        assert not result.is_valid
+        assert "Invalid signature format" in result.message
+
+    def test_empty_signature_returns_invalid(self, tmp_path):
+        """Empty signature string returns invalid."""
+        keys_file = tmp_path / "keys.pub"
+        keys_file.write_text("signer-1:key1\n")
+        verifier = SignatureVerifier(trusted_keys_path=keys_file)
+        skill = {
+            "name": "test",
+            "repo_url": "https://github.com/x/y",
+            "verified_at": "2026-01-01",
+            "signature": "",
+        }
+        result = verifier.verify_skill_entry(skill)
+        assert not result.is_valid
+
+    def test_expected_signer_mismatch_returns_invalid(self, tmp_path):
+        """When signature is from signer-A but expected_signer='signer-B'."""
+        keys_file = tmp_path / "keys.pub"
+        keys_file.write_text("signer-a:keyA\nsigner-b:keyB\n")
+        skill = {
+            "name": "test",
+            "repo_url": "https://github.com/x/y",
+            "verified_at": "2026-01-01",
+        }
+        signature = sign_skill_entry(skill, "signer-a", "keyA")
+        skill["signature"] = signature
+        verifier = SignatureVerifier(trusted_keys_path=keys_file)
+        result = verifier.verify_skill_entry(skill, expected_signer="signer-b")
+        assert not result.is_valid
+        assert "signer-a" in result.message or "signer-b" in result.message
+
+
+# ---------------------------------------------------------------------------
+# verify_verified_skills — full function coverage
+# ---------------------------------------------------------------------------
+
+
+class TestVerifyVerifiedSkillsFunction:
+    def test_file_missing_returns_zeros(self, tmp_path):
+        total, valid, invalid = verify_verified_skills(tmp_path / "missing.md")
+        assert total == 0
+        assert valid == 0
+        assert invalid == []
+
+    def test_file_with_no_json_block_returns_zeros(self, tmp_path):
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        md.write_text("# No JSON here\n\nJust prose.\n")
+        total, valid, invalid = verify_verified_skills(md)
+        assert total == 0
+
+    def test_file_with_invalid_json_returns_zeros(self, tmp_path):
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        md.write_text("```json\n{not valid json\n```\n")
+        total, valid, invalid = verify_verified_skills(md)
+        assert total == 0
+
+    def test_valid_unsigned_entries_pass_when_no_keys(self, tmp_path):
+        """No trusted keys → verification skipped → all pass."""
+        import json as _json
+        from unittest.mock import patch as _patch
+
+        skills = [
+            {"name": "skill-a", "repo_url": "https://github.com/x/a", "verified_at": "2026-01-01"},
+            {"name": "skill-b", "repo_url": "https://github.com/x/b", "verified_at": "2026-01-02"},
+        ]
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        # Build content using explicit concatenation (backtick-safe)
+        content = "```json\n" + _json.dumps(skills) + "\n```\n"
+        md.write_text(content)
+
+        # Patch SignatureVerifier to have no trusted keys so verification is skipped
+        with _patch("verify_sig.SignatureVerifier._load_trusted_keys", return_value={}):
+            total, valid, invalid = verify_verified_skills(md)
+        assert total == 2
+        assert valid == 2
+        assert invalid == []
+
+    def test_entries_with_bad_json_format_unclosed_block(self, tmp_path):
+        """Unclosed ``` block should be handled gracefully."""
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        md.write_text("```json\n[]\n")  # No closing ```
+        total, valid, invalid = verify_verified_skills(md)
+        assert total == 0

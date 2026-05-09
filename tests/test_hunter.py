@@ -10,10 +10,11 @@ from __future__ import annotations
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
+import requests
 from hunter import Hunter, HuntResult, _to_raw_url
 
 
@@ -987,3 +988,143 @@ class TestCuratedIndexSearch:
         assert len(results) > 0
         fastapi_skill = [r for r in results if "fastapi-deploy" in r.name][0]
         assert fastapi_skill.trust_tier == "verified"
+
+
+# ---------------------------------------------------------------------------
+# Missing-line coverage (v0.8.0+)
+# ---------------------------------------------------------------------------
+
+
+class TestCheckAuthMissingLines:
+    """Lines 181-188: _check_auth 401 and RequestException paths."""
+
+    def test_401_returns_false_and_prints_token_url(self, capsys):
+        h = make_hunter()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        with patch.object(h._session, "get", return_value=mock_resp):
+            result = h._check_auth()
+        assert result is False
+        out = capsys.readouterr().out
+        assert "token" in out.lower() or "github.com/settings" in out.lower()
+
+    def test_request_exception_returns_false(self, capsys):
+        h = make_hunter()
+        with patch.object(h._session, "get", side_effect=requests.RequestException("timeout")):
+            result = h._check_auth()
+        assert result is False
+        out = capsys.readouterr().out
+        assert "GitHub API" in out or "reach" in out.lower()
+
+
+class TestBuildQueriesIntentAndMcp:
+    """Lines 198-201: _build_queries with intent_keywords and include_mcp."""
+
+    def test_intent_keywords_add_queries(self):
+        h = make_hunter()
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+        profile.intent_keywords = ["deploy", "docker"]
+        queries = h._build_queries(profile)
+        intent_queries = [q for q, _ in queries if "deploy" in q or "docker" in q]
+        assert len(intent_queries) >= 1
+
+    def test_include_mcp_adds_mcp_query_for_intent(self):
+        h = make_hunter(include_mcp=True)
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+        profile.intent_keywords = ["deploy"]
+        queries = h._build_queries(profile)
+        mcp_queries = [q for q, rt in queries if rt == "mcp" and "deploy" in q]
+        assert len(mcp_queries) >= 1
+
+    def test_no_intent_keywords_no_intent_query(self):
+        h = make_hunter()
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+        # No intent_keywords attribute at all
+        if hasattr(profile, "intent_keywords"):
+            del profile.intent_keywords
+        queries = h._build_queries(profile)
+        # Should still produce stack-based queries
+        assert len(queries) >= 1
+
+
+class TestPrefilterParallelEmpty:
+    """Lines 238-240: _prefilter_parallel with empty candidates."""
+
+    def test_empty_candidates_returns_empty(self):
+        h = make_hunter()
+        result = h._prefilter_parallel([])
+        assert result == []
+
+
+class TestHunterTokenInHeader:
+    """Line 104: token path in __init__ adds Authorization header."""
+
+    def test_token_set_in_session_header(self):
+        h = make_hunter(github_token="test-token-abc123")
+        assert h._session.headers.get("Authorization") == "Bearer test-token-abc123"
+
+    def test_no_token_no_auth_header(self):
+        h = make_hunter(github_token=None)
+        assert "Authorization" not in h._session.headers
+
+
+class TestCuratedIndexSignatureValidation:
+    """Lines 362-367, 376: signature validation path in _search_curated_index."""
+
+    def test_invalid_signature_skips_entry(self, capsys):
+        """When signature is invalid and trusted_keys exist, entry is skipped."""
+        h = make_hunter()
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+
+        # Mock verifier that returns is_valid=False
+        mock_verifier = MagicMock()
+        mock_verifier.trusted_keys = {"indhra": "some-key"}  # Non-empty = keys exist
+        mock_verifier.verify_skill_entry.return_value = MagicMock(
+            is_valid=False, message="Signature mismatch"
+        )
+
+        skills_data = [
+            {
+                "name": "fastapi-deploy",
+                "repo_url": "https://github.com/indhra/fastapi-deploy",
+                "signature": "bad-sig",
+            }
+        ]
+        import json as _json
+
+        md_content = "```json\n" + _json.dumps(skills_data) + "\n```\n"
+
+        with (
+            patch("verify_sig.SignatureVerifier", return_value=mock_verifier),
+            patch("builtins.open", mock_open(read_data=md_content)),
+            patch("hunter.Path.exists", return_value=True),
+        ):
+            results = h._search_curated_index(profile)
+
+        # Invalid sig → entry skipped
+        assert all("fastapi-deploy" not in r.name for r in results)
+        out = capsys.readouterr().out
+        assert "🔴" in out or "Signature mismatch" in out or "tampered" in out
+
+    def test_oserror_on_file_read_returns_empty(self):
+        """OSError when reading curated index → returns []."""
+        h = make_hunter()
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+
+        with (
+            patch("hunter.Path.exists", return_value=True),
+            patch("builtins.open", side_effect=OSError("Permission denied")),
+        ):
+            results = h._search_curated_index(profile)
+
+        assert results == []

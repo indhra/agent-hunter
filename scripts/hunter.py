@@ -31,7 +31,60 @@ from typing import Optional
 import requests
 
 from context_extractor import ContextProfile
-from mcp_parser import parse_mcp_json, is_mcp_server_py
+
+
+# ---------------------------------------------------------------------------
+# MCP Detection Helpers (inlined from mcp_parser.py for v1.0.0-alpha)
+# ---------------------------------------------------------------------------
+
+
+def parse_mcp_json(content: str) -> dict | None:
+    """Parse mcp.json content and extract basic metadata.
+
+    Args:
+        content: Raw JSON content from mcp.json file.
+
+    Returns:
+        Dict with name, description, etc., or None if parsing fails.
+    """
+    import json
+
+    if not content or not content.strip():
+        return None
+
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError:
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    # Return simplified metadata dict
+    return {
+        "name": data.get("name", ""),
+        "version": data.get("version", ""),
+        "description": data.get("description", ""),
+    }
+
+
+def is_mcp_server_py(content: str) -> bool:
+    """Quick heuristic check if a server.py file is an MCP server.
+
+    Looks for import patterns like:
+    - `from mcp import ...`
+    - `import mcp`
+    - `mcp.Server`
+    """
+    if not content:
+        return False
+
+    return (
+        "from mcp import" in content
+        or "import mcp" in content
+        or "mcp.Server" in content
+        or "MCPServer" in content
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -25,7 +25,6 @@ from registry import MAX_BACKUPS, Registry, RegistryEntry
 from scorer import (
     TRUST_TIER_SCORES,
     YAGNI_MULTIPLIERS,
-    _compute_domain_match,
     _compute_recency,
     _compute_stack_match,
     _score_single,
@@ -243,24 +242,34 @@ class TestYagniMultiplier:
 
 
 # =============================================================================
-# scorer.py — stack/domain neutral when empty
+# scorer.py — unified stack match (combines tech_stack + domain_tags + intent)
 # =============================================================================
 
 
 class TestStackDomainNeutral:
-    def test_empty_tech_stack_returns_neutral_stack_score(self):
-        profile = _profile(tech_stack=[])
+    def test_empty_tech_stack_and_domains_returns_neutral_score(self):
+        """No context signals → neutral 0.5 score."""
+        profile = _profile(tech_stack=[], domain_tags=[])
         r = _result()
         assert _compute_stack_match(r, None, profile) == 0.5
 
-    def test_empty_domain_tags_returns_neutral_domain_score(self):
-        profile = _profile(domain_tags=[])
-        r = _result()
-        assert _compute_domain_match(r, None, profile) == 0.5
+    def test_empty_tech_stack_but_has_domain_returns_domain_based_score(self):
+        """Empty tech_stack but has domain_tags → score based on domain match."""
+        profile = _profile(tech_stack=[], domain_tags=["backend"])
+        r = _result(name="backend-helper", description="backend tool")
+        score = _compute_stack_match(r, None, profile)
+        assert score == 1.0  # Perfect domain match
+
+    def test_empty_domain_but_has_tech_stack_returns_stack_based_score(self):
+        """Empty domain_tags but has tech_stack → score based on tech match."""
+        profile = _profile(tech_stack=["fastapi"], domain_tags=[])
+        r = _result(name="fastapi-helper", description="fastapi tool")
+        score = _compute_stack_match(r, None, profile)
+        assert score == 1.0  # Perfect stack match
 
     def test_full_stack_match_returns_one(self):
         """All profile keywords present in skill name/description → 1.0."""
-        profile = _profile(tech_stack=["fastapi"])
+        profile = _profile(tech_stack=["fastapi"], domain_tags=[])
         r = _result(name="fastapi-helper", description="fastapi tool", repo_name="fastapi-helper")
         score = _compute_stack_match(r, None, profile)
         assert score == 1.0

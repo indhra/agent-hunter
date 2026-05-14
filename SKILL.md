@@ -27,13 +27,74 @@ Security-scans every result. Never installs without confirmation.
 
 ---
 
+## Installation & Proactive Mode
+
+### First-Time Installation
+
+```bash
+git clone --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter
+cd ~/.claude/skills/agent-hunter && ./setup
+```
+
+The setup script:
+- Checks Python 3.10+
+- Installs dependencies into local venv
+- Registers `/agent-hunter` in global `~/.claude/CLAUDE.md`
+- Symlinks sub-skills
+- Creates `~/.local/bin/agent-hunter` for CLI access
+
+After setup, `/agent-hunter` works in every Claude Code session.
+
+### Proactive Activation (Optional)
+
+To make agent-hunter **automatically hunt for skills when you start a new project**:
+
+**Option 1: Environment Variable**
+```bash
+export AGENT_HUNTER_AUTO=1
+```
+
+**Option 2: Claude Code Settings**
+Add to `.claude/settings.json`:
+```json
+{
+  "autoActivateSkills": ["agent-hunter"],
+  "onSessionStart": {
+    "if": "projectChanged",
+    "then": "/agent-hunter"
+  }
+}
+```
+
+With proactive mode enabled:
+- ✅ When you open a new project → agent-hunter automatically runs
+- ✅ Top 3 skills surface without waiting for you to ask
+- ✅ One hunt per session per project (guard prevents redundant runs)
+
+See [INSTALL.md](./INSTALL.md) for full setup details.
+
+---
+
 ## When to Use
 
 Use agent-hunter when:
-- Starting a new project and deciding what tools to install
+
+**New Projects:**
+- Starting fresh and deciding what tools to install
+- Want top 3 skill recommendations before building
+
+**Existing / Brownfield Projects:**
+- **IMPORTANT:** You can use agent-hunter on ANY existing project to discover skills that enhance your current work
+- Already have a codebase? Hunt for skills that complement your tech stack
+- Refactoring? Hunt for skills that help the refactor
+- Adding features? Hunt for skills that accelerate feature development
+- Performance issues? Hunt for skills that profile/optimize your stack
+
+**Any Time:**
 - User asks "what skills should I install for this?"
 - Before building a feature that might already exist as a skill/MCP
 - User mentions exploring or discovering skills
+- **Proactive mode**: automatically on new projects (if enabled)
 
 **Maximum 1 automatic hunt per session** (loop guard below).
 

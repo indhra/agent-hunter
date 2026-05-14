@@ -1,6 +1,10 @@
 # agent-hunter
 
-**Repo-aware skill package manager for Claude Code.**
+**The first skill you should install after Claude Code itself.**
+
+> Hunt the right skills. Block the bad ones.
+
+**agent-hunter** discovers and installs the top 3 skills and MCP servers for your projects — automatically, securely, without you ever searching manually.
 
 Before you build it again, check what already exists.
 
@@ -42,7 +46,24 @@ Top 3 recommendations:
 
 ---
 
-## Install
+## The Goal
+
+✨ **New Claude Code user workflow:**
+
+```
+1. Install Claude Code
+2. Run: git clone ... && ./setup  (agent-hunter)
+3. Open any project
+4. Type: /agent-hunter
+5. Get top 3 skill recommendations
+6. Install what you need
+```
+
+**That's it.** You never search for skills manually. You never wonder "does this already exist?" Again.
+
+---
+
+## Install (One-Time, Then Everywhere)
 
 **Requirements:** Claude Code, Git, Python 3.10+
 
@@ -52,7 +73,33 @@ cd ~/.claude/skills/agent-hunter
 ./setup
 ```
 
-`./setup` registers `agent-hunter` in your global `~/.claude/CLAUDE.md`. After this, `/agent-hunter` works in any repo, including brand new projects with no local setup.
+The `./setup` script:
+- ✅ Checks Python 3.10+
+- ✅ Creates isolated venv
+- ✅ Registers `/agent-hunter` in global `~/.claude/CLAUDE.md`
+- ✅ Works in every Claude Code session, no per-project setup needed
+
+After setup, agent-hunter is available everywhere.
+
+---
+
+## Proactive Mode (Optional - Automatic on New Projects)
+
+By default, agent-hunter runs when you ask. To make it **automatically activate on new projects**:
+
+```bash
+export AGENT_HUNTER_AUTO=1
+```
+
+Add this to `~/.zshrc` or `~/.bash_profile` to enable it permanently.
+
+**What happens with proactive mode:**
+- ✅ Open a new project → agent-hunter auto-runs
+- ✅ Top 3 skills surface without waiting
+- ✅ One hunt per session per project (prevents redundant runs)
+- ✅ You can still explicitly run `/agent-hunter` anytime
+
+See [INSTALL.md](./INSTALL.md) for full proactive setup options.
 
 ---
 
@@ -93,6 +140,21 @@ agent-hunter is different:
 - **Security-scanned** — blocks risky skills before showing them
 - **Clear explanations** — tells you *why* each skill fits your project
 - **Fast** — meaningful results in under 30 seconds
+- **Works on any project** — greenfield AND brownfield (existing codebases)
+
+### Greenfield & Brownfield
+
+**New project?** Get top 3 skills to install from the start.
+
+**Existing project?** Hunt for skills that enhance your current work:
+- Refactoring helpers
+- Performance profilers
+- Testing frameworks
+- Deployment tools
+- Security scanners
+- Documentation generators
+
+Discover what exists instead of rebuilding from scratch.
 
 ---
 
@@ -170,24 +232,37 @@ Run from Claude Code: `/agent-hunter`
 
 ---
 
-## GitHub Token (Optional)
+## GitHub Token Setup (Recommended)
 
-**agent-hunter works WITHOUT a token** using the curated index + LLM web search (Tier 1 + Tier 3).
-
-**Adding a token enables GitHub API search** (Tier 2) for broader discovery across 5,000+ repos.
+**For better skill discovery** (especially on brownfield projects), set a GitHub PAT token:
 
 ```bash
-export GITHUB_TOKEN=your_token_here
-# or add to ~/.zshrc / ~/.bash_profile
+# Quick setup
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxx
+
+# Permanent setup (add to ~/.zshrc or ~/.bash_profile)
+echo 'export GITHUB_TOKEN=ghp_xxxxxxxxxxxx' >> ~/.zshrc
+source ~/.zshrc
 ```
 
-Generate at <https://github.com/settings/tokens> (no scopes needed).
+**Generate token:** https://github.com/settings/tokens (no scopes needed, public access only)
 
-**Discovery coverage:**
-- **Without token**: Tier 1 (curated, ~100 verified skills) + Tier 3 (web search on-demand)
-- **With token**: All 3 tiers — curated + GitHub API + web search
+### Why Use a Token?
 
-See [Discovery Modes](#discovery-modes) above for full details on each tier.
+- **Without token**: Tier 1 (curated, ~100 verified skills) + Tier 3 (web search)
+- **With token**: All 3 tiers — curated + GitHub API (5,000+ repos) + web search
+- **Brownfield value**: Finds 100x more skills to enhance existing projects
+- **Faster**: No GitHub API rate limit hits
+
+### Discovery Coverage
+
+| Mode | Token? | Coverage | Speed | Use Case |
+|---|---|---|---|---|
+| Casual | ❌ No | ~100 curated skills | Instant | Quick recommendations |
+| Active Development | ✅ Yes | 5,000+ repos searched | 2-5 sec | Better matches, brownfield work |
+| Deep Exploration | ✅ Yes | All 3 tiers | 5-15 sec | Find obscure, niche skills |
+
+See [Discovery Modes](#discovery-modes) below for full details on each tier.
 
 ---
 

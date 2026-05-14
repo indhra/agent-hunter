@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+claude --version#!/usr/bin/env bash
 # context-extract — extract tech stack signals from a project directory
 # Usage: context-extract [project_root]
 # Output: ContextProfile JSON to stdout

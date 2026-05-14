@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-hunter"
-version = "1.0.0-alpha"
+version = "0.1.0"
 description = "Repo-aware skill package manager for Claude Code. Finds the top 3 skills/MCPs you should use now."
 readme = "README.md"
 requires-python = ">=3.10"

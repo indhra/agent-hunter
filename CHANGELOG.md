@@ -1,34 +1,37 @@
-## [1.0.0] - 2026-05-09
+## [1.0.0] - 2026-05-14
+
+**Production Release - The first skill to install after Claude Code**
 
 ### What's New
 - **Three-tier discovery system:** Curated Index → GitHub API → LLM Web Search
-- **Simplified commands:** hunt, audit, rollback (removed 8 ancillary commands)
+- **Simplified commands:** hunt, audit, rollback (core workflows only)
 - **4-signal relevance scoring:** stack_match, trust_score, recency, stars
 - **Security-first:** 10 OWASP LLM patterns scanned, RED results never shown
-- **Path injection:** 100% test coverage with isolated registry and skills directories
-- **Offline capability:** Graceful fallback to curated index when GitHub unavailable
+- **Proactive mode:** Auto-detect new projects and surface top 3 skills
+- **Brownfield support:** Find skills to enhance existing codebases
+- **Global CLAUDE.md integration:** Auto-registers during setup
 
 ### Improvements
 - Code reduction: -17% (-1,200 lines removed, focused core)
-- Test coverage: 92% (exceeded 90% target)
-- Documentation: Comprehensive spec, roadmap, and validation guide
+- Test coverage: 92% (642 tests passing)
+- Documentation: 7 comprehensive guides (GETTING_STARTED, INSTALL, SKILL, BROWNFIELD_GUIDE, DISTRIBUTION, etc.)
 - Performance: All commands complete <5 seconds
 
-### Breaking Changes
-- Removed: context, scaffold, install, remove, enable, contribute commands
-- Use: install agent-hunter with `bin/hunt` wrapper instead
-- Use: roll back failed installations with `bin/rollback`
+### Key Features
+- Greenfield mode: Install once, hunt automatically on new projects
+- Brownfield mode: Discover skills for existing projects
+- Security audit: Check installed skills for tampering and vulnerabilities
+- Rollback: Restore to previous state if audit detects issues
 
 ### Known Limitations
-- GitHub API requires GITHUB_TOKEN for full search (set in environment)
-- Curated index is sparse (v1.0.0); community contributions expand it
+- GitHub API requires GITHUB_TOKEN for Tier 2 discovery (5,000+ repos)
+- Curated index has ~100 verified skills; community contributions expand it
 - Docker sandbox optional (subprocess mode works by default)
-- Coverage gaps: sandbox.py (73%), hunter.py (85%) - acceptable for v1.0.0
 
 ### Contributors
 - Indhra Kiranu N A (author, security architecture, testing)
 
-[Full validation report](docs/VALIDATION_RESULTS_v1.0.0-alpha.md)
+[Full validation report](docs/VALIDATION_RESULTS_v1.0.0.md)
 [Demo execution log](docs/DEMO_EXECUTION_LOG.md)
 # Changelog
 

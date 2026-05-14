@@ -1,5 +1,5 @@
 #!/bin/bash
-# release-automation.sh — Automate v1.0.0-alpha → v1.0.0 release
+# release-automation.sh — Automate v1.0.0 → v1.0.0 release
 #
 # This script performs the mechanical release tasks:
 # 1. Verify all checks pass
@@ -82,20 +82,20 @@ echo ""
 echo "📝 Step 3: Verify version and documentation..."
 
 CURRENT_VERSION=$(cat VERSION)
-if [[ "$CURRENT_VERSION" != "1.0.0-alpha" ]]; then
-    echo "❌ ERROR: VERSION file should be 1.0.0-alpha, found: $CURRENT_VERSION"
+if [[ "$CURRENT_VERSION" != "1.0.0" ]]; then
+    echo "❌ ERROR: VERSION file should be 1.0.0, found: $CURRENT_VERSION"
     exit 1
 fi
 echo "  ✓ VERSION file correct: $CURRENT_VERSION"
 
-if [[ ! -f "docs/RELEASE_NOTES_v1.0.0-alpha.md" ]]; then
-    echo "❌ ERROR: RELEASE_NOTES_v1.0.0-alpha.md not found"
+if [[ ! -f "docs/RELEASE_NOTES_v1.0.0.md" ]]; then
+    echo "❌ ERROR: RELEASE_NOTES_v1.0.0.md not found"
     exit 1
 fi
 echo "  ✓ Release notes exist"
 
-if [[ ! -f "docs/VALIDATION_RESULTS_v1.0.0-alpha.md" ]]; then
-    echo "❌ ERROR: VALIDATION_RESULTS_v1.0.0-alpha.md not found"
+if [[ ! -f "docs/VALIDATION_RESULTS_v1.0.0.md" ]]; then
+    echo "❌ ERROR: VALIDATION_RESULTS_v1.0.0.md not found"
     exit 1
 fi
 echo "  ✓ Validation results exist"
@@ -152,7 +152,7 @@ CHANGELOG_ENTRY=$(cat <<EOF
 ### Contributors
 - Indhra Kiranu N A (author, security architecture, testing)
 
-[Full validation report](docs/VALIDATION_RESULTS_v1.0.0-alpha.md)
+[Full validation report](docs/VALIDATION_RESULTS_v1.0.0.md)
 [Demo execution log](docs/DEMO_EXECUTION_LOG.md)
 
 EOF

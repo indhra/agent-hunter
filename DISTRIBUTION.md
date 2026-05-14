@@ -66,7 +66,7 @@ Would automatically:
 
 ## Installation Roadmap
 
-### Phase 1: Public Beta (v1.0.0-alpha → v1.0.0)
+### Phase 1: Public Beta (v1.0.0 → v1.0.0)
 
 **Timeline:** Now
 

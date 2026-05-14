@@ -348,6 +348,85 @@ class TestBuildActionList:
         assert len(disable_actions) == 1
         assert disable_actions[0].skill_name == "dangerous-old"
 
+    # ---- Issue #6 defensive guard ------------------------------------------
+
+    def _make_malformed_result(self):
+        """A ScoredResult whose HuntResult has empty owner/repo_name.
+        Simulates the upstream bug where npm/curated didn't populate fields.
+        """
+        from security_scan import ScanResult
+        from scorer import ScoredResult
+        from hunter import HuntResult
+
+        hunt = HuntResult(
+            name="@bad/pkg",
+            repo_url="git+https://example.invalid/foo",
+            raw_url="",
+            owner="",  # ← the bug condition
+            repo_name="",  # ← the bug condition
+            description="malformed",
+            stars=0,
+            result_type="mcp_npm",
+        )
+        scored = ScoredResult(hunt_result=hunt, skill_metadata=None)
+        scored.total_score = 0.30
+        return scored, ScanResult(severity="GREEN")
+
+    def test_skips_actions_with_empty_owner(self, capsys):
+        """Issue #6: never emit an install action with empty owner."""
+        s, scan = self._make_malformed_result()
+        scan_results = {s.hunt_result.repo_url: scan}
+
+        actions = build_action_list([s], scan_results, set(), [])
+
+        # No install action should be emitted for the malformed candidate.
+        install_actions = [a for a in actions if a.action == "install"]
+        assert install_actions == []
+
+        # And a count of skipped candidates is surfaced to the user.
+        out = capsys.readouterr().out
+        assert "Skipped 1" in out
+
+    def test_skips_actions_with_empty_repo_name(self, capsys):
+        """Owner present but repo_name empty is also rejected."""
+        from security_scan import ScanResult
+        from scorer import ScoredResult
+        from hunter import HuntResult
+
+        hunt = HuntResult(
+            name="x",
+            repo_url="https://github.com/owner/",
+            owner="owner",
+            repo_name="",  # ← empty
+            description="malformed",
+            stars=0,
+        )
+        scored = ScoredResult(hunt_result=hunt, skill_metadata=None)
+        scored.total_score = 0.30
+        actions = build_action_list(
+            [scored], {hunt.repo_url: ScanResult(severity="GREEN")}, set(), []
+        )
+
+        assert [a for a in actions if a.action == "install"] == []
+        assert "Skipped 1" in capsys.readouterr().out
+
+    def test_mixed_malformed_and_valid(self, capsys):
+        """Valid candidates still flow through; only malformed are dropped."""
+        valid, valid_scan = self._make_scored_result("good", "https://github.com/o/good", "GREEN")
+        bad, bad_scan = self._make_malformed_result()
+        scan_results = {
+            valid.hunt_result.repo_url: valid_scan,
+            bad.hunt_result.repo_url: bad_scan,
+        }
+
+        actions = build_action_list([valid, bad], scan_results, set(), [])
+
+        install_actions = [a for a in actions if a.action == "install"]
+        assert len(install_actions) == 1
+        assert install_actions[0].skill_name == "good"
+        assert install_actions[0].owner == "owner"
+        assert "Skipped 1" in capsys.readouterr().out
+
 
 # ---------------------------------------------------------------------------
 # rollback_to_sha()

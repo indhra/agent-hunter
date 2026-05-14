@@ -11,27 +11,27 @@ permissions:
 
 jobs:
   bandit:
-    name: Bandit
+    name: Bandit Security Scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
       - name: Install bandit
         run: pip install bandit
-      - name: Run bandit on scripts/
+      - name: Scan for security issues
         run: bandit -r scripts/ -ll -x scripts/__init__.py
 
-  pip-audit:
+  dependencies:
     name: Dependency Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
       - name: Install pip-audit
         run: pip install pip-audit
-      - name: Audit dependencies
+      - name: Check for vulnerable dependencies
         run: pip-audit -r requirements.txt

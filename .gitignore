@@ -65,3 +65,6 @@ pytest-cache-files-*/
 hunt_report_*.md
 .agent-hunter/
 .venv/
+
+# Generated wrapper scripts
+bin/agent-hunter

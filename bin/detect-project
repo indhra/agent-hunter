@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# detect-project — Detect if we're in a new project vs. a previously hunted project
+# Usage: bin/detect-project [project-path]
+# Exit code 0 = new project (should hunt), 1 = previously hunted (skip hunt)
+
+set -e
+
+PROJECT_PATH="${1:-.}"
+
+# Normalize path
+PROJECT_PATH="$(cd "$PROJECT_PATH" 2>/dev/null && pwd)" || {
+  echo "ERROR: Could not read project path: $1" >&2
+  exit 2
+}
+
+# Create cache directory
+CACHE_DIR="${HOME}/.agent-hunter"
+mkdir -p "$CACHE_DIR"
+CACHE_FILE="$CACHE_DIR/project-cache.json"
+
+# Compute hash of project path
+PROJECT_HASH=$(echo -n "$PROJECT_PATH" | sha256sum | cut -d' ' -f1)
+
+# Read last cached project
+if [ -f "$CACHE_FILE" ]; then
+  LAST_HASH=$(grep -o '"lastProjectHash":"[^"]*"' "$CACHE_FILE" 2>/dev/null | cut -d'"' -f4 || true)
+else
+  LAST_HASH=""
+fi
+
+# Compare
+if [ "$PROJECT_HASH" = "$LAST_HASH" ]; then
+  # Same project, skip hunt
+  exit 1
+else
+  # New project, update cache and signal to hunt
+  cat > "$CACHE_FILE" << JSON
+{
+  "lastProjectPath": "$PROJECT_PATH",
+  "lastProjectHash": "$PROJECT_HASH",
+  "lastHuntTime": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}
+JSON
+  exit 0
+fi

@@ -1,0 +1,15 @@
+# agent-hunter dependencies
+# Keep minimal — no unnecessary dependencies
+
+# YAML parsing (frontmatter)
+PyYAML>=6.0
+
+# HTTP requests (GitHub API)
+requests>=2.31.0
+
+# Rich terminal output (hunt report table)
+rich>=13.0.0
+
+# Optional: pors/skill-audit integration
+# Install separately: pip install skill-audit
+# skill-audit is not listed here to avoid forcing it on all users

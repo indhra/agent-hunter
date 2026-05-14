@@ -282,6 +282,28 @@ def extract_context(project_root: str | Path, intent: str | None = None) -> Cont
     return profile
 
 
+def _parse_skill_from_session(cwd: str) -> str | None:
+    """Extract skill name from session cwd path. Returns None if not a skill session."""
+    if "/.claude/skills/" not in cwd:
+        return None
+    parts = cwd.split("/.claude/skills/")
+    if len(parts) <= 1:
+        return None
+    skill_name = parts[1].split("/")[0]
+    if skill_name and not skill_name.startswith("."):
+        return skill_name
+    return None
+
+
+def _update_skill_mention(skill_mentions: dict[str, dict], skill_name: str, ts: datetime) -> None:
+    """Update skill mention count and timestamp."""
+    if skill_name not in skill_mentions:
+        skill_mentions[skill_name] = {"last_seen": ts, "mention_count": 0}
+    skill_mentions[skill_name]["mention_count"] += 1
+    if ts > skill_mentions[skill_name]["last_seen"]:
+        skill_mentions[skill_name]["last_seen"] = ts
+
+
 def _extract_session_skills() -> list[SkillUsage]:
     """
     Extract recently invoked skills from ~/.claude/sessions/.
@@ -305,29 +327,13 @@ def _extract_session_skills() -> list[SkillUsage]:
         for session_file in sessions_dir.glob("*.json"):
             try:
                 data = json.loads(session_file.read_text())
-                # Session file format: {pid, sessionId, cwd, startedAt, ...}
-                # We look for mentions of skills in the cwd or any other available context
-                # For now, we parse the cwd to detect project context
                 cwd = data.get("cwd", "")
-                # Extract skill names from cwd path (e.g., "~/.claude/skills/trusty/...")
-                if "/.claude/skills/" in cwd:
-                    parts = cwd.split("/.claude/skills/")
-                    if len(parts) > 1:
-                        skill_name = parts[1].split("/")[0]
-                        if skill_name and not skill_name.startswith("."):
-                            ts_ms = data.get("updatedAt", 0)
-                            ts = datetime.fromtimestamp(ts_ms / 1000.0)
-
-                            if ts >= cutoff:
-                                if skill_name not in skill_mentions:
-                                    skill_mentions[skill_name] = {
-                                        "last_seen": ts,
-                                        "mention_count": 0,
-                                    }
-                                skill_mentions[skill_name]["mention_count"] += 1
-                                # Update to most recent timestamp
-                                if ts > skill_mentions[skill_name]["last_seen"]:
-                                    skill_mentions[skill_name]["last_seen"] = ts
+                skill_name = _parse_skill_from_session(cwd)
+                if skill_name:
+                    ts_ms = data.get("updatedAt", 0)
+                    ts = datetime.fromtimestamp(ts_ms / 1000.0)
+                    if ts >= cutoff:
+                        _update_skill_mention(skill_mentions, skill_name, ts)
             except (json.JSONDecodeError, KeyError, ValueError, OSError):
                 # Skip malformed session files
                 continue

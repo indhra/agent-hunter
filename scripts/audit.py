@@ -62,7 +62,8 @@ class AuditEntryResult:
     license_issue: Optional[str] = None
     dormant: bool = False  # True if installed >30d ago with 0 session mentions (v0.4.0)
     dormant_days: int = 0  # days since install if dormant
-    overall_status: str = "healthy"  # "healthy", "update_available", "tampered", "security_issue", "conflict", "dormant"
+    # Status: "healthy", "update_available", "tampered", "security_issue", "conflict", "dormant"
+    overall_status: str = "healthy"
     update_available: bool = False  # True if remote content differs from installed
     remote_content: Optional[str] = None  # cached remote SKILL.md for comparison
 
@@ -160,7 +161,8 @@ class Auditor:
         # --- Dormant skill detection (v0.4.0 Gap 3) ---
         result.dormant, result.dormant_days = _check_dormant_skill(entry.name)
 
-        # --- Set overall status (priority: tampered > security_issue > dormant > update_available > conflict > healthy) ---
+        # --- Set overall status ---
+        # Priority: tampered > security_issue > dormant > update_available > conflict > healthy
         if tampered:
             result.overall_status = "tampered"
         elif result.scan_result and result.scan_result.severity == "RED":
@@ -261,7 +263,8 @@ def _check_license_compat(skill_license: str) -> Optional[str]:
         return None
     gpl_variants = {"GPL-2.0", "GPL-3.0", "AGPL-3.0", "LGPL-2.1", "LGPL-3.0"}
     if skill_license.upper() in {v.upper() for v in gpl_variants}:
-        return f"{skill_license} skill may have license compatibility implications for MIT/BSD projects."
+        msg = f"{skill_license} skill may have license compatibility implications"
+        return f"{msg} for MIT/BSD projects."
     return None
 
 

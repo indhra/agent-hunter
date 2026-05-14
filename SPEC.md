@@ -1,6 +1,6 @@
 # agent-hunter · Specification
 
-**Version:** 1.0.0
+**Version:** 0.1.0
 **Last updated:** 2026-05-03
 **Status:** Living document (updated with each release)
 

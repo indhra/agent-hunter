@@ -2,7 +2,7 @@
 
 Skill package manager for Claude Code. Discovers relevant skills and MCP servers for your projects.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-98c379)](https://github.com/indhra/agent-hunter/releases)
+[![Version](https://img.shields.io/badge/version-0.1.0-98c379)](https://github.com/indhra/agent-hunter/releases)
 [![License](https://img.shields.io/badge/license-MIT-61afef)](./LICENSE)
 [![Claude Code](https://img.shields.io/badge/platform-Claude%20Code-e5c07b)](https://docs.anthropic.com/en/docs/claude-code)
 [![Privacy](https://img.shields.io/badge/privacy-no%20telemetry-98c379)](./CONTRIBUTING.md#privacy)

@@ -1,7 +1,7 @@
 ---
 name: "agent-hunter"
 description: "Repo-aware skill package manager for Claude Code. Reads your project context, finds the best skills and MCPs for it, explains why they fit, and blocks risky ones."
-version: "1.0.0"
+version: "0.1.0"
 license: "MIT"
 author: "Indhra Kiranu N A"
 compatibility:

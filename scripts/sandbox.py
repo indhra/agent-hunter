@@ -236,7 +236,7 @@ ENTRYPOINT ["python", "script.py"]
             script_copy.write_bytes(script_path.read_bytes())
 
             # Build image (random tag to avoid collisions)
-            image_tag = f"agent-hunter-sandbox-{int(time.time())}-{hashlib.md5(str(script_path).encode()).hexdigest()[:8]}"
+            image_tag = f"agent-hunter-sandbox-{int(time.time())}-{hashlib.sha256(str(script_path).encode()).hexdigest()[:8]}"
 
             build_cmd = [
                 "docker",

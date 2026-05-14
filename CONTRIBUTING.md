@@ -215,9 +215,7 @@ Before merging a PR into `main`, ensure the following:
 
 **Do not open a public issue for a security vulnerability in agent-hunter itself.**
 
-Email: security@[TODO: add domain after launch]
-
-Or open a [private security advisory](https://github.com/indhra/agent-hunter/security/advisories/new) on GitHub.
+Open a [private security advisory](https://github.com/indhra/agent-hunter/security/advisories/new) on GitHub.
 
 We aim to respond within 48 hours and ship a patch within 7 days for confirmed vulnerabilities.
 

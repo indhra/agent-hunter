@@ -1,18 +1,18 @@
 # agent-hunter · Roadmap
 
-**Version:** 1.0.0
-**Last updated:** 2026-05-09
-**Status:** [YES] **v1.0.0 COMPLETE** - Ready for validation testing
+**Version:** 0.1.0
+**Last updated:** 2026-05-14
+**Status:** [YES] **v0.1.0 Beta** - Ready for testing
 
-> **Week 3 completion:** 92% test coverage, 100% pass rate, path injection complete, code reduced 17%.
-> **Next:** Week 4 real-world validation on 10 repo types, then stable v1.0.0 release.
+> **Beta release:** 92% test coverage, 100% pass rate, path injection complete, code reduced 17%.
+> **Next:** Community feedback, v0.2.0 feature expansion.
 
 ---
 
-## v1.0.0 Achievement (Weeks 1-3)
+## v0.1.0 Implementation (Beta)
 
-**Completed:** May 9, 2026
-**Status:** Ready for real-world validation
+**Completed:** May 14, 2026
+**Status:** Ready for beta testing and feedback
 
 ### What Changed
 - **Commands:** Simplified from 11 → 3 (hunt, audit, rollback)
@@ -27,11 +27,10 @@
 - **Week 2:** Core simplification (file removal, scorer simplification, main.py reduced)
 - **Week 3:** Test coverage & path injection (environment variable overrides)
 
-### What's Next (Week 4)
-- Real-world validation on 10 repo types
+### Next Steps
+- Community beta testing feedback
 - Tune scoring weights based on results
-- Record demo video
-- Merge to main and tag v1.0.0
+- v0.2.0 feature expansion based on user feedback
 
 See `docs/WEEK3_COMPLETION_SUMMARY.md` for full details.
 

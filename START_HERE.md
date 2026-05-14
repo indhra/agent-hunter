@@ -1,6 +1,6 @@
 # START HERE: agent-hunter Complete Implementation
 
-**Status:** [YES] COMPLETE
+**Status:** [YES] COMPLETE (v0.1.0 Beta)
 **Goal:** agent-hunter is the first skill to install after Claude Code
 **Date:** May 14, 2026
 
@@ -47,12 +47,6 @@ After this setup:
 - Packaging model
 - Marketing channels
 - Success metrics
-
-### For Release Team
-👉 **[RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)** (10 min read)
-- Pre-release validation
-- Release day checklist
-- Post-release metrics
 
 ### To Verify Goal Achievement
 👉 **[GOAL_ACHIEVEMENT.md](./GOAL_ACHIEVEMENT.md)** (15 min read)
@@ -241,11 +235,11 @@ No manual searching, no redundant rebuilds
 - [ ] Set `GITHUB_TOKEN` (optional, for broader discovery)
 - [ ] Read [DISTRIBUTION.md](./DISTRIBUTION.md) for release planning
 
-### This Month
-- [ ] Run pre-release checklist
-- [ ] Tag v1.0.0 release
-- [ ] Promote as "first skill to install"
-- [ ] Gather user feedback
+### Next Steps
+- [ ] Set `GITHUB_TOKEN` for full GitHub discovery
+- [ ] Try on different project types
+- [ ] Share feedback or report issues
+- [ ] v0.2.0 feature planning
 
 ---
 
@@ -305,14 +299,14 @@ No manual searching, no redundant rebuilds
 
 ---
 
-## Ready for Launch
+## Ready for Beta
 
-**Status:** [YES] Production Ready v1.0.0
+**Status:** [YES] v0.1.0 Beta Ready
 
 **Ready for:**
-- Public release on GitHub
-- Promotion as "first skill to install"
-- Adoption by new Claude Code users
+- Community beta testing
+- Feedback from early adopters
+- v0.2.0 feature expansion
 - Distribution via GitHub + skill marketplaces
 
 ---

@@ -278,7 +278,7 @@ User sees recommendations → installs what they need
 
 ## What's Ready for Release
 
-### v1.0.0 Status: READY [YES]
+### v0.1.0 Status: READY [YES]
 
 **Core Features:**
 - [YES] Hunt, Audit, Rollback workflows
@@ -293,8 +293,7 @@ User sees recommendations → installs what they need
 - [YES] INSTALL.md (detailed setup)
 - [YES] README.md (overview, first-install positioning)
 - [YES] SKILL.md (complete workflows)
-- [YES] DISTRIBUTION.md (release strategy)
-- [YES] RELEASE_CHECKLIST.md (launch prep)
+- [YES] DISTRIBUTION.md (deployment strategy)
 
 **Installation:**
 - [YES] setup script (auto-registers in CLAUDE.md)
@@ -329,15 +328,11 @@ User sees recommendations → installs what they need
 
 ---
 
-## Next Steps: Release
+## Next Steps
 
-See [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md):
-
-1. **Pre-Release** - Final validation
-2. **Release Day** - Git tag + GitHub release
-3. **Marketing** - Announce in communities
-4. **Post-Release** - Gather feedback
-5. **v1.0.1** - Bug fixes if needed
+1. **Beta Testing** - Community feedback gathering
+2. **Refinement** - Address reported issues
+3. **v0.2.0** - Feature expansion based on feedback
 
 ---
 
@@ -357,10 +352,10 @@ See [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md):
 | No build-from-scratch needed | [YES] | Hundreds of skills presented |
 
 **Ready for:**
-- [YES] v1.0.0 release
+- [YES] v0.1.0 beta release
 - [YES] Promotion as first-install skill
 - [YES] Adoption by new Claude Code users
-- [YES] Distribution worldwide
+- [YES] Community beta testing
 
 ---
 

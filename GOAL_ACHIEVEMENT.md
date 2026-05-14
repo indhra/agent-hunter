@@ -357,13 +357,11 @@ Top 3 recommendations:
 
 ## Next: Release & Distribution
 
-See [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md) for pre-release validation.
-
 Ready for:
-1. v1.0.0 release on GitHub
+1. v0.1.0 beta release on GitHub
 2. Promotion as "first skill to install after Claude Code"
-3. Distribution via GitHub + skill marketplaces
-4. Adoption by new Claude Code users worldwide
+3. Community beta testing and feedback
+4. Adoption by early Claude Code users
 
 ---
 
@@ -378,7 +376,7 @@ agent-hunter is now:
 - [YES] Security-scanned, highly-rated, ranked by relevance
 - [YES] Saves users from rebuilding what exists
 - [YES] Well-documented for users and distributors
-- [YES] Production-ready for v1.0.0 release
+- [YES] Ready for v0.1.0 beta release
 
 **Any new Claude Code user can now:**
 1. Install agent-hunter (3 commands, 2 minutes)

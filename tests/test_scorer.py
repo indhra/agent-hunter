@@ -294,3 +294,142 @@ class TestConfigBasedWeights:
         profile = make_profile()
         results = score_results([r], profile, config=config_no_weights)
         assert len(results) == 1
+
+
+# ---------------------------------------------------------------------------
+# Trusted Publishers
+# ---------------------------------------------------------------------------
+
+
+class TestTrustedPublishers:
+    """Tests for trusted publisher boost feature."""
+
+    def test_trusted_publisher_boost_applied(self):
+        """Skills from trusted publishers should get trust score boost."""
+        import os
+        from pathlib import Path
+
+        # Set env var to use test fixture
+        fixture_path = Path(__file__).parent / "fixtures" / "trusted_publishers_minimal.yaml"
+        os.environ["AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH"] = str(fixture_path)
+
+        # Clear cache to force reload
+        from scorer import _TRUSTED_PUBLISHERS_CACHE
+        import scorer as scorer_module
+        scorer_module._TRUSTED_PUBLISHERS_CACHE = None
+
+        try:
+            profile = make_profile()
+            # Create result with owner matching trusted publisher in test fixture
+            trusted = make_result(
+                owner="testpublisher",
+                repo_url="https://github.com/testpublisher/test-skill",
+                trust_tier="raw",  # Base tier is raw (0.4)
+            )
+            untrusted = make_result(
+                owner="unknownpublisher",
+                repo_url="https://github.com/unknownpublisher/test-skill",
+                trust_tier="raw",
+            )
+
+            results = score_results([trusted, untrusted], profile)
+
+            # Find the trusted publisher result
+            trusted_result = next(r for r in results if r.hunt_result.owner == "testpublisher")
+            untrusted_result = next(r for r in results if r.hunt_result.owner == "unknownpublisher")
+
+            # Trusted publisher should have higher trust score
+            # Base raw = 0.4, test fixture boost = 0.20 → 0.6
+            assert trusted_result.trust_score > untrusted_result.trust_score
+            assert trusted_result.trust_score >= 0.6  # 0.4 + 0.20
+            assert trusted_result.trusted_publisher is not None
+            assert trusted_result.trusted_publisher["handle"] == "testpublisher"
+            assert untrusted_result.trusted_publisher is None
+
+        finally:
+            # Clean up env var and cache
+            if "AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH" in os.environ:
+                del os.environ["AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH"]
+            scorer_module._TRUSTED_PUBLISHERS_CACHE = None
+
+    def test_trusted_publisher_boost_caps_at_one(self):
+        """Trust score should cap at 1.0 even with large boost."""
+        import os
+        from pathlib import Path
+
+        fixture_path = Path(__file__).parent / "fixtures" / "trusted_publishers_minimal.yaml"
+        os.environ["AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH"] = str(fixture_path)
+
+        import scorer as scorer_module
+        scorer_module._TRUSTED_PUBLISHERS_CACHE = None
+
+        try:
+            profile = make_profile()
+            # Verified tier (1.0) + boost should still cap at 1.0
+            verified_trusted = make_result(
+                owner="testpublisher",
+                repo_url="https://github.com/testpublisher/verified-skill",
+                trust_tier="verified",  # Already at 1.0
+            )
+
+            results = score_results([verified_trusted], profile)
+            assert results[0].trust_score == 1.0  # Capped at 1.0
+
+        finally:
+            if "AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH" in os.environ:
+                del os.environ["AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH"]
+            scorer_module._TRUSTED_PUBLISHERS_CACHE = None
+
+    def test_malformed_yaml_handled_gracefully(self):
+        """Malformed YAML should not crash, just return empty dict."""
+        import os
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            f.write("not: valid: yaml: content")
+            bad_path = f.name
+
+        os.environ["AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH"] = bad_path
+
+        import scorer as scorer_module
+        scorer_module._TRUSTED_PUBLISHERS_CACHE = None
+
+        try:
+            profile = make_profile()
+            r = make_result(owner="testpublisher")
+            results = score_results([r], profile)
+
+            # Should work without crashing
+            assert len(results) == 1
+            # No boost applied due to malformed YAML
+            assert results[0].trusted_publisher is None
+
+        finally:
+            if "AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH" in os.environ:
+                del os.environ["AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH"]
+            scorer_module._TRUSTED_PUBLISHERS_CACHE = None
+            os.unlink(bad_path)
+
+    def test_missing_yaml_file_handled_gracefully(self):
+        """Missing YAML file should not crash."""
+        import os
+
+        os.environ["AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH"] = "/nonexistent/path.yaml"
+
+        import scorer as scorer_module
+        scorer_module._TRUSTED_PUBLISHERS_CACHE = None
+
+        try:
+            profile = make_profile()
+            r = make_result(owner="testpublisher")
+            results = score_results([r], profile)
+
+            # Should work without crashing
+            assert len(results) == 1
+            assert results[0].trusted_publisher is None
+
+        finally:
+            if "AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH" in os.environ:
+                del os.environ["AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH"]
+            scorer_module._TRUSTED_PUBLISHERS_CACHE = None
+

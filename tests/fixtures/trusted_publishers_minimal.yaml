@@ -1,0 +1,19 @@
+# Minimal test fixture for trusted publishers
+# Used in test_scorer.py unit tests
+
+publishers:
+  - handle: testpublisher
+    primary_repo: testpublisher/test-skills
+    domains:
+      - testing
+      - python
+    trust_boost: 0.20
+    note: "Test publisher for unit tests"
+
+  - handle: anotherpublisher
+    primary_repo: anotherpublisher/skills
+    domains:
+      - javascript
+      - web
+    trust_boost: 0.15
+    note: "Another test publisher"

@@ -1,0 +1,86 @@
+# Trusted Community Publishers
+#
+# This file lists well-known, high-trust skill publishers in the Claude Code ecosystem.
+# Skills from these publishers receive a trust score boost in agent-hunter's ranking.
+#
+# Selection criteria:
+# - Active maintainer with demonstrated commitment (recent commits)
+# - High GitHub reputation (stars + followers)
+# - Publicly recognized in Claude Code / AI agent community
+# - Skills have been manually reviewed by agent-hunter maintainers
+#
+# Format:
+#   handle:         GitHub username or organization
+#   primary_repo:   Main skill repository (owner/repo format)
+#   domains:        Skill focus areas (for relevance matching)
+#   trust_boost:    Score boost (0.0 - 0.30) added to trust_score
+#   note:           Context for humans (stars, followers, specialization)
+#
+# Trust boost guidelines:
+#   0.30 = Official Anthropic repos
+#   0.25 = Well-known educators/maintainers (80k+ stars or 10k+ followers)
+#   0.20 = Established contributors (10k+ stars or 5k+ followers)
+#   0.15 = Active community publishers (5k+ stars or 1k+ followers)
+#
+# Data source: GitHub API verified on 2026-05-14
+# Verification command: gh api repos/{owner}/{repo} --jq '.stargazers_count'
+#                       gh api users/{owner} --jq '.followers'
+
+publishers:
+  - handle: mattpocock
+    primary_repo: mattpocock/skills
+    domains:
+      - typescript
+      - javascript
+      - testing
+      - engineering
+    trust_boost: 0.25
+    note: "TypeScript educator; 80k+ stars; ~16k followers; active 2026"
+
+  - handle: garrytan
+    primary_repo: garrytan/gstack
+    domains:
+      - product
+      - design
+      - qa
+      - engineering
+      - release
+    trust_boost: 0.25
+    note: "YC president; 96k+ stars; gstack = 23 opinionated skills"
+
+  - handle: simonw
+    primary_repo: simonw/claude-skills
+    domains:
+      - python
+      - ai-tooling
+      - data
+    trust_boost: 0.20
+    note: "Mirror of /mnt/skills from Claude code interpreter; 14k+ followers"
+
+  - handle: alirezarezvani
+    primary_repo: alirezarezvani/claude-skills
+    domains:
+      - general
+      - productivity
+      - marketing
+      - product
+      - compliance
+    trust_boost: 0.15
+    note: "263+ skills across multiple coding agents; 14k+ stars"
+
+  - handle: VoltAgent
+    primary_repo: VoltAgent/awesome-agent-skills
+    domains:
+      - meta
+      - registry
+      - multi-agent
+    trust_boost: 0.15
+    note: "Curated registry of 1000+ skills across Claude/Codex/Gemini/Cursor; 21k+ stars"
+
+  - handle: anthropics
+    primary_repo: anthropics/claude-plugins-official
+    domains:
+      - official
+      - foundational
+    trust_boost: 0.30
+    note: "Official Anthropic marketplace; auto-registered in Claude Code"

@@ -34,6 +34,7 @@ TRUST_LABELS = {
     "verified": "[VERIFIED]",
     "community": "[COMMUNITY]",
     "raw": "[RAW]",
+    "trusted": "[TRUSTED]",  # For trusted publishers
 }
 
 
@@ -100,7 +101,13 @@ def _print_terminal(
         r = s.hunt_result
         scan = scan_results.get(r.repo_url, ScanResult())
         severity_icon = SEVERITY_ICONS.get(scan.severity, "⚪")
-        trust_label = TRUST_LABELS.get(r.trust_tier, "[RAW]")
+
+        # Use [TRUSTED] label for trusted publishers, otherwise fall back to trust tier
+        if s.trusted_publisher:
+            trust_label = TRUST_LABELS["trusted"]
+        else:
+            trust_label = TRUST_LABELS.get(r.trust_tier, "[RAW]")
+
         score_bar = _score_bar(s.total_score)
 
         print(f"  {i}. {severity_icon} {r.name or r.repo_name}")
@@ -108,8 +115,16 @@ def _print_terminal(
         print(f"     {r.repo_url}")
         if r.description:
             print(f"     {r.description[:100]}")
+
+        # Show explanation, enhanced with trusted publisher note if applicable
         if s.explanation:
             print(f"     → {s.explanation}")
+        elif s.trusted_publisher:
+            # If no custom explanation, show trusted publisher note
+            note = s.trusted_publisher.get("note", "")
+            if note:
+                print(f"     → Trusted publisher: {note}")
+
         if scan.findings:
             for f in scan.findings[:2]:
                 icon = "🔴" if f.severity == "RED" else "🟡"
@@ -190,7 +205,12 @@ def _markdown_result(s: ScoredResult, scan_results: dict[str, ScanResult]) -> li
     r = s.hunt_result
     scan = scan_results.get(r.repo_url, ScanResult())
     severity_icon = SEVERITY_ICONS.get(scan.severity, "⚪")
-    trust_label = TRUST_LABELS.get(r.trust_tier, "[RAW]")
+
+    # Use [TRUSTED] label for trusted publishers, otherwise fall back to trust tier
+    if s.trusted_publisher:
+        trust_label = TRUST_LABELS["trusted"]
+    else:
+        trust_label = TRUST_LABELS.get(r.trust_tier, "[RAW]")
 
     lines = [
         f"### {severity_icon} {r.name or r.repo_name}",
@@ -209,8 +229,13 @@ def _markdown_result(s: ScoredResult, scan_results: dict[str, ScanResult]) -> li
         if r.mcp_capabilities:
             lines.append(f"- **Capabilities:** {', '.join(r.mcp_capabilities)}")
 
+    # Show explanation or trusted publisher note
     if s.explanation:
         lines.append(f"- **Why this for you:** {s.explanation}")
+    elif s.trusted_publisher:
+        note = s.trusted_publisher.get("note", "")
+        if note:
+            lines.append(f"- **Trusted Publisher:** {note}")
 
     # Installation command (varies by type)
     if r.result_type == "mcp" and r.mcp_install_command:

@@ -1,38 +1,3 @@
-## [1.0.0] - 2026-05-14
-
-**Production Release - The first skill to install after Claude Code**
-
-### What's New
-- **Three-tier discovery system:** Curated Index → GitHub API → LLM Web Search
-- **Simplified commands:** hunt, audit, rollback (core workflows only)
-- **4-signal relevance scoring:** stack_match, trust_score, recency, stars
-- **Security-first:** 10 OWASP LLM patterns scanned, RED results never shown
-- **Proactive mode:** Auto-detect new projects and surface top 3 skills
-- **Brownfield support:** Find skills to enhance existing codebases
-- **Global CLAUDE.md integration:** Auto-registers during setup
-
-### Improvements
-- Code reduction: -17% (-1,200 lines removed, focused core)
-- Test coverage: 92% (642 tests passing)
-- Documentation: 7 comprehensive guides (GETTING_STARTED, INSTALL, SKILL, BROWNFIELD_GUIDE, DISTRIBUTION, etc.)
-- Performance: All commands complete <5 seconds
-
-### Key Features
-- Greenfield mode: Install once, hunt automatically on new projects
-- Brownfield mode: Discover skills for existing projects
-- Security audit: Check installed skills for tampering and vulnerabilities
-- Rollback: Restore to previous state if audit detects issues
-
-### Known Limitations
-- GitHub API requires GITHUB_TOKEN for Tier 2 discovery (5,000+ repos)
-- Curated index has ~100 verified skills; community contributions expand it
-- Docker sandbox optional (subprocess mode works by default)
-
-### Contributors
-- Indhra Kiranu N A (author, security architecture, testing)
-
-[Full validation report](docs/VALIDATION_RESULTS_v1.0.0.md)
-[Demo execution log](docs/DEMO_EXECUTION_LOG.md)
 # Changelog
 
 All notable changes to agent-hunter are documented here.
@@ -47,7 +12,9 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 - No unreleased changes yet.
 
-## [1.0.0-alpha] - 2026-05-09
+## [0.1.0] - 2026-05-14
+
+Initial beta release.
 
 ### Changed
 - Repositioned agent-hunter as a repo-aware skill package manager focused on the default `hunt` workflow.

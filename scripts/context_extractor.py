@@ -2,10 +2,25 @@
 context_extractor.py — Extract tech signal keywords from the current project.
 
 Responsibility:
-    Read project files (CLAUDE.md, requirements.txt, pyproject.toml,
-    package.json, Cargo.toml, git log) and extract ONLY tech signal
-    keywords from an explicit allowlist. Never extract file paths,
-    variable names, function names, or any project-specific strings.
+    Read dependency manifest files ONLY and extract tech signal keywords
+    from an explicit allowlist. Never read documentation, README files,
+    commit message text, or any non-manifest source.
+
+Allowed sources (dependency manifests):
+    - requirements.txt, requirements-dev.txt, requirements-test.txt
+    - pyproject.toml, Pipfile, setup.py
+    - package.json
+    - Cargo.toml
+    - go.mod
+    - Gemfile
+    - composer.json
+    - Dockerfile (FROM directives only)
+
+Forbidden sources (never read):
+    - CLAUDE.md, SKILL.md, AGENTS.md, or any .md / doc file
+    - README files
+    - Git log commit message bodies
+    - YAML frontmatter triggers: / description: fields
 
 Input:  Project root directory (str or Path)
 Output: ContextProfile dataclass
@@ -87,6 +102,11 @@ TECH_ALLOWLIST: set[str] = {
     "ruff",
     "black",
     "isort",
+    # Python common libraries
+    "requests",
+    "pyyaml",
+    "rich",
+    "httpx",
     # Node / JS
     "react",
     "nextjs",
@@ -157,8 +177,6 @@ TECH_ALLOWLIST: set[str] = {
     "ollama",
     "langchain",
     "mcp",
-    "agentskills",
-    "skill.md",
 }
 
 # Pattern: word boundary around each allowlisted term (case-insensitive)
@@ -203,8 +221,11 @@ class ContextProfile:
 def extract_context(project_root: str | Path, intent: str | None = None) -> ContextProfile:
     """Extract tech signal keywords from a project directory.
 
-    Reads: CLAUDE.md, AGENTS.md, requirements.txt, pyproject.toml,
-    package.json, Cargo.toml, git log (last 50 commits).
+    Reads dependency manifests only: requirements.txt, requirements-dev.txt,
+    requirements-test.txt, pyproject.toml, Pipfile, setup.py, package.json,
+    Cargo.toml, go.mod, Gemfile, composer.json, Dockerfile.
+
+    Never reads documentation files, README, or git log commit messages.
 
     Args:
         project_root: Path to the project root directory.
@@ -222,37 +243,36 @@ def extract_context(project_root: str | Path, intent: str | None = None) -> Cont
         intent_words = [w.lower() for w in re.findall(r"[a-zA-Z0-9]+", intent) if len(w) > 2]
         profile.intent_keywords = intent_words
 
-    # --- Read dependency files ---
+    # --- Read dependency manifests only ---
     dep_files = [
         "requirements.txt",
         "requirements-dev.txt",
         "requirements-test.txt",
         "pyproject.toml",
+        "Pipfile",
+        "setup.py",
         "package.json",
         "Cargo.toml",
         "go.mod",
+        "Gemfile",
+        "composer.json",
+        "Dockerfile",
     ]
+    manifest_signals: dict[str, set[str]] = {}
     for fname in dep_files:
         fpath = root / fname
         if fpath.exists():
-            signals = _extract_signals_from_file(fpath)
+            if fname == "pyproject.toml":
+                signals = _extract_from_pyproject_toml(fpath)
+            else:
+                signals = _extract_signals_from_file(fpath)
             all_signals.update(signals)
             profile.sources_read.append(fname)
+            if signals:
+                manifest_signals[fname] = signals
 
-    # --- Read agent instruction files ---
-    agent_files = ["CLAUDE.md", "AGENTS.md", "COPILOT-instructions.md", ".cursorrules"]
-    for fname in agent_files:
-        fpath = root / fname
-        if fpath.exists():
-            signals = _extract_signals_from_file(fpath)
-            all_signals.update(signals)
-            profile.sources_read.append(fname)
-
-    # --- Read git log (last 50 commits) ---
-    git_signals, git_activity = _extract_from_git_log(root)
-    all_signals.update(git_signals)
-    if git_activity:
-        profile.sources_read.append("git log (last 50)")
+    # --- Classify signals by manifest git commit recency (no signal extraction from log) ---
+    git_activity = _classify_git_activity(root, manifest_signals)
 
     profile.tech_stack = sorted(all_signals)
     profile.domain_tags = _infer_domain_tags(all_signals)
@@ -362,50 +382,124 @@ def _extract_signals_from_file(path: Path) -> set[str]:
     return {m.lower() for m in _ALLOWLIST_PATTERN.findall(content)}
 
 
-def _extract_from_git_log(root: Path) -> tuple[set[str], dict[str, set[str]]]:
-    """Extract tech signals from git log. Returns (signals, activity_buckets)."""
+def _extract_from_pyproject_toml(path: Path) -> set[str]:
+    """Extract allowlisted signals from pyproject.toml dependency sections only.
+
+    Reads only [project.dependencies], [project.optional-dependencies],
+    [tool.poetry.dependencies], [tool.poetry.dev-dependencies],
+    [tool.poetry.group.*.dependencies], and top-level tool names.
+    Never reads [project.description], [project.readme], or any free-form text.
+
+    Falls back to generic text scan if TOML parsing is unavailable.
+
+    Args:
+        path: Path to the pyproject.toml file.
+
+    Returns:
+        Set of allowlisted tech keyword strings (lowercase).
+    """
     try:
-        result = subprocess.run(
-            ["git", "log", "--oneline", "--format=%ai %s", "-50"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        if result.returncode != 0:
-            return set(), {}
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        return set(), {}
+        import tomllib  # Python 3.11+
+    except ImportError:
+        try:
+            import tomli as tomllib  # type: ignore[no-reuse-def]
+        except ImportError:
+            # No TOML parser available; fall back to generic scan
+            return _extract_signals_from_file(path)
+
+    try:
+        with open(path, "rb") as f:
+            data = tomllib.load(f)
+    except (OSError, Exception):
+        return set()
+
+    dep_strings: list[str] = []
+
+    # [project.dependencies] — list of PEP 508 requirement strings
+    project = data.get("project", {})
+    project_deps = project.get("dependencies", [])
+    if isinstance(project_deps, list):
+        dep_strings.extend(project_deps)
+
+    # [project.optional-dependencies.*] — dict of lists
+    opt_deps = project.get("optional-dependencies", {})
+    if isinstance(opt_deps, dict):
+        for group_deps in opt_deps.values():
+            if isinstance(group_deps, list):
+                dep_strings.extend(group_deps)
+
+    # [tool.poetry.dependencies] and [tool.poetry.dev-dependencies]
+    poetry = data.get("tool", {}).get("poetry", {})
+    for key in ("dependencies", "dev-dependencies"):
+        section = poetry.get(key, {})
+        if isinstance(section, dict):
+            dep_strings.extend(section.keys())
+
+    # [tool.poetry.group.*.dependencies]
+    for group in poetry.get("group", {}).values():
+        group_deps = group.get("dependencies", {})
+        if isinstance(group_deps, dict):
+            dep_strings.extend(group_deps.keys())
+
+    # Top-level tool names (e.g. "ruff", "black" in [tool.ruff])
+    for tool_name in data.get("tool", {}).keys():
+        dep_strings.append(tool_name)
+
+    combined = " ".join(str(d) for d in dep_strings)
+    return {m.lower() for m in _ALLOWLIST_PATTERN.findall(combined)}
+
+
+def _classify_git_activity(
+    root: Path, manifest_signals: dict[str, set[str]]
+) -> dict[str, set[str]]:
+    """Classify manifest signals by the last git commit date of each manifest file.
+
+    This function never reads commit message text. It only checks the timestamp
+    of the last commit that touched each manifest file, then classifies the
+    signals from that manifest into activity buckets.
+
+    Args:
+        root: Project root directory.
+        manifest_signals: Mapping of manifest filename to signals extracted from it.
+
+    Returns:
+        Activity dict with keys 'active' (< 7d), 'recent' (7-30d), 'dormant' (90+d).
+        Returns an empty dict if git is unavailable or no manifests have history.
+    """
+    if not manifest_signals:
+        return {}
 
     now = datetime.now()
-    signals: set[str] = set()
     activity: dict[str, set[str]] = {"active": set(), "recent": set(), "dormant": set()}
+    found_any = False
 
-    for line in result.stdout.splitlines():
-        parts = line.split(" ", 3)
-        if len(parts) < 4:
-            continue
+    for fname, signals in manifest_signals.items():
         try:
-            # Parse date: "2026-04-15 10:30:00 +0000"
-            date_str = f"{parts[0]} {parts[1]}"
+            result = subprocess.run(
+                ["git", "log", "--format=%ai", "-1", "--", fname],
+                cwd=root,
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                continue
+            # Date format: "2026-04-15 10:30:00 +0000"
+            date_str = result.stdout.strip()[:19]
             commit_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-            commit_text = parts[3]  # commit message — extract signals only
-        except (ValueError, IndexError):
+            age = now - commit_date
+            found_any = True
+            for sig in signals:
+                if age <= timedelta(days=7):
+                    activity["active"].add(sig)
+                elif age <= timedelta(days=30):
+                    activity["recent"].add(sig)
+                elif age >= timedelta(days=90):
+                    activity["dormant"].add(sig)
+        except (subprocess.TimeoutExpired, FileNotFoundError, ValueError, OSError):
             continue
 
-        line_signals = {m.lower() for m in _ALLOWLIST_PATTERN.findall(commit_text)}
-        signals.update(line_signals)
-
-        age = now - commit_date
-        for sig in line_signals:
-            if age <= timedelta(days=7):
-                activity["active"].add(sig)
-            elif age <= timedelta(days=30):
-                activity["recent"].add(sig)
-            elif age >= timedelta(days=90):
-                activity["dormant"].add(sig)
-
-    return signals, activity
+    return activity if found_any else {}
 
 
 def _infer_domain_tags(signals: set[str]) -> list[str]:

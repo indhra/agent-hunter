@@ -13,7 +13,7 @@ from context_extractor import (
     TECH_ALLOWLIST,
     SkillUsage,
     _extract_session_skills,
-    _extract_from_git_log,
+    _classify_git_activity,
     _infer_domain_tags,
 )
 
@@ -52,20 +52,56 @@ class TestSignalExtraction:
         profile = extract_context(tmp_path)
         assert profile.tech_stack == []
 
-    def test_extracts_from_claude_md(self, tmp_path):
+    def test_doc_mentions_excluded(self, tmp_path):
+        """Django mentioned only in README.md must not appear; flask from requirements.txt must."""
+        (tmp_path / "README.md").write_text(
+            "# My App\nThis project was inspired by Django REST Framework.\n"
+        )
+        (tmp_path / "requirements.txt").write_text("flask==3.0.0\nrequests\n")
+        profile = extract_context(tmp_path)
+        assert "flask" in profile.tech_stack
+        assert "django" not in profile.tech_stack
+
+    def test_claude_md_not_read(self, tmp_path):
+        """CLAUDE.md must never be read as a signal source."""
         (tmp_path / "CLAUDE.md").write_text("This project uses FastAPI and Redis.\n")
         profile = extract_context(tmp_path)
-        assert "fastapi" in profile.tech_stack
-        assert "redis" in profile.tech_stack
+        assert "fastapi" not in profile.tech_stack
+        assert "redis" not in profile.tech_stack
+        assert "CLAUDE.md" not in profile.sources_read
+
+    def test_skill_md_not_read(self, tmp_path):
+        """SKILL.md must never be read as a signal source."""
+        (tmp_path / "SKILL.md").write_text("triggers:\n  - fastapi\n  - django\n")
+        profile = extract_context(tmp_path)
+        assert "fastapi" not in profile.tech_stack
+        assert "SKILL.md" not in profile.sources_read
 
     def test_allowlist_only_signals(self, tmp_path):
-        (tmp_path / "CLAUDE.md").write_text(
-            "The variable mySecretProjectName uses fastapi and some_private_function.\n"
+        (tmp_path / "requirements.txt").write_text(
+            "fastapi\nsome_private_internal_lib\n"
         )
         profile = extract_context(tmp_path)
         # Only allowlisted terms should appear
         for signal in profile.tech_stack:
             assert signal in TECH_ALLOWLIST
+
+    def test_pipfile_is_read(self, tmp_path):
+        (tmp_path / "Pipfile").write_text('[packages]\ndjango = "*"\n')
+        profile = extract_context(tmp_path)
+        assert "django" in profile.tech_stack
+        assert "Pipfile" in profile.sources_read
+
+    def test_dockerfile_from_directive_read(self, tmp_path):
+        (tmp_path / "Dockerfile").write_text("FROM python:3.12\nRUN pip install flask\n")
+        profile = extract_context(tmp_path)
+        assert "python" in profile.tech_stack
+        assert "flask" in profile.tech_stack
+
+    def test_gemfile_is_read(self, tmp_path):
+        (tmp_path / "Gemfile").write_text("source 'https://rubygems.org'\ngem 'ruby'\n")
+        profile = extract_context(tmp_path)
+        assert "ruby" in profile.tech_stack
 
 
 class TestAllowlist:
@@ -248,122 +284,129 @@ class TestExtractSessionSkillsOSError:
 
 
 # ---------------------------------------------------------------------------
-# _extract_from_git_log: parsing commits
+# _classify_git_activity: activity bucketing from manifest commit dates
 # ---------------------------------------------------------------------------
 
 
-class TestExtractFromGitLog:
-    def test_active_commits_classified_correctly(self, tmp_path):
-        """Commits < 7 days old should go into 'active' bucket."""
+class TestClassifyGitActivity:
+    def test_recently_touched_manifest_signals_active(self, tmp_path):
+        """Manifest last committed < 7 days ago → signals go to 'active' bucket."""
         from unittest.mock import patch, MagicMock
         from datetime import datetime, timedelta
 
         now = datetime.now()
-        recent_date = (now - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")
-        stdout = f"{recent_date} +0000 fastapi hello world\n"
+        recent_date = (now - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S +0000")
 
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = stdout
+        mock_result.stdout = recent_date + "\n"
 
         with patch("subprocess.run", return_value=mock_result):
-            signals, activity = _extract_from_git_log(tmp_path)
+            activity = _classify_git_activity(
+                tmp_path, {"requirements.txt": {"fastapi"}}
+            )
 
-        assert "fastapi" in signals
-        assert "fastapi" in activity["active"]
+        assert "fastapi" in activity.get("active", set())
+        assert "fastapi" not in activity.get("recent", set())
 
-    def test_recent_commits_classified_correctly(self, tmp_path):
-        """Commits 7-30 days old should go into 'recent' bucket."""
+    def test_medium_aged_manifest_signals_recent(self, tmp_path):
+        """Manifest last committed 7-30 days ago → signals go to 'recent' bucket."""
         from unittest.mock import patch, MagicMock
         from datetime import datetime, timedelta
 
         now = datetime.now()
-        medium_date = (now - timedelta(days=15)).strftime("%Y-%m-%d %H:%M:%S")
-        stdout = f"{medium_date} +0000 fastapi service update\n"
+        medium_date = (now - timedelta(days=15)).strftime("%Y-%m-%d %H:%M:%S +0000")
 
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = stdout
+        mock_result.stdout = medium_date + "\n"
 
         with patch("subprocess.run", return_value=mock_result):
-            signals, activity = _extract_from_git_log(tmp_path)
+            activity = _classify_git_activity(
+                tmp_path, {"requirements.txt": {"fastapi"}}
+            )
 
-        assert "fastapi" in signals
-        assert "fastapi" in activity["recent"]
-        assert "fastapi" not in activity["active"]
+        assert "fastapi" in activity.get("recent", set())
+        assert "fastapi" not in activity.get("active", set())
 
-    def test_dormant_commits_classified_correctly(self, tmp_path):
-        """Commits >= 90 days old should go into 'dormant' bucket."""
+    def test_dormant_manifest_signals_dormant(self, tmp_path):
+        """Manifest last committed 90+ days ago → signals go to 'dormant' bucket."""
         from unittest.mock import patch, MagicMock
         from datetime import datetime, timedelta
 
         now = datetime.now()
-        old_date = (now - timedelta(days=120)).strftime("%Y-%m-%d %H:%M:%S")
-        stdout = f"{old_date} +0000 pytorch training fix\n"
+        old_date = (now - timedelta(days=120)).strftime("%Y-%m-%d %H:%M:%S +0000")
 
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = stdout
+        mock_result.stdout = old_date + "\n"
 
         with patch("subprocess.run", return_value=mock_result):
-            signals, activity = _extract_from_git_log(tmp_path)
+            activity = _classify_git_activity(
+                tmp_path, {"Cargo.toml": {"pytorch"}}
+            )
 
-        assert "pytorch" in signals
-        assert "pytorch" in activity["dormant"]
+        assert "pytorch" in activity.get("dormant", set())
 
-    def test_nonzero_returncode_returns_empty(self, tmp_path):
-        """Non-zero exit from git log should return empty signals + activity."""
+    def test_empty_manifest_signals_returns_empty(self, tmp_path):
+        """No manifest signals → empty dict returned immediately."""
+        activity = _classify_git_activity(tmp_path, {})
+        assert activity == {}
+
+    def test_nonzero_git_returncode_skips_manifest(self, tmp_path):
+        """Non-zero git exit → that manifest is skipped; returns empty."""
         from unittest.mock import patch, MagicMock
 
         mock_result = MagicMock()
-        mock_result.returncode = 128  # not a git repo
+        mock_result.returncode = 128
         mock_result.stdout = ""
         with patch("subprocess.run", return_value=mock_result):
-            signals, activity = _extract_from_git_log(tmp_path)
-        assert signals == set()
+            activity = _classify_git_activity(
+                tmp_path, {"requirements.txt": {"fastapi"}}
+            )
         assert activity == {}
 
     def test_timeout_returns_empty(self, tmp_path):
-        """TimeoutExpired should be caught and return empty."""
+        """TimeoutExpired should be caught and result in empty dict."""
         import subprocess
         from unittest.mock import patch
 
         with patch("subprocess.run", side_effect=subprocess.TimeoutExpired(["git"], 10)):
-            signals, activity = _extract_from_git_log(tmp_path)
-        assert signals == set()
+            activity = _classify_git_activity(
+                tmp_path, {"requirements.txt": {"fastapi"}}
+            )
         assert activity == {}
 
     def test_git_not_found_returns_empty(self, tmp_path):
-        """FileNotFoundError (git not installed) should return empty."""
+        """FileNotFoundError (git not installed) should return empty dict."""
         from unittest.mock import patch
 
         with patch("subprocess.run", side_effect=FileNotFoundError("git not found")):
-            signals, activity = _extract_from_git_log(tmp_path)
-        assert signals == set()
+            activity = _classify_git_activity(
+                tmp_path, {"requirements.txt": {"fastapi"}}
+            )
         assert activity == {}
 
-    def test_malformed_line_skipped(self, tmp_path):
-        """Lines with fewer than 4 parts should be skipped gracefully."""
-        from unittest.mock import patch, MagicMock
+    def test_commit_messages_are_never_scanned(self, tmp_path):
+        """git log is called with --format=%ai -1, not commit message format."""
+        from unittest.mock import patch, MagicMock, call
+        from datetime import datetime, timedelta
+
+        now = datetime.now()
+        date_str = (now - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S +0000")
 
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = "bad line\n"  # only 2 parts
-        with patch("subprocess.run", return_value=mock_result):
-            signals, activity = _extract_from_git_log(tmp_path)
-        assert signals == set()
+        mock_result.stdout = date_str + "\n"
 
-    def test_bad_date_line_skipped(self, tmp_path):
-        """Lines with invalid date format should be skipped gracefully."""
-        from unittest.mock import patch, MagicMock
+        with patch("subprocess.run", return_value=mock_result) as mock_run:
+            _classify_git_activity(tmp_path, {"requirements.txt": {"flask"}})
 
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "not-a-date 00:00:00 +0000 fastapi service\n"
-        with patch("subprocess.run", return_value=mock_result):
-            signals, activity = _extract_from_git_log(tmp_path)
-        # fastapi signal skipped because date parse failed
-        assert "fastapi" not in signals
+        # Verify the git log call never requests commit subject/body
+        call_args = mock_run.call_args[0][0]
+        assert "--format=%ai" in call_args
+        assert "%s" not in " ".join(call_args)  # no subject format
+        assert "--oneline" not in call_args
 
 
 # ---------------------------------------------------------------------------

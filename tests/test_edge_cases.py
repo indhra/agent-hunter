@@ -491,7 +491,7 @@ class TestContextExtractorEdgeCases:
 
     def test_signals_from_multiple_files_merged(self, tmp_path):
         (tmp_path / "requirements.txt").write_text("fastapi\n")
-        (tmp_path / "CLAUDE.md").write_text("This project uses Redis.\n")
+        (tmp_path / "Pipfile").write_text('[packages]\nredis = "*"\n')
         profile = extract_context(tmp_path)
         assert "fastapi" in profile.tech_stack
         assert "redis" in profile.tech_stack
@@ -499,7 +499,7 @@ class TestContextExtractorEdgeCases:
     def test_no_duplicate_signals(self, tmp_path):
         """Same tech keyword in multiple files → appears once in tech_stack."""
         (tmp_path / "requirements.txt").write_text("fastapi\n")
-        (tmp_path / "CLAUDE.md").write_text("We use fastapi here too.\n")
+        (tmp_path / "Pipfile").write_text('[packages]\nfastapi = "*"\n')
         profile = extract_context(tmp_path)
         assert profile.tech_stack.count("fastapi") == 1
 

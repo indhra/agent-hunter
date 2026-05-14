@@ -90,6 +90,8 @@ def _deep_merge(base: dict, override: dict) -> dict:
 # Helpers for hunt command (confirm + execute actions)
 # ---------------------------------------------------------------------------
 
+_SEPARATOR = "─" * 70
+
 
 def _list_installed_skills() -> set[str]:
     """Return set of currently installed skill directory names."""
@@ -142,9 +144,9 @@ def _prompt_confirm_actions(
     if not actions:
         return []
 
-    print("\n" + "─" * 70)
+    print("\n" + _SEPARATOR)
     print("  READY TO ACT — here's what I'll do:")
-    print("─" * 70)
+    print(_SEPARATOR)
 
     installs = [a for a in actions if a.action == "install"]
     disables = [a for a in actions if a.action == "disable"]
@@ -163,14 +165,15 @@ def _prompt_confirm_actions(
 
     print("\n  Note: YELLOW skills are included — review security findings")
     print("  above before confirming. You can remove any from the list.")
-    print("\n" + "─" * 70)
+    print("\n" + _SEPARATOR)
 
     # --yes flag: auto-confirm all
     if auto_yes:
         print("  Auto-confirmed (--yes).")
         return actions
 
-    # Get user input (only reached when stdin is a TTY)
+    # Get user input — callers are responsible for checking sys.stdin.isatty()
+    # before calling this function without auto_yes=True.
     response = input("  Proceed? [y/N] or type numbers to skip (e.g. '1,3'): ").strip().lower()
 
     if response in ("y", "yes"):
@@ -199,9 +202,9 @@ def _print_dry_run(actions: list[PendingAction]) -> None:
     Args:
         actions: Pending install/disable actions that would be executed.
     """
-    print("\n" + "─" * 70)
+    print("\n" + _SEPARATOR)
     print("  HUNT COMPLETE — dry-run mode (no changes made)")
-    print("─" * 70)
+    print(_SEPARATOR)
 
     installs = [a for a in actions if a.action == "install"]
     disables = [a for a in actions if a.action == "disable"]
@@ -220,7 +223,7 @@ def _print_dry_run(actions: list[PendingAction]) -> None:
 
     print("\n  To apply these changes, re-run with --yes:")
     print("    agent-hunter hunt . --yes")
-    print("─" * 70 + "\n")
+    print(_SEPARATOR + "\n")
 
 
 # ---------------------------------------------------------------------------
@@ -422,11 +425,11 @@ def cmd_hunt(args: list[str]) -> int:
     successful = sum(1 for r in results if r.success)
     failed = len(results) - successful
 
-    print("\n" + "─" * 70)
+    print("\n" + _SEPARATOR)
     print(f"  Summary: {successful}/{len(results)} action(s) succeeded")
     if failed > 0:
         print(f"  ⚠️  {failed} action(s) failed — review messages above")
-    print("─" * 70 + "\n")
+    print(_SEPARATOR + "\n")
 
     return 0 if failed == 0 else 1
 

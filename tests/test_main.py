@@ -484,7 +484,7 @@ class TestPromptConfirmActions:
 class TestCmdHuntWithConfirmation:
     @pytest.fixture(autouse=True)
     def _force_tty(self, monkeypatch):
-        """Make stdin appear to be a TTY (kept for safety; new tests don't rely on it)."""
+        """Ensure stdin appears to be a TTY for tests that exercise the interactive prompt."""
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
 
     def test_hunt_with_yes_flag_executes_install(self, tmp_path, monkeypatch, capsys):

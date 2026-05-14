@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# context-extract — extract tech stack signals from a project directory
+# Usage: context-extract [project_root]
+# Output: ContextProfile JSON to stdout
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/scripts/context_extractor.py" "${@:-"."}"

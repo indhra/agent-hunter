@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# registry — manage the agent-hunter skill registry
+# Usage: registry snapshot | registry list | registry <command>
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$SKILL_DIR/.venv/bin/python" -c "
+import sys
+sys.path.insert(0, '$SKILL_DIR/scripts')
+from registry import Registry
+import argparse
+p = argparse.ArgumentParser()
+p.add_argument('command', choices=['snapshot', 'list', 'restore'])
+args = p.parse_args()
+reg = Registry()
+if args.command == 'snapshot':
+    path = reg.snapshot()
+    print(f'[agent-hunter] Snapshot saved: {path}')
+elif args.command == 'list':
+    snaps = reg.list_snapshots()
+    if not snaps:
+        print('[agent-hunter] No snapshots found.')
+    for s in snaps:
+        print(f'  {s[\"snapshot_time\"]}  {s[\"path\"]}')
+elif args.command == 'restore':
+    result = reg.restore_latest()
+    if result:
+        print('[agent-hunter] Restored latest snapshot.')
+    else:
+        print('[agent-hunter] Restore failed or no snapshots found.')
+" "$@"

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# installer — install, disable, rollback, or uninstall skills
+# Usage: installer <action> <args...>
+#   installer install <owner> <repo> [--sha <sha>]
+#   installer disable <skill_name>
+#   installer rollback <owner> <repo> <sha>
+#   installer uninstall <skill_name>
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+exec "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/scripts/installer.py" "$@"

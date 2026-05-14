@@ -9,7 +9,7 @@
 
 ---
 
-## 🎯 What is agent-hunter?
+## What is agent-hunter?
 
 agent-hunter is a focused package manager for Claude Code skills and MCP servers. It reads your project context, hunts GitHub for the top 3 most relevant skills, security-scans every result, and surfaces ranked recommendations.
 
@@ -18,11 +18,11 @@ agent-hunter is a focused package manager for Claude Code skills and MCP servers
 2. `agent-hunter audit` - Health check installed skills
 3. `agent-hunter rollback` - Restore to last known good state
 
-**Key principle:** One version of the truth. Like Homebrew, we show you the best match — not a marketplace.
+**Key principle:** One version of the truth. Like Homebrew, we show you the best match - not a marketplace.
 
 ---
 
-## 🚀 What's New in v1.0.0-alpha
+## What's New in v1.0.0-alpha
 
 ### Simplified Architecture
 
@@ -46,10 +46,10 @@ Simplified from 6 to 4 signals with research-backed weights:
 
 ```python
 total_score = (
-    stack_match × 0.40 +    # Technical fit (40%)
-    trust_score × 0.30 +    # Trust tier (30%)
-    recency × 0.15 +        # Recent activity (15%)
-    stars × 0.15            # Popularity (15%)
+ stack_match × 0.40 + # Technical fit (40%)
+ trust_score × 0.30 + # Trust tier (30%)
+ recency × 0.15 + # Recent activity (15%)
+ stars × 0.15 # Popularity (15%)
 ) × yagni_multiplier
 ```
 
@@ -155,7 +155,7 @@ python scripts/main.py --help
 
 ---
 
-## 🎯 Usage
+## Usage
 
 ### Hunt for Skills
 
@@ -167,19 +167,19 @@ python scripts/main.py hunt .
 # Top 3 Skills for Your Project
 #
 # 1. fastapi-expert (95/100)
-#    📦 github.com/awesome/fastapi-expert
-#    ✅ Verified • 234 ⭐ • Updated 2 days ago
-#    Perfect match for FastAPI + PostgreSQL + Redis
+# 📦 github.com/awesome/fastapi-expert
+# [YES] Verified • 234 ⭐ • Updated 2 days ago
+# Perfect match for FastAPI + PostgreSQL + Redis
 #
 # 2. api-testing-suite (87/100)
-#    📦 github.com/testing/api-suite
-#    🟢 Community • 156 ⭐ • Updated 1 week ago
-#    API testing patterns for REST endpoints
+# 📦 github.com/testing/api-suite
+# [SAFE] Community • 156 ⭐ • Updated 1 week ago
+# API testing patterns for REST endpoints
 #
 # 3. docker-compose-helper (82/100)
-#    📦 github.com/devops/docker-compose
-#    🟢 Community • 89 ⭐ • Updated 3 weeks ago
-#    Docker Compose workflow automation
+# 📦 github.com/devops/docker-compose
+# [SAFE] Community • 89 ⭐ • Updated 3 weeks ago
+# Docker Compose workflow automation
 ```
 
 ### Audit Installed Skills
@@ -190,9 +190,9 @@ python scripts/main.py audit
 # Output:
 # Installed Skills Health Check
 #
-# ✅ fastapi-expert - Healthy
-# ✅ api-testing-suite - Healthy
-# 🟡 docker-compose-helper - Update available
+# [YES] fastapi-expert - Healthy
+# [YES] api-testing-suite - Healthy
+# [REVIEW] docker-compose-helper - Update available
 ```
 
 ### Rollback to Safe State
@@ -206,7 +206,7 @@ python scripts/main.py rollback
 # 2. pre-audit-2026-05-07-09-45-32
 #
 # Select snapshot to restore: 1
-# ✅ Restored registry to pre-audit-2026-05-08-14-23-15
+# [YES] Restored registry to pre-audit-2026-05-08-14-23-15
 ```
 
 ---
@@ -221,23 +221,23 @@ User config: `~/.agent-hunter/config.json`
 
 ```json
 {
-  "hunt": {
-    "top_n_shown": 3,
-    "timeout_sec": 30,
-    "phase": "launch"
-  },
-  "scoring": {
-    "weights": {
-      "stack_match": 0.40,
-      "trust_score": 0.30,
-      "recency_score": 0.15,
-      "star_score": 0.15
-    }
-  },
-  "security": {
-    "scan_enabled": true,
-    "red_count_only": true
-  }
+ "hunt": {
+ "top_n_shown": 3,
+ "timeout_sec": 30,
+ "phase": "launch"
+ },
+ "scoring": {
+ "weights": {
+ "stack_match": 0.40,
+ "trust_score": 0.30,
+ "recency_score": 0.15,
+ "star_score": 0.15
+ }
+ },
+ "security": {
+ "scan_enabled": true,
+ "red_count_only": true
+ }
 }
 ```
 
@@ -283,7 +283,7 @@ User config: `~/.agent-hunter/config.json`
 
 ---
 
-## 🐛 Known Limitations (Alpha)
+## [Issue] Known Limitations (Alpha)
 
 ### Expected Behaviors
 
@@ -331,7 +331,7 @@ pytest tests/ -v
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - [SPEC.md](SPEC.md) - Full technical specification
 - [ROADMAP.md](ROADMAP.md) - Version roadmap v0.4.0 → v1.0.0
@@ -355,7 +355,7 @@ pytest tests/ -v
 
 ---
 
-## 🚀 What's Next?
+## What's Next?
 
 ### v1.0.0 (Stable)
 
@@ -389,7 +389,7 @@ MIT License - See [LICENSE](LICENSE) file
 
 ---
 
-## 🐛 Bug Reports
+## [Issue] Bug Reports
 
 Found a bug? [Open an issue](https://github.com/indhra/agent-hunter/issues)
 
@@ -416,4 +416,4 @@ Share feedback: [GitHub Discussions](https://github.com/indhra/agent-hunter/disc
 
 **Thank you for trying agent-hunter v1.0.0-alpha!**
 
-The best skills are the ones you don't have to build yourself. 🚀
+The best skills are the ones you don't have to build yourself.

@@ -5,9 +5,9 @@ version: "0.0.1"
 license: "MIT"
 author: "old-author"
 compatibility:
-  claude: ">=0.1.0"
+ claude: ">=0.1.0"
 triggers:
-  - "help with flask legacy"
+ - "help with flask legacy"
 mcp_dependencies: []
 ---
 

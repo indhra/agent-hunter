@@ -1,4 +1,4 @@
-# agent-hunter — Copilot Instructions
+# agent-hunter - Copilot Instructions
 
 You are helping implement **agent-hunter**: a proactive, security-vetted SKILL.md and MCP server discovery system packaged as a Claude-native skill. It reads a developer's project context, hunts GitHub for relevant skills, security-scans every result, and surfaces ranked recommendations. Think of it as the immune system of an AI agentic team.
 
@@ -12,40 +12,40 @@ The design has a hard constraint: **Python scripts do I/O only. No LLM calls fro
 
 ```
 SKILL.md (Claude's brain)
-    │
-    ▼
-bin/ (bash wrappers — Claude calls these directly, gstack model)
-    hunt              → full pipeline wrapper
-    github-search     → pure curl GitHub Code Search (no Python)
-    context-extract   → wraps context_extractor.py
-    security-scan     → wraps security_scan.py
-    audit             → wraps audit.py
-    rollback          → wraps rollback.py
-    scaffold          → wraps scaffold.py
-    installer         → wraps installer.py
-    registry          → wraps registry.py
-    resolve-deps      → wraps skill_parser.py --resolve-deps
-    │
-    ▼
-scripts/ (I/O workers — Python, no LLM)
-    context_extractor.py   → reads project files, extracts ONLY tech keywords
-    hunter.py              → queries GitHub API for SKILL.md + MCP configs
-    skill_parser.py        → parses YAML frontmatter from SKILL.md files
-    security_scan.py       → static + runtime security analysis
-    scorer.py              → 4-signal relevance scoring + trust tiers
-    registry.py            → local registry (~/.agent-hunter/registry.json)
-    reporter.py            → terminal + markdown report output
-    audit.py               → health check for installed skills
-    rollback.py            → restore registry to last known good state
-    sandbox.py             → subprocess/docker isolation for suspicious skills
-    scaffold.py            → generate SKILL.md stubs for new skills
+ │
+ ▼
+bin/ (bash wrappers - Claude calls these directly, gstack model)
+ hunt → full pipeline wrapper
+ github-search → pure curl GitHub Code Search (no Python)
+ context-extract → wraps context_extractor.py
+ security-scan → wraps security_scan.py
+ audit → wraps audit.py
+ rollback → wraps rollback.py
+ scaffold → wraps scaffold.py
+ installer → wraps installer.py
+ registry → wraps registry.py
+ resolve-deps → wraps skill_parser.py --resolve-deps
+ │
+ ▼
+scripts/ (I/O workers - Python, no LLM)
+ context_extractor.py → reads project files, extracts ONLY tech keywords
+ hunter.py → queries GitHub API for SKILL.md + MCP configs
+ skill_parser.py → parses YAML frontmatter from SKILL.md files
+ security_scan.py → static + runtime security analysis
+ scorer.py → 4-signal relevance scoring + trust tiers
+ registry.py → local registry (~/.agent-hunter/registry.json)
+ reporter.py → terminal + markdown report output
+ audit.py → health check for installed skills
+ rollback.py → restore registry to last known good state
+ sandbox.py → subprocess/docker isolation for suspicious skills
+ scaffold.py → generate SKILL.md stubs for new skills
 ```
 
 **Data flow for `agent-hunter hunt`:**
 ```
 context_extractor → hunter → security_scan (per result) → scorer → reporter
-                       ↓
-                   registry (dedup + SHA store)
+ ↓
+ registry (dedup + SHA store)
 ```
 
 ---
@@ -53,40 +53,40 @@ context_extractor → hunter → security_scan (per result) → scorer → repor
 ## Current Implementation Status
 
 ### Fully implemented (do not rewrite unless fixing a bug)
-- `skill_parser.py` — complete
-- `context_extractor.py` — complete
-- `security_scan.py` — complete (10+ patterns, obfuscation detection, sandbox integration)
-- `scorer.py` — complete (install_log feedback loop, dormant detection)
-- `registry.py` — complete (SHA tracking, snapshot/restore)
-- `reporter.py` — complete (terminal rich table + markdown save)
-- `rollback.py` — complete
-- `sandbox.py` — complete (subprocess mode default; Docker opt-in when available)
-- `scaffold.py` — complete
-- `dep_resolver.py` — complete (v0.7.0 dependency conflict detection)
-- `mcp_parser.py` — complete (v0.5.0 MCP config parsing)
-- `typo_detect.py` — complete (v0.8.0 typo-squat detection)
-- `verify_sig.py` — complete (v0.8.0 cryptographic signature verification)
-- `update.py` — complete (v0.5.0 skill update command)
-- `release.py` — complete (v0.5.0 release helper)
-- **`scripts/main.py`** — the CLI entry point that wires all scripts together
-- **`bin/`** — all 11 bash wrappers complete (gstack model; Claude calls these directly)
-  - `bin/github-search` is pure bash/curl — no Python dependency
+- `skill_parser.py` - complete
+- `context_extractor.py` - complete
+- `security_scan.py` - complete (10+ patterns, obfuscation detection, sandbox integration)
+- `scorer.py` - complete (install_log feedback loop, dormant detection)
+- `registry.py` - complete (SHA tracking, snapshot/restore)
+- `reporter.py` - complete (terminal rich table + markdown save)
+- `rollback.py` - complete
+- `sandbox.py` - complete (subprocess mode default; Docker opt-in when available)
+- `scaffold.py` - complete
+- `dep_resolver.py` - complete (v0.7.0 dependency conflict detection)
+- `mcp_parser.py` - complete (v0.5.0 MCP config parsing)
+- `typo_detect.py` - complete (v0.8.0 typo-squat detection)
+- `verify_sig.py` - complete (v0.8.0 cryptographic signature verification)
+- `update.py` - complete (v0.5.0 skill update command)
+- `release.py` - complete (v0.5.0 release helper)
+- **`scripts/main.py`** - the CLI entry point that wires all scripts together
+- **`bin/`** - all 11 bash wrappers complete (gstack model; Claude calls these directly)
+ - `bin/github-search` is pure bash/curl - no Python dependency
 
 ---
 
 ## Coding Standards
 
-- **Python 3.10+** — use `match/case` only if it adds real clarity
+- **Python 3.10+** - use `match/case` only if it adds real clarity
 - **Type hints required** on all public functions and method signatures
 - **Docstrings required** (Google style) on all modules and public functions
-- **No bare `except:`** — catch specific exceptions, log them, handle gracefully
-- **Fail loudly, never silently** — partial results are worse than a clear error message
-- **Linter:** `ruff` — run `ruff check .` before committing
-- **Tests:** `pytest tests/` — add tests for any new behavior, not just happy paths
+- **No bare `except:`** - catch specific exceptions, log them, handle gracefully
+- **Fail loudly, never silently** - partial results are worse than a clear error message
+- **Linter:** `ruff` - run `ruff check .` before committing
+- **Tests:** `pytest tests/` - add tests for any new behavior, not just happy paths
 
 ---
 
-## Privacy constraint (non-negotiable — enforce in all context-reading code)
+## Privacy constraint (non-negotiable - enforce in all context-reading code)
 
 `context_extractor.py` may only transmit tech keyword signals from an explicit allowlist (framework names, library names). Never extract: file paths, variable names, function names, class names, commit message text, repo name, or any project-specific string.
 
@@ -128,7 +128,7 @@ All 854 tests must pass before any commit.
 
 1. **Scan → confirm → act flow.** After showing the hunt report, agent-hunter builds an action list (installs + disables) and asks the user ONCE to confirm. Then executes. See SKILL.md Steps 7–8.
 2. **Actions: install, disable, rollback.** `installer.py` handles all. Dangerous skills are DISABLED (reversible rename to `_name`), not deleted. Uninstall only if user explicitly requests.
-3. **Install scope: personal only.** Always `~/.claude/skills/` — never project-level `.claude/skills/`.
+3. **Install scope: personal only.** Always `~/.claude/skills/` - never project-level `.claude/skills/`.
 4. **Trust tiers.** Verified → Community → Raw. Raw GitHub results score 0.4 for trust.
 5. **SHA tracking.** `git_tree_sha` stored in registry at hunt time. Mismatch = tamper flag.
 6. **Rollback.** Pre-audit/update snapshot always written. `rollback.py` restores registry. `installer.py rollback_to_sha` restores actual skill files.
@@ -156,7 +156,7 @@ Do not start post-v1.0.0 feature work until the v1.0.0-alpha UX is verified on r
 - Repo metadata: `GET /repos/{owner}/{repo}`
 - Raw content: `https://raw.githubusercontent.com/{owner}/{repo}/{branch}/SKILL.md`
 - Auth header: `Authorization: Bearer <GITHUB_TOKEN>`
-- Rate limit: **authentication required** — GitHub Code Search requires a token since Feb 2024; unauthenticated requests return 401
+- Rate limit: **authentication required** - GitHub Code Search requires a token since Feb 2024; unauthenticated requests return 401
 - `hunter.py` probes `/rate_limit` first (`_check_auth()`) and surfaces a clear error with token URL on 401
 - On 429: exponential backoff (1s, 2s, 4s). After 3 retries → fail with message.
 - Response: `{"items": [{"repository": {"stargazers_count": N, ...}, "html_url": "...", ...}]}`

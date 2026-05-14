@@ -432,10 +432,10 @@ This is the single workflow that must become excellent:
 4. `agent-hunter` reads repo signals.
 5. It returns top 3 recommendations.
 6. Each recommendation has:
-   - name
-   - trust state
-   - install command
-   - one precise reason
+ - name
+ - trust state
+ - install command
+ - one precise reason
 7. Unsafe results are blocked quietly and clearly counted.
 8. User installs one result immediately.
 

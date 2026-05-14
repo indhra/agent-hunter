@@ -29,7 +29,7 @@ assignees: ''
 
 ## Relevant ROADMAP milestone
 
-<!-- Check ROADMAP.md — is this already planned? If so, which version? -->
+<!-- Check ROADMAP.md - is this already planned? If so, which version? -->
 
 ## Additional context
 

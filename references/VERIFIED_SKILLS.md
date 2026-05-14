@@ -9,7 +9,7 @@ Community-curated list of skills that have been manually reviewed, security-scan
 **What "verified" means:**
 - Full SKILL.md was read (not just the description)
 - Repo history checked for sudden ownership changes
-- security_scan.py returned 🟢 (no RED flags)
+- security_scan.py returned [SAFE] (no RED flags)
 - Reviewed by someone who is NOT the skill's author
 - Skill was tested in a real project
 - Entry is cryptographically signed by maintainer
@@ -24,10 +24,10 @@ Verified skills are stored as a JSON array with cryptographic signatures. Each e
 
 ```json
 {
-  "name": "skill-name",
-  "repo_url": "https://github.com/owner/repo",
-  "verified_at": "2026-05-09T00:00:00Z",
-  "signature": "signer-id:hexdigest"
+ "name": "skill-name",
+ "repo_url": "https://github.com/owner/repo",
+ "verified_at": "2026-05-09T00:00:00Z",
+ "signature": "signer-id:hexdigest"
 }
 ```
 
@@ -39,24 +39,24 @@ The signature is computed as `HMAC-SHA256({name, repo_url, verified_at}, signer_
 
 ```json
 [
-  {
-    "name": "skill-deploy",
-    "repo_url": "https://github.com/indhra/skill-deploy",
-    "verified_at": "2026-05-09T00:00:00Z",
-    "signature": "indhra:d3e923da62c022df70bfa30ee5584d02638178d187c02df24ec56e859dc9e805"
-  },
-  {
-    "name": "autoplan",
-    "repo_url": "https://github.com/indhra/autoplan",
-    "verified_at": "2026-05-09T00:00:00Z",
-    "signature": "indhra:c4b847f70ffbed1fe174e1027eaedd79eec8cf8f83c160d0498a271ce48f43a9"
-  },
-  {
-    "name": "security-audit",
-    "repo_url": "https://github.com/indhra/security-audit",
-    "verified_at": "2026-05-09T00:00:00Z",
-    "signature": "indhra:45ab9bd43bd67516b09e3f73de4c6911aff8027d0868dc7a269ea63c72af1082"
-  }
+ {
+ "name": "skill-deploy",
+ "repo_url": "https://github.com/indhra/skill-deploy",
+ "verified_at": "2026-05-09T00:00:00Z",
+ "signature": "indhra:d3e923da62c022df70bfa30ee5584d02638178d187c02df24ec56e859dc9e805"
+ },
+ {
+ "name": "autoplan",
+ "repo_url": "https://github.com/indhra/autoplan",
+ "verified_at": "2026-05-09T00:00:00Z",
+ "signature": "indhra:c4b847f70ffbed1fe174e1027eaedd79eec8cf8f83c160d0498a271ce48f43a9"
+ },
+ {
+ "name": "security-audit",
+ "repo_url": "https://github.com/indhra/security-audit",
+ "verified_at": "2026-05-09T00:00:00Z",
+ "signature": "indhra:45ab9bd43bd67516b09e3f73de4c6911aff8027d0868dc7a269ea63c72af1082"
+ }
 ]
 ```
 

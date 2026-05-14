@@ -5,11 +5,11 @@ version: "1.2.0"
 license: "MIT"
 author: "example-author"
 compatibility:
-  claude: ">=1.0.0"
+ claude: ">=1.0.0"
 triggers:
-  - "run database migration"
-  - "create alembic migration"
-  - "apply database schema changes"
+ - "run database migration"
+ - "create alembic migration"
+ - "apply database schema changes"
 mcp_dependencies: []
 ---
 

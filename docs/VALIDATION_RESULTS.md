@@ -1,8 +1,8 @@
-# Real-World Validation Results — v1.0.0-alpha
+# Real-World Validation Results - v1.0.0-alpha
 
 **Test Date:** May 9, 2026
 **Tester:** GitHub Copilot (automated testing)
-**Status:** ⚠️ **CRITICAL BUGS FOUND** — Cannot proceed to stable release
+**Status:** ⚠️ **CRITICAL BUGS FOUND** - Cannot proceed to stable release
 
 ---
 
@@ -38,18 +38,18 @@ agent-hunter hunt .
 **Test Case 1: FastAPI Backend**
 - **Expected:** FastAPI patterns, async Python, API development skills
 - **Actual Results:**
-  1. `@cyanheads/mcp-ts-core` (TypeScript MCP framework) ❌
-  2. `@delorenj/mcp-server-trello` (Trello integration) ❌
-  3. `is-bun-module` (Bun runtime checker) ❌
-- **Relevance Rate:** 0/3 (0%) — FAIL
+ 1. `@cyanheads/mcp-ts-core` (TypeScript MCP framework) [NO]
+ 2. `@delorenj/mcp-server-trello` (Trello integration) [NO]
+ 3. `is-bun-module` (Bun runtime checker) [NO]
+- **Relevance Rate:** 0/3 (0%) - FAIL
 
 **Test Case 2: Django REST Framework**
 - **Expected:** Django patterns, DRF, ORM, REST API skills
 - **Actual Results:**
-  1. `@cspell/dict-django` (spell checker dictionary) ❌
-  2. `storybook-django` (UI component docs) ⚠️ (marginal)
-  3. `figma-mcp` (Figma design tool) ❌
-- **Relevance Rate:** 0/3 (0%) — FAIL
+ 1. `@cspell/dict-django` (spell checker dictionary) [NO]
+ 2. `storybook-django` (UI component docs) ⚠️ (marginal)
+ 3. `figma-mcp` (Figma design tool) [NO]
+- **Relevance Rate:** 0/3 (0%) - FAIL
 
 **Root Cause:** Scoring algorithm matches on TECH KEYWORDS ONLY (e.g., "bun", "django") but doesn't understand CONTEXT. A Django spell checker dictionary != Django backend development patterns.
 
@@ -67,7 +67,7 @@ agent-hunter hunt .
 
 **Error:**
 ```
-[agent-hunter] Note: GITHUB_TOKEN not set — using unauthenticated rate limit (60/hr).
+[agent-hunter] Note: GITHUB_TOKEN not set - using unauthenticated rate limit (60/hr).
 [agent-hunter] GitHub API error 401 for query: filename:SKILL.md django
 ```
 
@@ -89,24 +89,24 @@ agent-hunter hunt .
 ### Test Coverage
 | Repo Type | Status | Relevance | Notes |
 |-----------|--------|-----------|-------|
-| FastAPI Backend | ❌ FAIL | 0/3 (0%) | Bug #1 blocks install; Bug #2 shows irrelevant results |
-| Django REST | ❌ FAIL | 0/3 (0%) | Same issues as FastAPI |
-| React TypeScript | ⏸️ SKIPPED | — | Blocked by critical bugs |
-| Vue.js SPA | ⏸️ SKIPPED | — | Blocked by critical bugs |
-| Rails App | ⏸️ SKIPPED | — | Blocked by critical bugs |
-| Go Microservice | ⏸️ SKIPPED | — | Blocked by critical bugs |
-| Rust CLI | ⏸️ SKIPPED | — | Blocked by critical bugs |
-| Next.js | ⏸️ SKIPPED | — | Blocked by critical bugs |
-| Elixir Phoenix | ⏸️ SKIPPED | — | Blocked by critical bugs |
-| Data Science | ⏸️ SKIPPED | — | Blocked by critical bugs |
+| FastAPI Backend | [NO] FAIL | 0/3 (0%) | Bug #1 blocks install; Bug #2 shows irrelevant results |
+| Django REST | [NO] FAIL | 0/3 (0%) | Same issues as FastAPI |
+| React TypeScript | ⏸️ SKIPPED | - | Blocked by critical bugs |
+| Vue.js SPA | ⏸️ SKIPPED | - | Blocked by critical bugs |
+| Rails App | ⏸️ SKIPPED | - | Blocked by critical bugs |
+| Go Microservice | ⏸️ SKIPPED | - | Blocked by critical bugs |
+| Rust CLI | ⏸️ SKIPPED | - | Blocked by critical bugs |
+| Next.js | ⏸️ SKIPPED | - | Blocked by critical bugs |
+| Elixir Phoenix | ⏸️ SKIPPED | - | Blocked by critical bugs |
+| Data Science | ⏸️ SKIPPED | - | Blocked by critical bugs |
 
-**Overall Relevance:** 0/6 (0%) — Target was ≥80%
+**Overall Relevance:** 0/6 (0%) - Target was ≥80%
 
 **Decision:** **CANNOT PROCEED TO v1.0.0 STABLE**
 
 ---
 
-## 🎯 Root Cause Analysis
+## Root Cause Analysis
 
 ### Why Relevance Failed
 
@@ -121,13 +121,13 @@ agent-hunter hunt .
 
 **What's missing:**
 1. **Intent/domain matching** was removed in Week 2 simplification (folded into stack_match)
-2. **Curated verified skills** — `references/VERIFIED_SKILLS.md` exists but is likely empty
-3. **Natural language descriptions** — skills need "I help you build REST APIs" not just "uses FastAPI"
-4. **Quality signal** — stars/recency/trust don't measure "does this solve my problem?"
+2. **Curated verified skills** - `references/VERIFIED_SKILLS.md` exists but is likely empty
+3. **Natural language descriptions** - skills need "I help you build REST APIs" not just "uses FastAPI"
+4. **Quality signal** - stars/recency/trust don't measure "does this solve my problem?"
 
 ---
 
-## 💡 Recommendations
+## Recommendations
 
 ### Option A: Quick Fix (Curated Index Only)
 **Time:** 2-3 hours
@@ -193,7 +193,7 @@ agent-hunter hunt .
 **NO.** Installation is broken (Bug #1). Recommendations are useless (Bug #2).
 
 ### Can we ship v1.0.0 this week?
-**YES, if we choose Option A or C** — disable GitHub search, use curated index only.
+**YES, if we choose Option A or C** - disable GitHub search, use curated index only.
 
 ### What needs to happen before v1.0.0?
 **MUST FIX:**
@@ -212,9 +212,9 @@ agent-hunter hunt .
 ## 📝 Next Steps
 
 ### Immediate (Today)
-1. ⏸️ **PAUSE v1.0.0 release** — critical bugs block stable release
+1. ⏸️ **PAUSE v1.0.0 release** - critical bugs block stable release
 2. 📋 **Decide on approach:** Option A, B, or C
-3. 🐛 **Fix Bug #1** (skill name extraction) — takes 30 minutes
+3. [Issue] **Fix Bug #1** (skill name extraction) - takes 30 minutes
 4. 📄 **Document decision** in ROADMAP.md
 
 ### Short-term (This Week)
@@ -228,17 +228,17 @@ agent-hunter hunt .
 
 ---
 
-## 🎓 Lessons Learned
+## Lessons Learned
 
-1. **Simplification has limits** — Removing intent/domain matching in Week 2 went too far
-2. **Keyword matching ≠ relevance** — Need semantic understanding of skill PURPOSE
-3. **Curated > Algorithmic for v1.0** — Better to ship small but high-quality
-4. **Test on real repos** — Internal tests passed but real-world usage revealed critical gaps
-5. **GitHub API changed** — External dependencies require monitoring (Feb 2024 auth requirement)
+1. **Simplification has limits** - Removing intent/domain matching in Week 2 went too far
+2. **Keyword matching ≠ relevance** - Need semantic understanding of skill PURPOSE
+3. **Curated > Algorithmic for v1.0** - Better to ship small but high-quality
+4. **Test on real repos** - Internal tests passed but real-world usage revealed critical gaps
+5. **GitHub API changed** - External dependencies require monitoring (Feb 2024 auth requirement)
 
 ---
 
-## ✅ Validation Checklist
+## [YES] Validation Checklist
 
 - [x] Test on FastAPI backend → FAILED (0% relevance)
 - [x] Test on Django REST → FAILED (0% relevance)

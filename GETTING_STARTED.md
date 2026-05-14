@@ -1,21 +1,14 @@
-# Getting Started with agent-hunter
+# Getting Started
 
-Welcome! This guide will help you install and use agent-hunter, the **first skill you should install after Claude Code**.
+This guide covers installation and usage of agent-hunter.
 
 ---
 
-## Why agent-hunter?
+## Overview
 
-**The problem:** You waste time rebuilding skills that already exist. The SKILL.md ecosystem has 5,000+ skills, but:
-- ❌ Nobody knows they exist (no good discovery)
-- ❌ Nobody knows if they're safe (no security vetting)
-- ❌ Nobody knows which ones fit your project (no context awareness)
+agent-hunter reads your project, searches for relevant skills, security-scans results, and shows the top 3 matches.
 
-**The solution:** agent-hunter.
-
-It reads your project, searches GitHub for relevant skills, security-scans every result, and shows you the **top 3** best matches.
-
-**In 30 seconds:** You know what exists, what's safe, and what to install.
+Time to results: under 30 seconds.
 
 ---
 
@@ -94,32 +87,28 @@ agent-hunter hunt .
 When you run `/agent-hunter`:
 
 ```
-📍 Found: FastAPI, PostgreSQL, pytest, Docker
+Found: FastAPI, PostgreSQL, pytest, Docker
 
 Top 3 recommendations:
 
-1. 🟢 fastapi-backend-testing
-   Safe to install.
-   Why: Your repo uses FastAPI, pytest, and Docker. This skill targets
-   backend test and deployment workflows directly.
+1. [SAFE] fastapi-backend-testing
+ Your repo uses FastAPI, pytest, and Docker. Provides test and
+ deployment workflow helpers.
 
-2. 🟢 postgres-mcp-server
-   Safe to install.
-   Why: Your project connects to PostgreSQL. This MCP gives Claude direct
-   database query and schema inspection tools.
+2. [SAFE] postgres-mcp-server
+ PostgreSQL detected. Provides database query and schema tools.
 
-3. 🟡 api-security-scanner
-   Review before installing.
-   Why: Useful for REST API security audits, but flagged for filesystem
-   access patterns. Review SKILL.md before proceeding.
+3. [REVIEW] api-security-scanner
+ REST API security audits. Flagged for filesystem access.
+ Review SKILL.md before installing.
 
-🔴 2 results blocked (security scan)
+Blocked (security): 2 results
 ```
 
-**Reading the results:**
-- 🟢 **Safe to install** — No security issues detected
-- 🟡 **Review before installing** — Minor flags (usually safe, but review first)
-- 🔴 **Blocked** — Failed security scan, not shown (we protect you automatically)
+Status meanings:
+- [SAFE] - No security issues
+- [REVIEW] - Minor flags, requires review
+- [BLOCKED] - Failed security scan, not shown
 
 ---
 
@@ -140,7 +129,7 @@ Then restart Claude Code and the new skill will be available.
 
 ## Brownfield Projects (Existing Codebases)
 
-**agent-hunter is for any project—new or existing.**
+**agent-hunter is for any project-new or existing.**
 
 If you have an existing codebase, run agent-hunter to discover skills that enhance your current work:
 
@@ -172,11 +161,11 @@ export AGENT_HUNTER_AUTO=1
 
 Add this line to your `~/.zshrc` or `~/.bash_profile` to make it permanent.
 
-**With proactive mode enabled:**
-- ✅ When you open a new project in Claude Code, agent-hunter runs automatically
-- ✅ Top 3 skills appear without you needing to ask
-- ✅ One hunt per session per project (prevents redundant runs)
-- ✅ You can still explicitly run `/agent-hunter` anytime
+With proactive mode enabled:
+- Runs automatically when opening a new project
+- Shows top 3 skills without requiring explicit request
+- One hunt per session per project
+- Can still run `/agent-hunter` manually anytime
 
 ---
 
@@ -194,7 +183,7 @@ Generate a token at https://github.com/settings/tokens (no scopes needed).
 
 **Coverage:**
 - **Without token**: ~100 verified skills (curated index) + web search
-- **With token**: All 3 tiers — verified + GitHub search + web search
+- **With token**: All 3 tiers - verified + GitHub search + web search
 
 ---
 
@@ -235,7 +224,7 @@ ls ~/.claude/skills/agent-hunter/
 **Check 2:** Reload your shell
 
 ```bash
-source ~/.zshrc  # or ~/.bash_profile
+source ~/.zshrc # or ~/.bash_profile
 ```
 
 **Check 3:** Verify `~/.local/bin` is in PATH
@@ -255,19 +244,19 @@ source ~/.zshrc
 
 **Possible reasons:**
 
-1. **GitHub rate limit hit** — GitHub API resets every hour
-   - Set `GITHUB_TOKEN` for higher quota
-   - Or try again in an hour
+1. **GitHub rate limit hit** - GitHub API resets every hour
+ - Set `GITHUB_TOKEN` for higher quota
+ - Or try again in an hour
 
-2. **Your stack is very niche** — Less likely to have existing skills
-   - Check the detected tech stack
-   - Try again and agent-hunter will offer web search for broader discovery
+2. **Your stack is very niche** - Less likely to have existing skills
+ - Check the detected tech stack
+ - Try again and agent-hunter will offer web search for broader discovery
 
-3. **Detection missed your stack** — Tech keywords weren't detected correctly
-   - Check what was detected in the output
-   - File an issue on GitHub if detection is wrong
+3. **Detection missed your stack** - Tech keywords weren't detected correctly
+ - Check what was detected in the output
+ - File an issue on GitHub if detection is wrong
 
-### Security warning on a skill (🟡)
+### Security warning on a skill ([REVIEW])
 
 Yellow flags usually indicate minor patterns like:
 - Filesystem access (common for file manipulation skills)
@@ -283,22 +272,23 @@ Yellow flags usually indicate minor patterns like:
 
 ## Privacy & Security
 
-✅ **What we collect:**
+Collected:
 - Framework names (FastAPI, React, Django)
 - Library names (pytest, numpy, tailwindcss)
 - Tool names (Docker, PostgreSQL, Redis)
 
-❌ **What we never collect:**
+Not collected:
 - File paths
-- Variable names or function names
+- Variable or function names
 - Code content
 - Project names
 - Commit messages
-- Any secrets or sensitive data
+- Secrets or sensitive data
 
-✅ **All results are security-scanned** before showing
-✅ **RED results are blocked entirely** — you never see risky skills
-✅ **Zero telemetry** — no data sent to any server
+Security measures:
+- All results scanned before showing
+- Failed scans (RED) blocked entirely
+- No telemetry sent
 
 ---
 
@@ -325,12 +315,12 @@ Yellow flags usually indicate minor patterns like:
 
 ## Questions or Issues?
 
-- 🐛 **Found a bug?** [GitHub Issues](https://github.com/indhra/agent-hunter/issues)
+- [Issue] **Found a bug?** [GitHub Issues](https://github.com/indhra/agent-hunter/issues)
 - 💬 **Have a question?** [GitHub Discussions](https://github.com/indhra/agent-hunter/discussions)
-- 🚀 **Want to contribute?** See [CONTRIBUTING.md](./CONTRIBUTING.md)
+- **Want to contribute?** See [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ---
 
-**Built to save time and block the bad stuff.**
+****
 
-Happy hunting! 🚀
+Happy hunting!

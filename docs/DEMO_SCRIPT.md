@@ -21,7 +21,7 @@ cd ~/projects/sample-fastapi-app
 
 # Verify project structure
 ls
-# Output: main.py  requirements.txt  models/  routes/  tests/
+# Output: main.py requirements.txt models/ routes/ tests/
 ```
 
 **Demo:**
@@ -34,53 +34,53 @@ python /path/to/agent-hunter/scripts/main.py hunt .
 **Expected output:**
 
 ```
-🔍 Analyzing your project...
-   Tech stack: FastAPI, PostgreSQL, Pydantic, SQLAlchemy, pytest
-   Searching GitHub for relevant skills...
+ Analyzing your project...
+ Tech stack: FastAPI, PostgreSQL, Pydantic, SQLAlchemy, pytest
+ Searching GitHub for relevant skills...
 
 Top 3 Skills for Your Project:
 
 1. fastapi-expert (95/100)
-   📦 github.com/awesome-skills/fastapi-expert
-   ✅ Verified • 234 ⭐ • Updated 2 days ago
+ 📦 github.com/awesome-skills/fastapi-expert
+ [YES] Verified • 234 ⭐ • Updated 2 days ago
 
-   Expert patterns for FastAPI development: dependency injection,
-   background tasks, WebSocket support, testing strategies.
+ Expert patterns for FastAPI development: dependency injection,
+ background tasks, WebSocket support, testing strategies.
 
-   Perfect match: FastAPI (40 points) + PostgreSQL (25 points) + pytest (15 points)
+ Perfect match: FastAPI (40 points) + PostgreSQL (25 points) + pytest (15 points)
 
 2. api-testing-suite (87/100)
-   📦 github.com/testing/api-suite
-   🟢 Community • 156 ⭐ • Updated 1 week ago
+ 📦 github.com/testing/api-suite
+ [SAFE] Community • 156 ⭐ • Updated 1 week ago
 
-   Comprehensive API testing patterns: integration tests, contract
-   testing, performance benchmarks, mock strategies.
+ Comprehensive API testing patterns: integration tests, contract
+ testing, performance benchmarks, mock strategies.
 
-   Strong match: FastAPI (35 points) + pytest (20 points)
+ Strong match: FastAPI (35 points) + pytest (20 points)
 
 3. database-migration-helper (82/100)
-   📦 github.com/data/migrations
-   🟢 Community • 89 ⭐ • Updated 3 weeks ago
+ 📦 github.com/data/migrations
+ [SAFE] Community • 89 ⭐ • Updated 3 weeks ago
 
-   Database migration patterns for Alembic and SQLAlchemy: version
-   control, rollback strategies, seed data management.
+ Database migration patterns for Alembic and SQLAlchemy: version
+ control, rollback strategies, seed data management.
 
-   Good match: PostgreSQL (30 points) + SQLAlchemy (25 points)
+ Good match: PostgreSQL (30 points) + SQLAlchemy (25 points)
 
-Security scan complete: 0 🔴 dangerous, 2 🟡 warnings, 28 🟢 clean
+Security scan complete: 0 [BLOCKED] dangerous, 2 [REVIEW] warnings, 28 [SAFE] clean
 
 Would you like to install these skills? [y/N]: y
 
-✅ Installed: fastapi-expert
-✅ Installed: api-testing-suite
-✅ Installed: database-migration-helper
+[YES] Installed: fastapi-expert
+[YES] Installed: api-testing-suite
+[YES] Installed: database-migration-helper
 
 Skills installed to: ~/.claude/skills/
 ```
 
 **Talking points:**
 - Notice the **scoring breakdown** - stack match is 40% of total score
-- **Trust tiers** - Verified (✅) vs Community (🟢) vs Raw
+- **Trust tiers** - Verified ([YES]) vs Community ([SAFE]) vs Raw
 - **Recency signals** - "Updated 2 days ago" gets priority
 - **Security scanning** - 0 dangerous skills shown, 2 warnings flagged
 - **Top 3 only** - Not overwhelming with 50 options
@@ -101,31 +101,31 @@ python /path/to/agent-hunter/scripts/main.py audit
 **Expected output:**
 
 ```
-🔍 Auditing installed skills...
-   Pre-audit snapshot: ~/.agent-hunter/backups/pre-audit-2026-05-09-14-23-15.json
+ Auditing installed skills...
+ Pre-audit snapshot: ~/.agent-hunter/backups/pre-audit-2026-05-09-14-23-15.json
 
 Installed Skills Health Check:
 
 ┌─────────────────────────┬────────┬──────────────┬─────────────────┐
-│ Skill                   │ Status │ Last Updated │ Notes           │
+│ Skill │ Status │ Last Updated │ Notes │
 ├─────────────────────────┼────────┼──────────────┼─────────────────┤
-│ fastapi-expert          │ ✅ OK  │ 2 days ago   │ SHA verified    │
-│ api-testing-suite       │ 🟡 Old │ 1 week ago   │ Update available│
-│ database-migration-help │ ✅ OK  │ 3 weeks ago  │ SHA verified    │
+│ fastapi-expert │ [YES] OK │ 2 days ago │ SHA verified │
+│ api-testing-suite │ [REVIEW] Old │ 1 week ago │ Update available│
+│ database-migration-help │ [YES] OK │ 3 weeks ago │ SHA verified │
 └─────────────────────────┴────────┴──────────────┴─────────────────┘
 
 📊 Summary:
-   2 healthy, 1 update available, 0 tampered, 0 security issues
+ 2 healthy, 1 update available, 0 tampered, 0 security issues
 
-🟡 api-testing-suite has an update available:
-   Current: v1.2.3 (commit abc1234)
-   Latest:  v1.3.0 (commit def5678)
-   Changelog: Added contract testing support
+[REVIEW] api-testing-suite has an update available:
+ Current: v1.2.3 (commit abc1234)
+ Latest: v1.3.0 (commit def5678)
+ Changelog: Added contract testing support
 
 Would you like to update api-testing-suite? [y/N]: y
 
-✅ Updated: api-testing-suite (v1.2.3 → v1.3.0)
-   SHA verified, security scan passed
+[YES] Updated: api-testing-suite (v1.2.3 → v1.3.0)
+ SHA verified, security scan passed
 ```
 
 **Talking points:**
@@ -151,31 +151,31 @@ python /path/to/agent-hunter/scripts/main.py rollback
 **Expected output:**
 
 ```
-🔍 Available rollback points:
+ Available rollback points:
 
-1. pre-audit-2026-05-09-14-23-15  (5 minutes ago)
-   Before: Updated api-testing-suite
+1. pre-audit-2026-05-09-14-23-15 (5 minutes ago)
+ Before: Updated api-testing-suite
 
-2. pre-audit-2026-05-08-10-15-42  (1 day ago)
-   Before: Installed 3 skills
+2. pre-audit-2026-05-08-10-15-42 (1 day ago)
+ Before: Installed 3 skills
 
-3. pre-audit-2026-05-07-16-30-21  (2 days ago)
-   Before: Initial setup
+3. pre-audit-2026-05-07-16-30-21 (2 days ago)
+ Before: Initial setup
 
 Select snapshot to restore [1-3]: 1
 
 📋 Rollback preview:
-   api-testing-suite: v1.3.0 → v1.2.3 (revert update)
+ api-testing-suite: v1.3.0 → v1.2.3 (revert update)
 
 This will restore your registry to the state before the last audit.
 Proceed? [y/N]: y
 
 🔄 Rolling back...
-   ✅ Registry restored
-   ✅ api-testing-suite: Reset to commit abc1234 (v1.2.3)
+ [YES] Registry restored
+ [YES] api-testing-suite: Reset to commit abc1234 (v1.2.3)
 
-✅ Rollback complete!
-   Your skills are now in the same state as 5 minutes ago.
+[YES] Rollback complete!
+ Your skills are now in the same state as 5 minutes ago.
 ```
 
 **Talking points:**
@@ -219,10 +219,10 @@ app = FastAPI()
 
 @app.get("/")
 def read_root():
-    return {"Hello": "World"}
+ return {"Hello": "World"}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+ uvicorn.run(app, host="0.0.0.0", port=8000)
 PYTHON
 
 cat > requirements.txt << 'TXT'
@@ -243,11 +243,11 @@ from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 
 class User(Base):
-    __tablename__ = "users"
+ __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String)
-    email = Column(String, unique=True)
+ id = Column(Integer, primary_key=True)
+ name = Column(String)
+ email = Column(String, unique=True)
 PYTHON
 ```
 
@@ -257,7 +257,7 @@ PYTHON
 
 ### Opening (15 seconds)
 
-> "Hi, I'm [name]. Today I'll show you agent-hunter — a package manager for Claude Code skills. Instead of building everything from scratch, let's find what already exists."
+> "Hi, I'm [name]. Today I'll show you agent-hunter - a package manager for Claude Code skills. Instead of building everything from scratch, let's find what already exists."
 
 ### Hunt Demo (90 seconds)
 
@@ -265,7 +265,7 @@ PYTHON
 >
 > [Run command, wait for output]
 >
-> "Notice it detected my tech stack automatically — FastAPI, PostgreSQL, Pydantic. And it found three relevant skills."
+> "Notice it detected my tech stack automatically - FastAPI, PostgreSQL, Pydantic. And it found three relevant skills."
 >
 > [Point to results]
 >
@@ -273,7 +273,7 @@ PYTHON
 >
 > [Point to security scan]
 >
-> "Security scan ran automatically — 0 dangerous skills, 2 warnings. Safe to install."
+> "Security scan ran automatically - 0 dangerous skills, 2 warnings. Safe to install."
 >
 > [Confirm installation]
 >
@@ -285,7 +285,7 @@ PYTHON
 >
 > [Run audit command]
 >
-> "agent-hunter created a pre-audit snapshot first — that's my rollback point if something goes wrong."
+> "agent-hunter created a pre-audit snapshot first - that's my rollback point if something goes wrong."
 >
 > [Point to health table]
 >
@@ -313,7 +313,7 @@ PYTHON
 
 ### Closing (15 seconds)
 
-> "That's agent-hunter: hunt for the best skills, audit them regularly, rollback if needed. Three commands, focused on the core value — finding skills you don't have to build yourself."
+> "That's agent-hunter: hunt for the best skills, audit them regularly, rollback if needed. Three commands, focused on the core value - finding skills you don't have to build yourself."
 >
 > "Try it out at github.com/indhra/agent-hunter. Thanks for watching!"
 
@@ -368,7 +368,7 @@ PYTHON
 
 ---
 
-## 🚀 Variations for Different Audiences
+## Variations for Different Audiences
 
 ### For Developers
 
@@ -396,7 +396,7 @@ Focus on:
 
 ---
 
-## ✅ Success Criteria
+## [YES] Success Criteria
 
 Demo is successful if viewers:
 

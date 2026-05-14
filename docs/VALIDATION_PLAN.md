@@ -58,31 +58,31 @@
 
 ---
 
-## 🎯 Validation Metrics
+## Validation Metrics
 
 ### Per-Repository Checks
 
 For each repository, measure:
 
 1. **Relevance Score (0-10)**
-   - How relevant are the top 3 recommendations?
-   - Do they match the tech stack?
-   - Would a developer actually use them?
+ - How relevant are the top 3 recommendations?
+ - Do they match the tech stack?
+ - Would a developer actually use them?
 
 2. **Performance**
-   - Total hunt time (target: <30 seconds)
-   - Number of GitHub API calls
-   - Cache hit rate
+ - Total hunt time (target: <30 seconds)
+ - Number of GitHub API calls
+ - Cache hit rate
 
 3. **Security Flags**
-   - Number of RED results filtered
-   - Number of YELLOW warnings
-   - False positive rate
+ - Number of RED results filtered
+ - Number of YELLOW warnings
+ - False positive rate
 
 4. **Ranking Quality**
-   - Is #1 actually the best match?
-   - Are there better skills ranked lower?
-   - Position-aware relevance (top 3 get most attention)
+ - Is #1 actually the best match?
+ - Are there better skills ranked lower?
+ - Position-aware relevance (top 3 get most attention)
 
 ### Aggregate Metrics
 
@@ -102,43 +102,43 @@ For each test run, record:
 
 ```json
 {
-  "repo_name": "example-fastapi-app",
-  "repo_type": "Python FastAPI Backend",
-  "tech_stack": ["FastAPI", "PostgreSQL", "Redis", "Pydantic"],
-  "hunt_time_sec": 12.4,
-  "recommendations": [
-    {
-      "rank": 1,
-      "name": "fastapi-expert",
-      "score": 95,
-      "relevance": 10,
-      "would_use": true,
-      "notes": "Perfect match, exactly what I needed"
-    },
-    {
-      "rank": 2,
-      "name": "api-testing-suite",
-      "score": 87,
-      "relevance": 8,
-      "would_use": true,
-      "notes": "Useful for API testing patterns"
-    },
-    {
-      "rank": 3,
-      "name": "docker-compose-helper",
-      "score": 82,
-      "relevance": 6,
-      "would_use": false,
-      "notes": "Not specific to FastAPI, generic Docker help"
-    }
-  ],
-  "security_flags": {
-    "red": 2,
-    "yellow": 5,
-    "green": 23
-  },
-  "github_api_calls": 15,
-  "overall_quality": 8.0
+ "repo_name": "example-fastapi-app",
+ "repo_type": "Python FastAPI Backend",
+ "tech_stack": ["FastAPI", "PostgreSQL", "Redis", "Pydantic"],
+ "hunt_time_sec": 12.4,
+ "recommendations": [
+ {
+ "rank": 1,
+ "name": "fastapi-expert",
+ "score": 95,
+ "relevance": 10,
+ "would_use": true,
+ "notes": "Perfect match, exactly what I needed"
+ },
+ {
+ "rank": 2,
+ "name": "api-testing-suite",
+ "score": 87,
+ "relevance": 8,
+ "would_use": true,
+ "notes": "Useful for API testing patterns"
+ },
+ {
+ "rank": 3,
+ "name": "docker-compose-helper",
+ "score": 82,
+ "relevance": 6,
+ "would_use": false,
+ "notes": "Not specific to FastAPI, generic Docker help"
+ }
+ ],
+ "security_flags": {
+ "red": 2,
+ "yellow": 5,
+ "green": 23
+ },
+ "github_api_calls": 15,
+ "overall_quality": 8.0
 }
 ```
 
@@ -149,19 +149,19 @@ For each test run, record:
 ### Preparation
 
 1. **Clear cache** between runs to simulate fresh installs:
-   ```bash
-   rm -rf ~/.agent-hunter/cache
-   ```
+ ```bash
+ rm -rf ~/.agent-hunter/cache
+ ```
 
 2. **Set GitHub token** for consistent rate limits:
-   ```bash
-   export GITHUB_TOKEN="ghp_your_token_here"
-   ```
+ ```bash
+ export GITHUB_TOKEN="ghp_your_token_here"
+ ```
 
 3. **Enable timing output** for performance measurement:
-   ```bash
-   export AGENT_HUNTER_TIMING=1
-   ```
+ ```bash
+ export AGENT_HUNTER_TIMING=1
+ ```
 
 ### Execution
 
@@ -186,19 +186,19 @@ time python /path/to/agent-hunter/scripts/main.py hunt . > hunt_output.txt
 After collecting all 10 data points:
 
 1. **Calculate aggregate metrics**
-   ```bash
-   python scripts/analyze_validation.py validation_results.json
-   ```
+ ```bash
+ python scripts/analyze_validation.py validation_results.json
+ ```
 
 2. **Identify patterns**
-   - Which repo types get the best recommendations?
-   - Which scoring signals matter most?
-   - Are there false positives/negatives?
+ - Which repo types get the best recommendations?
+ - Which scoring signals matter most?
+ - Are there false positives/negatives?
 
 3. **Tune weights if needed**
-   - Adjust `config/defaults.json` scoring weights
-   - Re-run validation to verify improvements
-   - Document weight changes with rationale
+ - Adjust `config/defaults.json` scoring weights
+ - Re-run validation to verify improvements
+ - Document weight changes with rationale
 
 ---
 
@@ -207,10 +207,10 @@ After collecting all 10 data points:
 ### Current Weights (v1.0.0-alpha)
 
 ```python
-stack_match: 0.40  # Technical fit
-trust_score: 0.30  # Trust tier
-recency: 0.15      # Recent activity
-stars: 0.15        # Popularity
+stack_match: 0.40 # Technical fit
+trust_score: 0.30 # Trust tier
+recency: 0.15 # Recent activity
+stars: 0.15 # Popularity
 ```
 
 ### Tuning Scenarios
@@ -255,11 +255,11 @@ stars: 0.15        # Popularity
 
 ### Success Criteria for v1.0.0 Launch
 
-- ✅ Average relevance score ≥8.0/10
-- ✅ Average hunt time <30 seconds
-- ✅ 0 critical bugs found
-- ✅ Security scanning working (no false negatives)
-- ✅ All 10 repo types get relevant recommendations
+- [YES] Average relevance score ≥8.0/10
+- [YES] Average hunt time <30 seconds
+- [YES] 0 critical bugs found
+- [YES] Security scanning working (no false negatives)
+- [YES] All 10 repo types get relevant recommendations
 
 If criteria not met → fix issues → re-validate → repeat.
 
@@ -293,23 +293,23 @@ If criteria not met → fix issues → re-validate → repeat.
 
 | Metric | Target | Actual | Status |
 |--------|--------|--------|--------|
-| Avg relevance | ≥8.0/10 | 8.4/10 | ✅ |
-| Avg hunt time | <30s | 14.2s | ✅ |
-| False positives | <5% | 2.1% | ✅ |
-| Coverage | 100% | 100% | ✅ |
+| Avg relevance | ≥8.0/10 | 8.4/10 | [YES] |
+| Avg hunt time | <30s | 14.2s | [YES] |
+| False positives | <5% | 2.1% | [YES] |
+| Coverage | 100% | 100% | [YES] |
 
 ## Per-Repository Results
 
-1. FastAPI: 9.3/10 (12s) ✅
-2. React: 8.7/10 (11s) ✅
-3. Django: 8.9/10 (15s) ✅
-4. Vue: 8.1/10 (13s) ✅
+1. FastAPI: 9.3/10 (12s) [YES]
+2. React: 8.7/10 (11s) [YES]
+3. Django: 8.9/10 (15s) [YES]
+4. Vue: 8.1/10 (13s) [YES]
 5. Rails: 7.8/10 (18s) ⚠️
-6. Go: 8.6/10 (10s) ✅
-7. Rust: 8.2/10 (16s) ✅
-8. Next.js: 9.0/10 (9s) ✅
+6. Go: 8.6/10 (10s) [YES]
+7. Rust: 8.2/10 (16s) [YES]
+8. Next.js: 9.0/10 (9s) [YES]
 9. Elixir: 7.5/10 (21s) ⚠️
-10. Jupyter: 8.3/10 (14s) ✅
+10. Jupyter: 8.3/10 (14s) [YES]
 
 ## Findings
 
@@ -327,7 +327,7 @@ If criteria not met → fix issues → re-validate → repeat.
 
 ---
 
-## ✅ Next Steps After Validation
+## [YES] Next Steps After Validation
 
 1. **Document findings** in validation_report.md
 2. **Update weights** in config/defaults.json (if needed)
@@ -336,4 +336,4 @@ If criteria not met → fix issues → re-validate → repeat.
 5. **Proceed to demo video** recording
 6. **Prepare v1.0.0 stable release**
 
-Ready to launch when all criteria met! 🚀
+Ready to launch when all criteria met!

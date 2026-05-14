@@ -43,10 +43,10 @@ Include:
 
 agent-hunter uses a multi-layer security approach:
 
-1. **Static analysis** — 10 regex patterns for known attack signatures
-2. **Behavioral analysis** — Subprocess execution, network calls, file access
-3. **Cryptographic verification** — HMAC-SHA256 signatures on verified skills
-4. **Sandbox isolation** — Optional Docker/subprocess isolation for untrusted execution
+1. **Static analysis** - 10 regex patterns for known attack signatures
+2. **Behavioral analysis** - Subprocess execution, network calls, file access
+3. **Cryptographic verification** - HMAC-SHA256 signatures on verified skills
+4. **Sandbox isolation** - Optional Docker/subprocess isolation for untrusted execution
 
 If you discover a way to bypass any of these layers, please report it.
 
@@ -61,11 +61,11 @@ If you discover a way to bypass any of these layers, please report it.
 
 If you're contributing code to agent-hunter:
 
-1. **Never commit secrets** — No API keys, tokens, or credentials in code
-2. **Validate all inputs** — Treat all external data as untrusted
-3. **Use subprocess safely** — Never pass `shell=True` with user input
-4. **Path handling** — Use `Path().resolve()` to prevent traversal attacks
-5. **Dependencies** — Keep `requirements.txt` minimal and audited
+1. **Never commit secrets** - No API keys, tokens, or credentials in code
+2. **Validate all inputs** - Treat all external data as untrusted
+3. **Use subprocess safely** - Never pass `shell=True` with user input
+4. **Path handling** - Use `Path().resolve()` to prevent traversal attacks
+5. **Dependencies** - Keep `requirements.txt` minimal and audited
 
 Run the security self-check before contributing:
 
@@ -82,9 +82,9 @@ pytest tests/test_security_scan.py -v
 
 agent-hunter provides defense-in-depth, not guarantees:
 
-- **Static analysis can be bypassed** — Obfuscation, dynamic code generation
-- **Sandbox isolation is optional** — Users can disable it
-- **Human review is still required** — agent-hunter flags risks; you decide
+- **Static analysis can be bypassed** - Obfuscation, dynamic code generation
+- **Sandbox isolation is optional** - Users can disable it
+- **Human review is still required** - agent-hunter flags risks; you decide
 
 **Always review the SKILL.md yourself before installing.**
 

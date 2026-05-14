@@ -31,16 +31,16 @@ cd ~/.claude/skills/agent-hunter && ./setup
 ```
 
 **Advantages:**
-- ✅ Full transparency (source code visible)
-- ✅ Easy to fork and customize
-- ✅ Self-contained (no external package registry required)
-- ✅ Version-controlled updates
+- [YES] Full transparency (source code visible)
+- [YES] Easy to fork and customize
+- [YES] Self-contained (no external package registry required)
+- [YES] Version-controlled updates
 
 **How to distribute:**
-1. **GitHub README** — Add installation badge + quick start link
-2. **Claude Code official docs** — Link from "first skills to install" section
-3. **Skill marketplaces** — List on Smithery, Agensi.io, MCP Market
-4. **Word of mouth** — Share in Discord, forums, AI communities
+1. **GitHub README** - Add installation badge + quick start link
+2. **Claude Code official docs** - Link from "first skills to install" section
+3. **Skill marketplaces** - List on Smithery, Agensi.io, MCP Market
+4. **Word of mouth** - Share in Discord, forums, AI communities
 
 ### Future: Package Registry (v2.0+)
 
@@ -57,10 +57,10 @@ Would automatically:
 - Register globally
 
 **Preparation now:**
-- ✅ Sign releases with cryptographic keys
-- ✅ Maintain changelog of all versions
-- ✅ Keep SKILL.md compatibility across versions
-- ✅ Test in isolated CI/CD environments
+- [YES] Sign releases with cryptographic keys
+- [YES] Maintain changelog of all versions
+- [YES] Keep SKILL.md compatibility across versions
+- [YES] Test in isolated CI/CD environments
 
 ---
 
@@ -71,10 +71,10 @@ Would automatically:
 **Timeline:** Now
 
 **Goals:**
-- ✅ Core features working (hunt, audit, rollback)
-- ✅ Top 3 recommendation workflow solid
-- ✅ Security scanning verified
-- ✅ Installation script robust
+- [YES] Core features working (hunt, audit, rollback)
+- [YES] Top 3 recommendation workflow solid
+- [YES] Security scanning verified
+- [YES] Installation script robust
 
 **Rollout:**
 1. Open-source release on GitHub
@@ -93,10 +93,10 @@ Would automatically:
 **Timeline:** After public beta feedback
 
 **Goals:**
-- ✅ Proactive mode fully tested
-- ✅ Real-world validation on diverse projects
-- ✅ Performance optimized
-- ✅ All known bugs fixed
+- [YES] Proactive mode fully tested
+- [YES] Real-world validation on diverse projects
+- [YES] Performance optimized
+- [YES] All known bugs fixed
 
 **What changes:**
 - Cryptographic signing of releases
@@ -112,10 +112,10 @@ Would automatically:
 ### Phase 3: Ecosystem Integration (v1.1+)
 
 **Goals:**
-- ✅ Native registry support
-- ✅ Cross-platform distribution
-- ✅ Enterprise deployment guides
-- ✅ Team-wide activation via CLAUDE.md
+- [YES] Native registry support
+- [YES] Cross-platform distribution
+- [YES] Enterprise deployment guides
+- [YES] Team-wide activation via CLAUDE.md
 
 **What it enables:**
 - Single-command installation
@@ -133,18 +133,18 @@ When agent-hunter is installed globally (`~/.claude/CLAUDE.md`):
 
 ```
 Session 1: Open project /path/to/project-a
-  → agent-hunter checks: Is this a new project?
-  → YES → runs hunt (if AGENT_HUNTER_AUTO=1)
-  → Sets AGENT_HUNTER_RAN=true (guard for this session)
+ → agent-hunter checks: Is this a new project?
+ → YES → runs hunt (if AGENT_HUNTER_AUTO=1)
+ → Sets AGENT_HUNTER_RAN=true (guard for this session)
 
 Session 2: Same project /path/to/project-a
-  → agent-hunter checks: Same project as last session?
-  → YES → skip hunt (already recommended)
+ → agent-hunter checks: Same project as last session?
+ → YES → skip hunt (already recommended)
 
 Session 3: New project /path/to/project-b
-  → agent-hunter checks: Is this a new project?
-  → YES → runs hunt again
-  → Sets AGENT_HUNTER_RAN=true (new session guard)
+ → agent-hunter checks: Is this a new project?
+ → YES → runs hunt again
+ → Sets AGENT_HUNTER_RAN=true (new session guard)
 ```
 
 ### Path-Based Memory
@@ -154,9 +154,9 @@ To track which projects have been hunted, agent-hunter stores:
 ```
 ~/.agent-hunter/session-cache.json
 {
-  "lastProjectPath": "/Users/indhra/project-a",
-  "lastProjectPathHash": "abc123xyz",
-  "lastHuntTime": "2026-05-14T10:30:00Z"
+ "lastProjectPath": "/Users/indhra/project-a",
+ "lastProjectPathHash": "abc123xyz",
+ "lastHuntTime": "2026-05-14T10:30:00Z"
 }
 ```
 
@@ -182,10 +182,10 @@ Or in `.claude/settings.json`:
 
 ```json
 {
-  "proactiveBehaviors": {
-    "skipAgentHunter": false,
-    "skipSecurityAudits": false
-  }
+ "proactiveBehaviors": {
+ "skipAgentHunter": false,
+ "skipSecurityAudits": false
+ }
 }
 ```
 
@@ -216,18 +216,18 @@ gpg --verify releases/v1.0.0.tar.gz.asc
 ### Security Scanning Inside agent-hunter
 
 Every skill discovered is scanned for:
-- 🔴 **Blocked patterns** (command injection, arbitrary execution, data exfiltration)
-- 🟡 **Warning patterns** (filesystem access, network calls, code modification)
-- 🟢 **Clean** (standard SKILL.md with no red flags)
+- [BLOCKED] **Blocked patterns** (command injection, arbitrary execution, data exfiltration)
+- [REVIEW] **Warning patterns** (filesystem access, network calls, code modification)
+- [SAFE] **Clean** (standard SKILL.md with no red flags)
 
 **RED results are NEVER shown.** Only YELLOW and GREEN are displayed to users.
 
 ### Privacy Guarantees
 
-- ✅ **Zero telemetry** — No data sent to any server
-- ✅ **Privacy-first extraction** — Only framework/library names used
-- ✅ **Offline mode** — Works without GitHub token (uses curated index only)
-- ✅ **No tracking** — Your projects are never indexed or shared
+- [YES] **Zero telemetry** - No data sent to any server
+- [YES] **Privacy-first extraction** - Only framework/library names used
+- [YES] **Offline mode** - Works without GitHub token (uses curated index only)
+- [YES] **No tracking** - Your projects are never indexed or shared
 
 ---
 
@@ -279,20 +279,20 @@ Every skill discovered is scanned for:
 
 **By 3 months after v1.0.0 release, we should see:**
 
-- ✅ 1,000+ GitHub stars
-- ✅ 100+ issues/feature requests (shows engagement)
-- ✅ 50+ community contributions
-- ✅ 10,000+ users (estimated from download counts)
-- ✅ Featured in "best Claude Code skills" lists
-- ✅ Integrated into team workflows (team CLAUDE.md adoption)
+- [YES] 1,000+ GitHub stars
+- [YES] 100+ issues/feature requests (shows engagement)
+- [YES] 50+ community contributions
+- [YES] 10,000+ users (estimated from download counts)
+- [YES] Featured in "best Claude Code skills" lists
+- [YES] Integrated into team workflows (team CLAUDE.md adoption)
 
 **Long-term (v1.0.0 → v2.0.0):**
 
-- ✅ Official Claude Code marketplace integration
-- ✅ Built into Claude Code as default first-install
-- ✅ Adopted by 50%+ of new Claude Code users
-- ✅ Community contributions > team maintenance work
-- ✅ Ecosystem of specialized agent-hunter plugins
+- [YES] Official Claude Code marketplace integration
+- [YES] Built into Claude Code as default first-install
+- [YES] Adopted by 50%+ of new Claude Code users
+- [YES] Community contributions > team maintenance work
+- [YES] Ecosystem of specialized agent-hunter plugins
 
 ---
 
@@ -306,7 +306,7 @@ Every skill discovered is scanned for:
 #!/bin/bash
 git clone --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter
 cd ~/.claude/skills/agent-hunter && ./setup
-echo "✅ agent-hunter installed. Type /agent-hunter in any Claude Code session."
+echo "[YES] agent-hunter installed. Type /agent-hunter in any Claude Code session."
 ```
 
 ### Q: Can I fork and customize agent-hunter?
@@ -331,14 +331,14 @@ Then distribute your version to your team/org.
 
 1. Install Claude Code
 2. Run this setup script:
-   ```bash
-   git clone --depth 1 https://github.com/[your-org]/agent-hunter.git ~/.claude/skills/agent-hunter
-   cd ~/.claude/skills/agent-hunter && ./setup
-   ```
+ ```bash
+ git clone --depth 1 https://github.com/[your-org]/agent-hunter.git ~/.claude/skills/agent-hunter
+ cd ~/.claude/skills/agent-hunter && ./setup
+ ```
 3. (Optional) Set GitHub token:
-   ```bash
-   export GITHUB_TOKEN=ghp_...
-   ```
+ ```bash
+ export GITHUB_TOKEN=ghp_...
+ ```
 4. Open any project and type: `/agent-hunter`
 ```
 
@@ -364,6 +364,6 @@ Then distribute your version to your team/org.
 
 ---
 
-**Built to save time and block the bad stuff.**
+****
 
-Hunt well. 🚀
+Hunt well.

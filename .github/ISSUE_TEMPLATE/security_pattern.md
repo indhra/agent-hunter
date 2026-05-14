@@ -10,19 +10,19 @@ assignees: ''
 
 **Do not use this template.** Use the [private security advisory](https://github.com/indhra/agent-hunter/security/advisories/new) instead.
 
-This template is for contributing **new detection rules** for the security scanner — i.e., a new way malicious skills try to harm users.
+This template is for contributing **new detection rules** for the security scanner - i.e., a new way malicious skills try to harm users.
 
 ---
 
 ## Attack vector description
 
 <!-- What does this attack do? What is the malicious skill trying to achieve?
-     e.g. "Extracts GITHUB_TOKEN from environment via a crafted subprocess call hidden in Unicode-obfuscated code" -->
+ e.g. "Extracts GITHUB_TOKEN from environment via a crafted subprocess call hidden in Unicode-obfuscated code" -->
 
 ## Real-world source
 
 <!-- Where did you encounter this? CVE ID, blog post URL, your own incident, research paper.
-     Do not submit patterns you invented without seeing them in the wild. -->
+ Do not submit patterns you invented without seeing them in the wild. -->
 
 ## Proposed detection pattern (regex or heuristic)
 
@@ -45,8 +45,8 @@ This template is for contributing **new detection rules** for the security scann
 
 ## Proposed severity
 
-- [ ] 🔴 RED — always block (high confidence, high impact)
-- [ ] 🟡 YELLOW — warn with explanation (lower confidence or lower impact)
+- [ ] [BLOCKED] RED - always block (high confidence, high impact)
+- [ ] [REVIEW] YELLOW - warn with explanation (lower confidence or lower impact)
 
 ## Additional context
 

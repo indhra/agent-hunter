@@ -94,11 +94,11 @@ In `.claude/settings.json`, you can configure:
 
 ```json
 {
-  "autoActivateSkills": ["agent-hunter"],
-  "proactiveTriggers": {
-    "newProject": true,
-    "beforeFeatureBuild": false
-  }
+ "autoActivateSkills": ["agent-hunter"],
+ "proactiveTriggers": {
+ "newProject": true,
+ "beforeFeatureBuild": false
+ }
 }
 ```
 
@@ -110,9 +110,9 @@ In `.claude/settings.json`, you can configure:
 
 agent-hunter uses a session guard to prevent multiple automatic hunts in one session:
 
-- ✅ First `/agent-hunter` call in a session → runs hunt
-- ✅ User explicitly requests another hunt → runs hunt
-- ⏭️ Automatic hunt requested but guard is set → skipped silently
+- [YES] First `/agent-hunter` call in a session → runs hunt
+- [YES] User explicitly requests another hunt → runs hunt
+- Automatic hunt requested but guard is set → skipped silently
 
 This prevents token waste and redundant searches while still allowing explicit re-runs.
 
@@ -148,10 +148,10 @@ Results are scored on 4 signals:
 
 ```
 score = (
-  stack_match   × 0.40   # Does it match my tech stack?
-  trust_score   × 0.30   # Is it safe? (security scan)
-  recency_score × 0.15   # Is it maintained?
-  star_score    × 0.15   # Is it popular?
+ stack_match × 0.40 # Does it match my tech stack?
+ trust_score × 0.30 # Is it safe? (security scan)
+ recency_score × 0.15 # Is it maintained?
+ star_score × 0.15 # Is it popular?
 ) × yagni_multiplier
 ```
 
@@ -164,10 +164,10 @@ score = (
 
 ## Privacy & Security
 
-✅ **Only tech keywords extracted** (framework names, library names)
-✅ **No code, no paths, no secrets** ever leave your machine
-✅ **All results security-scanned** before showing
-✅ **RED results blocked entirely** — never shown
+[YES] **Only tech keywords extracted** (framework names, library names)
+[YES] **No code, no paths, no secrets** ever leave your machine
+[YES] **All results security-scanned** before showing
+[YES] **RED results blocked entirely** - never shown
 
 ---
 
@@ -185,20 +185,20 @@ Example README section:
 ### Setup (First Time)
 
 1. Install agent-hunter (required):
-   ```bash
-   git clone --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter
-   cd ~/.claude/skills/agent-hunter && ./setup
-   ```
+ ```bash
+ git clone --depth 1 https://github.com/indhra/agent-hunter.git ~/.claude/skills/agent-hunter
+ cd ~/.claude/skills/agent-hunter && ./setup
+ ```
 
 2. (Optional) Set GitHub token for broader discovery:
-   ```bash
-   export GITHUB_TOKEN=your_token
-   ```
+ ```bash
+ export GITHUB_TOKEN=your_token
+ ```
 
 3. Open this repo in Claude Code and type:
-   ```
-   /agent-hunter
-   ```
+ ```
+ /agent-hunter
+ ```
 ```
 
 ---
@@ -208,7 +208,7 @@ Example README section:
 **Q: No results found**
 A: This means your stack is very niche or GitHub rate limit was hit. Set `GITHUB_TOKEN` for higher quota, or ask agent-hunter to search web for broader discovery.
 
-**Q: What if I see a 🟡 (Review Before Installing) result?**
+**Q: What if I see a [REVIEW] (Review Before Installing) result?**
 A: Read the SKILL.md file from the recommended repo. Usually it has minor security flags that are safe for your use case. Decide if you want to install.
 
 **Q: /agent-hunter command not found**
@@ -218,11 +218,11 @@ A: Run the setup script again: `~/.claude/skills/agent-hunter/setup`
 
 ## Learning More
 
-- **[INSTALL.md](../INSTALL.md)** — Detailed installation and proactive mode setup
-- **[SKILL.md](../SKILL.md)** — Complete skill workflow and constraints
-- **[CONTRIBUTING.md](../CONTRIBUTING.md)** — Privacy, security, contribution guidelines
-- **[README.md](../README.md)** — Overview and quick start
+- **[INSTALL.md](../INSTALL.md)** - Detailed installation and proactive mode setup
+- **[SKILL.md](../SKILL.md)** - Complete skill workflow and constraints
+- **[CONTRIBUTING.md](../CONTRIBUTING.md)** - Privacy, security, contribution guidelines
+- **[README.md](../README.md)** - Overview and quick start
 
 ---
 
-**Built to save time and block the bad stuff.**
+****

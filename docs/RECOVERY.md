@@ -48,7 +48,7 @@ agent-hunter audit --list-snapshots
 # Pick the most recent snapshot BEFORE the suspected compromise
 ```
 
-### Step 3: Rollback (Optional — only if you want to restore state)
+### Step 3: Rollback (Optional - only if you want to restore state)
 
 ```bash
 # Start interactive rollback
@@ -139,7 +139,7 @@ ls -la ~/.claude/skills/
 ### Step 1: List Snapshots
 
 ```bash
-agent-hunter rollback  # (don't confirm; just view the list)
+agent-hunter rollback # (don't confirm; just view the list)
 ```
 
 ### Step 2: Compare Two Snapshots Manually
@@ -176,7 +176,7 @@ agent-hunter rollback --to pre_audit_20260503_143022.json
 
 ```bash
 # Look for a snapshot BEFORE the uninstall happened
-agent-hunter rollback  # (view the list; don't restore yet)
+agent-hunter rollback # (view the list; don't restore yet)
 
 # Note the snapshot timestamp or name
 ```
@@ -192,7 +192,7 @@ agent-hunter rollback --to pre_audit_20260502_140000.json --force
 ```bash
 ls -la ~/.claude/skills/<skill-name>
 
-agent-hunter audit  # Should show the skill as "Healthy"
+agent-hunter audit # Should show the skill as "Healthy"
 ```
 
 ---
@@ -210,14 +210,14 @@ agent-hunter audit  # Should show the skill as "Healthy"
 ```bash
 # Edit ~/.agent-hunter/config.json
 {
-  "freeze_mode": true
+ "freeze_mode": true
 }
 ```
 
 ### Step 2: Now All Actions Require Explicit Confirmation
 
 ```bash
-# Try to disable a skill — it will ask for extra confirmation
+# Try to disable a skill - it will ask for extra confirmation
 agent-hunter disable <skill-name>
 
 # Disable is now blocked until you unset freeze_mode
@@ -228,7 +228,7 @@ agent-hunter disable <skill-name>
 ```bash
 # Edit config.json again
 {
-  "freeze_mode": false
+ "freeze_mode": false
 }
 ```
 
@@ -282,8 +282,8 @@ agent-hunter audit > audit_report_$(date +%Y%m%d).txt
 - [ ] **Snapshot**: Before any changes, note the current snapshot via `agent-hunter rollback --list`
 - [ ] **Audit**: Run `agent-hunter audit` and review all findings (especially RED)
 - [ ] **Decide**:
-  - [ ] False alarm? Re-enable with `agent-hunter enable`
-  - [ ] Real threat? Remove with `agent-hunter remove` and save findings
+ - [ ] False alarm? Re-enable with `agent-hunter enable`
+ - [ ] Real threat? Remove with `agent-hunter remove` and save findings
 - [ ] **Investigate**: Run `agent-hunter context` to understand what the skill has access to
 - [ ] **Recover**: If needed, rollback to pre-compromise state with `agent-hunter rollback`
 - [ ] **Prevent**: After incident, review SECURITY.md for hardening recommendations
@@ -307,9 +307,9 @@ agent-hunter audit > audit_report_$(date +%Y%m%d).txt
 
 **Fix:**
 1. If you have no snapshots, you cannot rollback. Going forward:
-   - Run `agent-hunter audit` to create a snapshot before your next operation
+ - Run `agent-hunter audit` to create a snapshot before your next operation
 2. To manually rebuild from current state, list installed skills:
-   - `ls ~/.claude/skills/` and note each skill name
+ - `ls ~/.claude/skills/` and note each skill name
 
 ### Git Reset Fails During Rollback
 
@@ -318,15 +318,15 @@ agent-hunter audit > audit_report_$(date +%Y%m%d).txt
 **Fix:**
 1. Rollback completes but flags the failed skill with ✗
 2. To repair the skill manually:
-   ```bash
-   cd ~/.claude/skills/<skill-name>
-   git status  # to see what's broken
-   git reset --hard HEAD  # to discard local changes
-   ```
+ ```bash
+ cd ~/.claude/skills/<skill-name>
+ git status # to see what's broken
+ git reset --hard HEAD # to discard local changes
+ ```
 
 ### Registry File Missing After Rollback
 
-**Cause:** Rare — file system error during restore
+**Cause:** Rare - file system error during restore
 
 **Fix:**
 1. Check if backup is intact: `ls ~/.agent-hunter/backups/`
@@ -339,13 +339,13 @@ agent-hunter audit > audit_report_$(date +%Y%m%d).txt
 
 **To avoid incidents in the future:**
 
-- [ ] **Review audit reports regularly** — run `agent-hunter audit` weekly
-- [ ] **Enable freeze mode during stable periods** — protects against accidental changes
-- [ ] **Monitor install_log.jsonl** — check for unexpected actions
-- [ ] **Use verified skills only** — hunt with `--min-trust-tier community` to raise the bar
-- [ ] **Keep agent-hunter updated** — new versions have improved scanning
-- [ ] **Test in staging** — before installing production skills in a shared environment
-- [ ] **Set snapshot retention** — tune `snapshot_retention_days` and `max_snapshots_kept` in config.json
+- [ ] **Review audit reports regularly** - run `agent-hunter audit` weekly
+- [ ] **Enable freeze mode during stable periods** - protects against accidental changes
+- [ ] **Monitor install_log.jsonl** - check for unexpected actions
+- [ ] **Use verified skills only** - hunt with `--min-trust-tier community` to raise the bar
+- [ ] **Keep agent-hunter updated** - new versions have improved scanning
+- [ ] **Test in staging** - before installing production skills in a shared environment
+- [ ] **Set snapshot retention** - tune `snapshot_retention_days` and `max_snapshots_kept` in config.json
 
 ---
 
@@ -354,24 +354,24 @@ agent-hunter audit > audit_report_$(date +%Y%m%d).txt
 **If recovery steps don't work:**
 
 1. **Check logs:**
-   ```bash
-   cat ~/.agent-hunter/logs/*.log  # if logging is enabled
-   ```
+ ```bash
+ cat ~/.agent-hunter/logs/*.log # if logging is enabled
+ ```
 
 2. **Generate diagnostic bundle:**
-   ```bash
-   agent-hunter audit --verbose  # shows full details
-   ls -lah ~/.agent-hunter/  # show all config and backup files
-   ```
+ ```bash
+ agent-hunter audit --verbose # shows full details
+ ls -lah ~/.agent-hunter/ # show all config and backup files
+ ```
 
 3. **Open an issue on GitHub:**
-   - Include the diagnostic bundle
-   - Describe what you were doing when the issue occurred
-   - Paste the exact error message
+ - Include the diagnostic bundle
+ - Describe what you were doing when the issue occurred
+ - Paste the exact error message
 
 4. **Manual recovery (last resort):**
-   - Contact agent-hunter maintainers
-   - Provide: corrupted registry.json, any available snapshots, install_log.jsonl
+ - Contact agent-hunter maintainers
+ - Provide: corrupted registry.json, any available snapshots, install_log.jsonl
 
 ---
 

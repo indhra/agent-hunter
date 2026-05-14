@@ -1,6 +1,6 @@
 # Brownfield Projects: Using agent-hunter on Existing Codebases
 
-**agent-hunter works on ANY project—new or existing.**
+**agent-hunter works on ANY project-new or existing.**
 
 This guide shows how to use agent-hunter to enhance and accelerate work on brownfield (existing) projects.
 
@@ -9,11 +9,11 @@ This guide shows how to use agent-hunter to enhance and accelerate work on brown
 ## What Is a Brownfield Project?
 
 **Brownfield** = existing production code with:
-- ✅ Established tech stack
-- ✅ Working features
-- ✅ Real users or business value
-- ✅ Technical debt (usually)
-- ✅ Team knowledge and conventions
+- [YES] Established tech stack
+- [YES] Working features
+- [YES] Real users or business value
+- [YES] Technical debt (usually)
+- [YES] Team knowledge and conventions
 
 **vs. Greenfield** = brand new project from scratch
 
@@ -22,11 +22,11 @@ This guide shows how to use agent-hunter to enhance and accelerate work on brown
 ## Why Use agent-hunter on Brownfield Projects?
 
 You have working code. You want to:
-- 🚀 **Accelerate** feature development
+- **Accelerate** feature development
 - 🔧 **Refactor** with confidence
 - ⚡ **Optimize** performance
 - 🛡️ **Harden** security
-- 📚 **Document** existing code
+- **Document** existing code
 - 🧪 **Test** more thoroughly
 - 🚢 **Deploy** better
 - 🪵 **Pay down** technical debt
@@ -74,7 +74,7 @@ export AGENT_HUNTER_AUTO=1
 Or add to `.claude/settings.json`:
 ```json
 {
-  "autoActivateSkills": ["agent-hunter"]
+ "autoActivateSkills": ["agent-hunter"]
 }
 ```
 
@@ -101,20 +101,20 @@ cd /path/to/fastapi-project
 ```
 Top 3 recommendations:
 
-1. 🟢 fastapi-clean-architecture
-   Safe to install.
-   Why: Your repo uses FastAPI with PostgreSQL. This skill provides
-   clean architecture patterns, service layers, and repository patterns.
+1. [SAFE] fastapi-clean-architecture
+ Safe to install.
+ Why: Your repo uses FastAPI with PostgreSQL. This skill provides
+ clean architecture patterns, service layers, and repository patterns.
 
-2. 🟢 database-migration-helper
-   Safe to install.
-   Why: PostgreSQL migrations are critical during refactoring. This skill
-   helps manage schema changes safely.
+2. [SAFE] database-migration-helper
+ Safe to install.
+ Why: PostgreSQL migrations are critical during refactoring. This skill
+ helps manage schema changes safely.
 
-3. 🟡 async-performance-profiler
-   Review before installing.
-   Why: Great for checking if your FastAPI async patterns are optimal
-   during refactoring. Review for permissions first.
+3. [REVIEW] async-performance-profiler
+ Review before installing.
+ Why: Great for checking if your FastAPI async patterns are optimal
+ during refactoring. Review for permissions first.
 ```
 
 **Action:** Install skills 1 and 2. Review 3 before installing.
@@ -140,20 +140,20 @@ cd /path/to/react-app
 ```
 Top 3 recommendations:
 
-1. 🟢 react-bundle-analyzer
-   Safe to install.
-   Why: Your repo uses React. This skill analyzes bundle size and finds
-   bloated dependencies slowing your load time.
+1. [SAFE] react-bundle-analyzer
+ Safe to install.
+ Why: Your repo uses React. This skill analyzes bundle size and finds
+ bloated dependencies slowing your load time.
 
-2. 🟢 lighthouse-automated-audits
-   Safe to install.
-   Why: Perfect for measuring Web Vitals improvements. Runs automated
-   lighthouse checks on every build.
+2. [SAFE] lighthouse-automated-audits
+ Safe to install.
+ Why: Perfect for measuring Web Vitals improvements. Runs automated
+ lighthouse checks on every build.
 
-3. 🟢 redis-cache-optimizer
-   Safe to install.
-   Why: You're using Redis. This skill finds optimization opportunities
-   in your cache strategy.
+3. [SAFE] redis-cache-optimizer
+ Safe to install.
+ Why: You're using Redis. This skill finds optimization opportunities
+ in your cache strategy.
 ```
 
 **Action:** Install all three. Run analyzer, optimize bundle, measure with lighthouse.
@@ -179,19 +179,19 @@ cd /path/to/grpc-service
 ```
 Top 3 recommendations:
 
-1. 🟢 grpc-security-validator
-   Safe to install.
-   Why: Your project uses gRPC. This skill validates gRPC security best
-   practices: TLS, auth, permission checks.
+1. [SAFE] grpc-security-validator
+ Safe to install.
+ Why: Your project uses gRPC. This skill validates gRPC security best
+ practices: TLS, auth, permission checks.
 
-2. 🟢 dependency-vulnerability-scanner
-   Safe to install.
-   Why: Scans Go dependencies for known CVEs. Essential before release.
+2. [SAFE] dependency-vulnerability-scanner
+ Safe to install.
+ Why: Scans Go dependencies for known CVEs. Essential before release.
 
-3. 🟡 container-image-scanner
-   Review before installing.
-   Why: Kubernetes deployment detected. Scans container images for
-   vulnerabilities. Review filesystem access first.
+3. [REVIEW] container-image-scanner
+ Review before installing.
+ Why: Kubernetes deployment detected. Scans container images for
+ vulnerabilities. Review filesystem access first.
 ```
 
 **Action:** Install 1 and 2. Review 3 before container scanning.
@@ -217,20 +217,20 @@ cd /path/to/rails-app
 ```
 Top 3 recommendations:
 
-1. 🟢 rails-codebase-mapper
-   Safe to install.
-   Why: Your Rails monolith needs visibility. This skill auto-generates
-   dependency graphs, controller/model documentation, and flow diagrams.
+1. [SAFE] rails-codebase-mapper
+ Safe to install.
+ Why: Your Rails monolith needs visibility. This skill auto-generates
+ dependency graphs, controller/model documentation, and flow diagrams.
 
-2. 🟢 sidekiq-job-documenter
-   Safe to install.
-   Why: Background jobs with Sidekiq are hard to document. This skill
-   auto-documents job flows, retries, and dependencies.
+2. [SAFE] sidekiq-job-documenter
+ Safe to install.
+ Why: Background jobs with Sidekiq are hard to document. This skill
+ auto-documents job flows, retries, and dependencies.
 
-3. 🟢 database-schema-visualizer
-   Safe to install.
-   Why: PostgreSQL schema visualization helps new developers understand
-   data relationships without reading migration files.
+3. [SAFE] database-schema-visualizer
+ Safe to install.
+ Why: PostgreSQL schema visualization helps new developers understand
+ data relationships without reading migration files.
 ```
 
 **Action:** Install all three. Generate documentation, commit to repo.
@@ -305,9 +305,9 @@ Hunt when:
 - You're about to spend days/weeks on something
 - You have recurring pain (deployments, testing, monitoring)
 
-### 4. Review Yellow (🟡) Results
+### 4. Review Yellow ([REVIEW]) Results
 
-Brownfield projects often need tools that require permissions (filesystem access, network calls). Review these carefully—they're often exactly what you need.
+Brownfield projects often need tools that require permissions (filesystem access, network calls). Review these carefully-they're often exactly what you need.
 
 ### 5. Commit Decisions
 
@@ -359,9 +359,9 @@ Document what skills your team has vetted:
 # Approved Skills for This Project
 
 ## Reviewed & Installed
-- fastapi-clean-architecture ✅
-- database-migration-helper ✅
-- async-performance-profiler ✅
+- fastapi-clean-architecture [YES]
+- database-migration-helper [YES]
+- async-performance-profiler [YES]
 
 ## Reviewed & Not Needed
 - kubernetes-helm-advanced (we use kustomize)
@@ -431,8 +431,6 @@ Track your baseline:
 
 ---
 
-**agent-hunter: Accelerate your brownfield projects.** 🚀
+**agent-hunter: Accelerate your brownfield projects.**
 
 ---
-
-Built to save time and block the bad stuff.

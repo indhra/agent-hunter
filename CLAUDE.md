@@ -2,9 +2,9 @@
 
 **Author:** Indhra Kiranu N A
 
-> Hunt the right skills. Block the bad ones.
+>
 
-This is the repo root for `agent-hunter` — a Claude-native SKILL.md and MCP server discovery tool. It reads your project context, hunts GitHub for relevant skills, security-scans every result, and surfaces ranked recommendations.
+This is the repo root for `agent-hunter` - a Claude-native SKILL.md and MCP server discovery tool. It reads your project context, hunts GitHub for relevant skills, security-scans every result, and surfaces ranked recommendations.
 
 **Do not reinvent what's here.** Read `.github/copilot-instructions.md` for full context before editing any script.
 
@@ -48,13 +48,13 @@ bin/github-search "filename:SKILL.md fastapi"
 
 | File | What it is |
 |---|---|
-| `SKILL.md` | The brain — Claude's step-by-step instructions; calls `bin/` scripts |
+| `SKILL.md` | The brain - Claude's step-by-step instructions; calls `bin/` scripts |
 | `bin/` | Bash wrappers Claude runs directly (gstack model) |
-| `bin/github-search` | Pure curl GitHub Code Search — no Python needed |
+| `bin/github-search` | Pure curl GitHub Code Search - no Python needed |
 | `SPEC.md` | Full technical specification (16 sections + robustness additions) |
 | `ROADMAP.md` | Versioned roadmap v0.4.0 → v1.0.0 with release gates |
-| `scripts/hunter.py` | GitHub API search — completed |
-| `scripts/main.py` | CLI entry point — completed |
+| `scripts/hunter.py` | GitHub API search - completed |
+| `scripts/main.py` | CLI entry point - completed |
 | `config/defaults.json` | All configurable parameters with comments |
 
 ## Hard rules

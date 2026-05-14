@@ -18,71 +18,71 @@ This specification defines the complete behavior, API contracts, error handling,
 
 ```
 User Project Context
-        │
-        ▼
+ │
+ ▼
 ┌──────────────────────┐
-│ context_extractor.py │  Extracts tech keywords (ALLOWLIST only)
+│ context_extractor.py │ Extracts tech keywords (ALLOWLIST only)
 └──────────────────────┘
-        │
-        ▼ ContextProfile{tech_stack, frameworks, languages}
+ │
+ ▼ ContextProfile{tech_stack, frameworks, languages}
 ┌──────────────────────┐
-│   hunter.py          │  GitHub Search + prefilter (stars, age, content)
+│ hunter.py │ GitHub Search + prefilter (stars, age, content)
 └──────────────────────┘
-        │
-        ▼ list[HuntResult] {repo_url, sha, trust_tier, raw_content}
+ │
+ ▼ list[HuntResult] {repo_url, sha, trust_tier, raw_content}
 ┌──────────────────────┐
-│ security_scan.py     │  Static + behavioral analysis
+│ security_scan.py │ Static + behavioral analysis
 └──────────────────────┘
-        │
-        ▼ list[ScanResult] {result_id, findings[]={pattern, severity}}
+ │
+ ▼ list[ScanResult] {result_id, findings[]={pattern, severity}}
 ┌──────────────────────┐
-│   scorer.py          │  4-signal scoring + YAGNI multiplier
+│ scorer.py │ 4-signal scoring + YAGNI multiplier
 └──────────────────────┘
-        │
-        ▼ list[ScoredResult] {score, confidence, why_for_you}
+ │
+ ▼ list[ScoredResult] {score, confidence, why_for_you}
 ┌──────────────────────┐
-│  reporter.py         │  Terminal table + markdown save
+│ reporter.py │ Terminal table + markdown save
 └──────────────────────┘
-        │
-        ▼ User sees ranked list with trust/security signals
-        │
-        ├─ Accepts or rejects each result
-        │
-        ▼
+ │
+ ▼ User sees ranked list with trust/security signals
+ │
+ ├─ Accepts or rejects each result
+ │
+ ▼
 ┌──────────────────────┐
-│  installer.py        │  Install/disable/enable/uninstall to ~/.claude/skills/
+│ installer.py │ Install/disable/enable/uninstall to ~/.claude/skills/
 └──────────────────────┘
-        │
-        ▼
+ │
+ ▼
 ┌──────────────────────┐
-│  registry.py         │  Track SHAs, record install_log, snapshots
+│ registry.py │ Track SHAs, record install_log, snapshots
 └──────────────────────┘
-        │
-        ▼ Next hunt: scorer reads install_log → apply dormancy signal
+ │
+ ▼ Next hunt: scorer reads install_log → apply dormancy signal
 ```
 
 ### Directory Structure (User's Home)
 
 ```
 ~/.agent-hunter/
-├── registry.json                 # Installed skills + SHAs
-├── config.json                   # User overrides (inherits defaults)
-├── install_log.jsonl             # Append-only log: install/disable/enable/uninstall
+├── registry.json # Installed skills + SHAs
+├── config.json # User overrides (inherits defaults)
+├── install_log.jsonl # Append-only log: install/disable/enable/uninstall
 ├── backups/
-│   ├── pre_audit_20260503_143022.json
-│   ├── pre_update_20260502_112000.json
-│   └── ...
+│ ├── pre_audit_20260503_143022.json
+│ ├── pre_update_20260502_112000.json
+│ └── ...
 ├── reports/
-│   ├── hunt_report_2026-05-03.md
-│   └── ...
-└── trusted_keys.pub              # Verified skills signers (v0.8.0+)
+│ ├── hunt_report_2026-05-03.md
+│ └── ...
+└── trusted_keys.pub # Verified skills signers (v0.8.0+)
 
 ~/.claude/skills/
-├── skill-deploy/                 # Installed skill
-│   ├── SKILL.md
-│   ├── requirements.txt
-│   └── ...
-├── _skill-old/                   # Disabled skill (reversible)
+├── skill-deploy/ # Installed skill
+│ ├── SKILL.md
+│ ├── requirements.txt
+│ └── ...
+├── _skill-old/ # Disabled skill (reversible)
 └── ...
 ```
 
@@ -102,8 +102,8 @@ User Project Context
 
 **What agent-hunter ONLY extracts:**
 - Tech keyword signals from `TECH_ALLOWLIST` (maintained in `context_extractor.py`)
-  - Examples: `FastAPI`, `PostgreSQL`, `React`, `TypeScript`, `Docker`, `pytest`, etc.
-  - Allowlist is explicit and intentional — no wildcards or inference
+ - Examples: `FastAPI`, `PostgreSQL`, `React`, `TypeScript`, `Docker`, `pytest`, etc.
+ - Allowlist is explicit and intentional - no wildcards or inference
 - Project language (inferred from file extensions on disk, not code content)
 - Approximate package versions (from `requirements.txt`, not by parsing code)
 
@@ -155,7 +155,7 @@ User Project Context
 - `project_root`: path to project (default: `$PWD`)
 
 **Outputs:**
-- Terminal: rich table with 🟢/🟡/🔴 signals
+- Terminal: rich table with [SAFE]/[REVIEW]/[BLOCKED] signals
 - File: `~/.agent-hunter/reports/hunt_report_YYYY-MM-DD.md`
 - Updated: `~/.agent-hunter/registry.json`, `install_log.jsonl`
 
@@ -176,13 +176,13 @@ User Project Context
 **Behavior:**
 1. Read installed skills from registry
 2. For each skill:
-   - Fetch remote SHA via GitHub Trees API
-   - Compare to stored SHA (detect tamper)
-   - Re-run security scan (detect new vulns)
-   - Check version compatibility (Python/Node version mismatches)
-   - Check dependency conflicts
-   - Check trigger overlaps (cosine similarity)
-3. Display health report: 🟢 Healthy / 🟡 Update available / 🔴 Security issue / ⚠️ Conflict / ⚪ Dormant
+ - Fetch remote SHA via GitHub Trees API
+ - Compare to stored SHA (detect tamper)
+ - Re-run security scan (detect new vulns)
+ - Check version compatibility (Python/Node version mismatches)
+ - Check dependency conflicts
+ - Check trigger overlaps (cosine similarity)
+3. Display health report: [SAFE] Healthy / [REVIEW] Update available / [BLOCKED] Security issue / ⚠️ Conflict / ⚪ Dormant
 
 **Inputs:**
 - None (reads from registry)
@@ -195,10 +195,10 @@ User Project Context
 | Condition | Behavior | Exit Code |
 |-----------|----------|-----------|
 | No installed skills | Print "nothing to audit", exit | 0 |
-| SHA mismatch detected | Flag 🔴, print SHA diff, offer rollback | 0 |
-| Security scan finds RED | Flag 🔴, print findings (count only) | 0 |
-| Version incompatibility | Flag 🟡, print recommendation | 0 |
-| Dependency conflict | Flag 🟡, suggest container mode or uninstall | 0 |
+| SHA mismatch detected | Flag [BLOCKED], print SHA diff, offer rollback | 0 |
+| Security scan finds RED | Flag [BLOCKED], print findings (count only) | 0 |
+| Version incompatibility | Flag [REVIEW], print recommendation | 0 |
+| Dependency conflict | Flag [REVIEW], suggest container mode or uninstall | 0 |
 | Network error during audit | Retry 3× for each skill, continue on timeouts | 0 |
 
 ---
@@ -237,10 +237,10 @@ User Project Context
 **Behavior:**
 1. Read installed skills from registry
 2. For each skill with available update:
-   - Fetch new SHA from remote
-   - Show diff (what changed: commits, files)
-   - Ask user: "Update to new version?"
-   - If yes: fetch, pull, update registry
+ - Fetch new SHA from remote
+ - Show diff (what changed: commits, files)
+ - Ask user: "Update to new version?"
+ - If yes: fetch, pull, update registry
 3. Re-run audit after all updates (to detect new conflicts)
 
 **Inputs:**
@@ -286,8 +286,8 @@ allowlist_coverage: 100%
 2. Run security scan on it (reject if RED)
 3. Parse SKILL.md frontmatter (reject if incomplete)
 4. Open GitHub issue on `indhra/agent-hunter` with:
-   - Pre-filled template (name, version, repo URL, security summary)
-   - Link to `assets/contribute_template.md`
+ - Pre-filled template (name, version, repo URL, security summary)
+ - Link to `assets/contribute_template.md`
 5. Fall back to printing template to stdout if `gh` not installed
 
 **Inputs:**
@@ -316,18 +316,18 @@ allowlist_coverage: 100%
 
 ```python
 def extract_context(project_root: str) -> ContextProfile:
-    """
-    Extract tech signal keywords from project.
+ """
+ Extract tech signal keywords from project.
 
-    Args:
-        project_root: Path to project root
+ Args:
+ project_root: Path to project root
 
-    Returns:
-        ContextProfile: {tech_stack: list[str], frameworks: list, languages: list}
+ Returns:
+ ContextProfile: {tech_stack: list[str], frameworks: list, languages: list}
 
-    Raises:
-        ContextExtractionError: if project_root doesn't exist or is unreadable
-    """
+ Raises:
+ ContextExtractionError: if project_root doesn't exist or is unreadable
+ """
 ```
 
 **Behavior:**
@@ -346,20 +346,20 @@ def extract_context(project_root: str) -> ContextProfile:
 
 ```python
 class Hunter:
-    def hunt(self, profile: ContextProfile, config: Dict) -> list[HuntResult]:
-        """
-        Search GitHub + curated sources for relevant skills.
+ def hunt(self, profile: ContextProfile, config: Dict) -> list[HuntResult]:
+ """
+ Search GitHub + curated sources for relevant skills.
 
-        Args:
-            profile: Extracted context (tech_stack, etc.)
-            config: Config dict (min_stars, max_age_days, etc.)
+ Args:
+ profile: Extracted context (tech_stack, etc.)
+ config: Config dict (min_stars, max_age_days, etc.)
 
-        Returns:
-            list[HuntResult]: ranked by prefilter pass rate
+ Returns:
+ list[HuntResult]: ranked by prefilter pass rate
 
-        Raises:
-            HunterError: if all queries fail
-        """
+ Raises:
+ HunterError: if all queries fail
+ """
 ```
 
 **Prefilter criteria (applied in parallel):**
@@ -388,39 +388,39 @@ class Hunter:
 
 ```python
 def scan_skill(raw_content: str) -> ScanResult:
-    """
-    Scan SKILL.md for security issues.
+ """
+ Scan SKILL.md for security issues.
 
-    Args:
-        raw_content: Raw SKILL.md content from GitHub
+ Args:
+ raw_content: Raw SKILL.md content from GitHub
 
-    Returns:
-        ScanResult: {id, findings: list[ScanFinding]}
+ Returns:
+ ScanResult: {id, findings: list[ScanFinding]}
 
-    Raises:
-        ScanError: if scan crashes (e.g., invalid YAML)
-    """
+ Raises:
+ ScanError: if scan crashes (e.g., invalid YAML)
+ """
 
 class ScanFinding:
-    pattern: str          # e.g., "PROMPT_INJECTION"
-    severity: str         # "RED", "ORANGE", "YELLOW", "GREEN"
-    description: str      # Human-readable explanation
-    location: Dict        # {"line": int, "snippet": str}
-    remediation: str      # How to fix it
+ pattern: str # e.g., "PROMPT_INJECTION"
+ severity: str # "RED", "ORANGE", "YELLOW", "GREEN"
+ description: str # Human-readable explanation
+ location: Dict # {"line": int, "snippet": str}
+ remediation: str # How to fix it
 ```
 
 **Detection patterns (v0.1.0):**
-1. **PROMPT_INJECTION** (RED) — Common patterns: "ignore system prompt", "forget instructions", etc.
-2. **UNGUARDED_EXEC** (RED) — `exec()`, `eval()`, `subprocess.run()` without input validation
-3. **EMBEDDED_SECRETS** (RED) — API keys, tokens in SKILL.md body
-4. **UNICODE_OBFUSCATION** (ORANGE) — U+202E (direction override), zero-width chars, homoglyphs
-5. **SUSPICIOUS_IMPORTS** (YELLOW) — `os.system`, `urllib` without context
-6. **MISSING_FRONTMATTER** (YELLOW) — No YAML frontmatter
+1. **PROMPT_INJECTION** (RED) - Common patterns: "ignore system prompt", "forget instructions", etc.
+2. **UNGUARDED_EXEC** (RED) - `exec()`, `eval()`, `subprocess.run()` without input validation
+3. **EMBEDDED_SECRETS** (RED) - API keys, tokens in SKILL.md body
+4. **UNICODE_OBFUSCATION** (ORANGE) - U+202E (direction override), zero-width chars, homoglyphs
+5. **SUSPICIOUS_IMPORTS** (YELLOW) - `os.system`, `urllib` without context
+6. **MISSING_FRONTMATTER** (YELLOW) - No YAML frontmatter
 
 **v0.6.0 additions:**
-7. **OBFUSCATION_DETECTED** (ORANGE → RED if unpack reveals RED) — base64, marshal, pickle
-8. **SANDBOX_ESCAPE_ATTEMPT** (RED) — Observed during execution
-9. **SUSPICIOUS_ENV_READ** (ORANGE) — Attempts to read env vars during sandbox
+7. **OBFUSCATION_DETECTED** (ORANGE → RED if unpack reveals RED) - base64, marshal, pickle
+8. **SANDBOX_ESCAPE_ATTEMPT** (RED) - Observed during execution
+9. **SUSPICIOUS_ENV_READ** (ORANGE) - Attempts to read env vars during sandbox
 
 **Behavioral analysis (v0.6.0):**
 - High-suspicion skills run in sandbox during scan
@@ -435,36 +435,36 @@ class ScanFinding:
 
 ```python
 def score_results(
-    hunt_results: list[HuntResult],
-    scan_results: list[ScanResult],
-    profile: ContextProfile,
-    config: Dict
+ hunt_results: list[HuntResult],
+ scan_results: list[ScanResult],
+ profile: ContextProfile,
+ config: Dict
 ) -> list[ScoredResult]:
-    """
-    Score results using 4-signal formula + YAGNI multiplier.
+ """
+ Score results using 4-signal formula + YAGNI multiplier.
 
-    Returns:
-        list[ScoredResult]: sorted by final_score descending
-    """
+ Returns:
+ list[ScoredResult]: sorted by final_score descending
+ """
 
 class ScoredResult:
-    result_id: str
-    final_score: float       # 0.0 – 1.0
-    signals: Dict            # {stack_score, domain_score, star_score, recency_score}
-    yagni_multiplier: float  # 0.5x – 2.0x
-    trust_tier: str          # "VERIFIED", "COMMUNITY", "RAW"
-    why_for_you: str         # Human explanation
-    blocked_reason: str      # If score < threshold
+ result_id: str
+ final_score: float # 0.0 – 1.0
+ signals: Dict # {stack_score, domain_score, star_score, recency_score}
+ yagni_multiplier: float # 0.5x – 2.0x
+ trust_tier: str # "VERIFIED", "COMMUNITY", "RAW"
+ why_for_you: str # Human explanation
+ blocked_reason: str # If score < threshold
 ```
 
 **Scoring formula (v0.4.0):**
 ```
 total_score = (
-    stack_score × 0.30 +
-    domain_score × 0.20 +
-    star_score × 0.15 +
-    recency_score × 0.15 +
-    trust_score × 0.20
+ stack_score × 0.30 +
+ domain_score × 0.20 +
+ star_score × 0.15 +
+ recency_score × 0.15 +
+ trust_score × 0.20
 ) × yagni_multiplier
 
 stack_score: Jaccard(result_tech, profile_tech) [0 – 1]
@@ -474,9 +474,9 @@ recency_score: days_since_commit < 30 ? 1.0 : 0.5 [0.5 – 1.0]
 trust_score: VERIFIED=1.0, COMMUNITY=0.7, RAW=0.4
 
 yagni_multiplier:
-  - Active domain (commits in last 7 days): 2.0×
-  - Recent (commits in last 30 days): 1.0×
-  - Dormant (install_log: >30 days, 0 session mentions): 0.5× (v0.4.0+)
+ - Active domain (commits in last 7 days): 2.0×
+ - Recent (commits in last 30 days): 1.0×
+ - Dormant (install_log: >30 days, 0 session mentions): 0.5× (v0.4.0+)
 ```
 
 **v0.4.0 feedback loop:**
@@ -501,40 +501,40 @@ yagni_multiplier:
 
 ```python
 def build_action_list(
-    scored_results: list[ScoredResult],
-    scan_results: list[ScanResult],
-    installed_skills: Dict,
-    dangerous: bool = False
+ scored_results: list[ScoredResult],
+ scan_results: list[ScanResult],
+ installed_skills: Dict,
+ dangerous: bool = False
 ) -> list[PendingAction]:
-    """
-    Build list of actions (install/disable) for user confirmation.
+ """
+ Build list of actions (install/disable) for user confirmation.
 
-    Args:
-        dangerous: If True, include DISABLE actions for RED-flagged installed skills
+ Args:
+ dangerous: If True, include DISABLE actions for RED-flagged installed skills
 
-    Returns:
-        list[PendingAction]: [install/disable/enable/uninstall actions]
-    """
+ Returns:
+ list[PendingAction]: [install/disable/enable/uninstall actions]
+ """
 
 def execute_actions(actions: list[PendingAction], dry_run: bool = False) -> list[ActionResult]:
-    """
-    Execute install/disable/enable/uninstall actions.
+ """
+ Execute install/disable/enable/uninstall actions.
 
-    Args:
-        dry_run: If True, skip filesystem changes, print what would happen
+ Args:
+ dry_run: If True, skip filesystem changes, print what would happen
 
-    Returns:
-        list[ActionResult]: per-action success/failure status
+ Returns:
+ list[ActionResult]: per-action success/failure status
 
-    Raises:
-        InstallerError: if any action fails (rolls back all prior actions)
-    """
+ Raises:
+ InstallerError: if any action fails (rolls back all prior actions)
+ """
 
 class PendingAction:
-    action_type: str      # "install", "disable", "enable", "uninstall"
-    skill_name: str
-    repo_url: str         # GitHub repo URL
-    target_sha: str       # Git SHA to install
+ action_type: str # "install", "disable", "enable", "uninstall"
+ skill_name: str
+ repo_url: str # GitHub repo URL
+ target_sha: str # Git SHA to install
 ```
 
 **Install flow:**
@@ -568,51 +568,51 @@ class PendingAction:
 
 ```python
 class Registry:
-    def read(self) -> Dict:
-        """Load registry from ~/.agent-hunter/registry.json"""
+ def read(self) -> Dict:
+ """Load registry from ~/.agent-hunter/registry.json"""
 
-    def write(self, data: Dict) -> None:
-        """Save registry to ~/.agent-hunter/registry.json"""
+ def write(self, data: Dict) -> None:
+ """Save registry to ~/.agent-hunter/registry.json"""
 
-    def snapshot(self, trigger: str) -> str:
-        """Write timestamped snapshot to backups/, return snapshot name"""
+ def snapshot(self, trigger: str) -> str:
+ """Write timestamped snapshot to backups/, return snapshot name"""
 
-    def restore_from_snapshot(self, snapshot_name: str) -> None:
-        """Restore registry from snapshot"""
+ def restore_from_snapshot(self, snapshot_name: str) -> None:
+ """Restore registry from snapshot"""
 
-    def get_installed_skills(self) -> list[str]:
-        """Return list of currently installed skill names"""
+ def get_installed_skills(self) -> list[str]:
+ """Return list of currently installed skill names"""
 
-    def get_skill_metadata(self, skill_name: str) -> Dict:
-        """Return stored SHA, install_date, etc. for a skill"""
+ def get_skill_metadata(self, skill_name: str) -> Dict:
+ """Return stored SHA, install_date, etc. for a skill"""
 ```
 
 **Registry schema:**
 ```json
 {
-  "version": "0.1.0",
-  "created_at": "2026-05-01T10:00:00Z",
-  "last_updated_at": "2026-05-03T14:30:00Z",
-  "skills": {
-    "skill-deploy": {
-      "repo_url": "https://github.com/owner/skill-deploy",
-      "git_tree_sha": "abc123...",
-      "install_date": "2026-05-03T10:00:00Z",
-      "trust_tier": "VERIFIED",
-      "version": "1.2.3"
-    }
-  }
+ "version": "0.1.0",
+ "created_at": "2026-05-01T10:00:00Z",
+ "last_updated_at": "2026-05-03T14:30:00Z",
+ "skills": {
+ "skill-deploy": {
+ "repo_url": "https://github.com/owner/skill-deploy",
+ "git_tree_sha": "abc123...",
+ "install_date": "2026-05-03T10:00:00Z",
+ "trust_tier": "VERIFIED",
+ "version": "1.2.3"
+ }
+ }
 }
 ```
 
 **Snapshot schema:**
 ```json
 {
-  "snapshot_time": "2026-05-03T14:00:00Z",
-  "trigger": "pre_audit",
-  "git_branch": "main",
-  "crc32": "deadbeef",
-  "registry": { ... }
+ "snapshot_time": "2026-05-03T14:00:00Z",
+ "trigger": "pre_audit",
+ "git_branch": "main",
+ "crc32": "deadbeef",
+ "registry": { ... }
 }
 ```
 
@@ -624,13 +624,13 @@ class Registry:
 
 ```python
 def rollback(target_snapshot: str = None, force: bool = False) -> None:
-    """
-    Restore registry + skill repos to snapshot state.
+ """
+ Restore registry + skill repos to snapshot state.
 
-    Args:
-        target_snapshot: Snapshot name (default: most recent)
-        force: Skip confirmation
-    """
+ Args:
+ target_snapshot: Snapshot name (default: most recent)
+ force: Skip confirmation
+ """
 ```
 
 **Behavior:**
@@ -650,48 +650,48 @@ def rollback(target_snapshot: str = None, force: bool = False) -> None:
 
 ```python
 def render_hunt_report(
-    scored_results: list[ScoredResult],
-    scan_results: list[ScanResult],
-    config: Dict
+ scored_results: list[ScoredResult],
+ scan_results: list[ScanResult],
+ config: Dict
 ) -> str:
-    """
-    Render terminal report of hunt results.
+ """
+ Render terminal report of hunt results.
 
-    Returns:
-        Formatted string with rich table
-    """
+ Returns:
+ Formatted string with rich table
+ """
 
 def save_hunt_report(report_str: str) -> str:
-    """
-    Save report to ~/.agent-hunter/reports/hunt_report_YYYY-MM-DD.md
+ """
+ Save report to ~/.agent-hunter/reports/hunt_report_YYYY-MM-DD.md
 
-    Returns:
-        Path to saved file
-    """
+ Returns:
+ Path to saved file
+ """
 ```
 
 **Output format (terminal):**
 ```
 ╭─ Hunt Results (5 matches) ──────────────────────────────────╮
-│                                                              │
-│ 1. skill-deploy (4.2/5.0) ⭐⭐⭐⭐ [VERIFIED]               │
-│    Why: 90% tech match + verified + 250 stars               │
-│    🟢 Security scan clean                                   │
-│    Install with: agent-hunter install indhra/skill-deploy   │
-│                                                              │
-│ 2. react-hooks-audit (3.8/5.0) ⭐⭐⭐ [COMMUNITY]           │
-│    Why: 75% tech match + trusted author                     │
-│    🟡 Unicode obfuscation (non-critical)                    │
-│    Install with: ...                                        │
-│                                                              │
-│ 3. ... (RED-flagged, excluded from display)                 │
-│                                                              │
+│ │
+│ 1. skill-deploy (4.2/5.0) ⭐⭐⭐⭐ [VERIFIED] │
+│ Why: 90% tech match + verified + 250 stars │
+│ [SAFE] Security scan clean │
+│ Install with: agent-hunter install indhra/skill-deploy │
+│ │
+│ 2. react-hooks-audit (3.8/5.0) ⭐⭐⭐ [COMMUNITY] │
+│ Why: 75% tech match + trusted author │
+│ [REVIEW] Unicode obfuscation (non-critical) │
+│ Install with: ... │
+│ │
+│ 3. ... (RED-flagged, excluded from display) │
+│ │
 ╰──────────────────────────────────────────────────────────────╯
 ```
 
 **Markdown format (saved to file):**
 ```markdown
-# Hunt Report — 2026-05-03
+# Hunt Report - 2026-05-03
 
 ## Summary
 - Searched for: [tech keywords]
@@ -704,7 +704,7 @@ def save_hunt_report(report_str: str) -> str:
 ### 1. skill-deploy (Score: 4.2/5.0)
 **Repo:** https://github.com/indhra/skill-deploy
 **Why this for you:** 90% tech stack match + Verified + 250 stars + active
-**Security:** 🟢 Clean (0 findings)
+**Security:** [SAFE] Clean (0 findings)
 **Install:** `agent-hunter install indhra/skill-deploy`
 
 ...
@@ -724,23 +724,23 @@ def save_hunt_report(report_str: str) -> str:
 
 ```python
 class Sandbox:
-    def run_code(self, code: str, timeout_seconds: int = 10) -> SandboxResult:
-        """
-        Execute code in isolated subprocess/container.
+ def run_code(self, code: str, timeout_seconds: int = 10) -> SandboxResult:
+ """
+ Execute code in isolated subprocess/container.
 
-        Args:
-            code: Python code to run
-            timeout_seconds: Execution timeout
+ Args:
+ code: Python code to run
+ timeout_seconds: Execution timeout
 
-        Returns:
-            SandboxResult: {stdout, stderr, return_code, observed_behaviors}
-        """
+ Returns:
+ SandboxResult: {stdout, stderr, return_code, observed_behaviors}
+ """
 
 class SandboxResult:
-    stdout: str
-    stderr: str
-    return_code: int
-    observed_behaviors: list[str]  # ["network_attempt", "env_read_GITHUB_TOKEN", ...]
+ stdout: str
+ stderr: str
+ return_code: int
+ observed_behaviors: list[str] # ["network_attempt", "env_read_GITHUB_TOKEN", ...]
 ```
 
 **Subprocess mode (default, v0.2.0+):**
@@ -765,29 +765,29 @@ class SandboxResult:
 
 ```python
 def parse_skill_frontmatter(raw_content: str) -> SkillFrontmatter:
-    """
-    Extract YAML frontmatter from SKILL.md.
+ """
+ Extract YAML frontmatter from SKILL.md.
 
-    Args:
-        raw_content: Raw SKILL.md content
+ Args:
+ raw_content: Raw SKILL.md content
 
-    Returns:
-        SkillFrontmatter: parsed frontmatter + body text
+ Returns:
+ SkillFrontmatter: parsed frontmatter + body text
 
-    Raises:
-        SkillParseError: if YAML is malformed
-    """
+ Raises:
+ SkillParseError: if YAML is malformed
+ """
 
 class SkillFrontmatter:
-    name: str
-    version: str
-    description: str
-    trigger: str
-    domain_tags: list[str]
-    license: str = None
-    repo_url: str = None
-    author: str = None
-    body: str  # Full skill markdown after frontmatter
+ name: str
+ version: str
+ description: str
+ trigger: str
+ domain_tags: list[str]
+ license: str = None
+ repo_url: str = None
+ author: str = None
+ body: str # Full skill markdown after frontmatter
 ```
 
 **Frontmatter format:**
@@ -825,21 +825,21 @@ license: MIT
 
 **Phase A (v0.6.0):**
 1. Dynamic unpacking in `security_scan.py`:
-   - Detects base64, marshal, pickle patterns
-   - Uses AST to safely identify decode-then-exec blocks
-   - Controlled execution in sandbox to unpack
-   - Re-scan unpacked code for RED patterns
+ - Detects base64, marshal, pickle patterns
+ - Uses AST to safely identify decode-then-exec blocks
+ - Controlled execution in sandbox to unpack
+ - Re-scan unpacked code for RED patterns
 
 2. Behavior analysis during sandbox:
-   - Monitor file writes (reject outside /tmp)
-   - Monitor network (reject all)
-   - Monitor env reads (flag suspicious)
-   - Report findings as `SANDBOX_ESCAPE_ATTEMPT` (RED) or `SUSPICIOUS_ENV_READ` (ORANGE)
+ - Monitor file writes (reject outside /tmp)
+ - Monitor network (reject all)
+ - Monitor env reads (flag suspicious)
+ - Report findings as `SANDBOX_ESCAPE_ATTEMPT` (RED) or `SUSPICIOUS_ENV_READ` (ORANGE)
 
 3. Docker isolation (v0.6.0+):
-   - Subprocess mode: masked env, restricted cwd, no network
-   - Docker mode: `FROM python:3.12-slim`, no network, read-only FS, 256MB memory, 10s timeout
-   - Auto-fallback to subprocess if Docker unavailable
+ - Subprocess mode: masked env, restricted cwd, no network
+ - Docker mode: `FROM python:3.12-slim`, no network, read-only FS, 256MB memory, 10s timeout
+ - Auto-fallback to subprocess if Docker unavailable
 
 **Phase B (v2.0.0+):**
 - WASM sandbox option for truly untrusted code
@@ -863,21 +863,21 @@ license: MIT
 
 **Phase A (v0.5.0):**
 1. Pre-audit snapshots:
-   - Before every `audit` or `update` command, write snapshot to `~/.agent-hunter/backups/pre_audit_*.json`
-   - Snapshot includes: registry, installed skills list, SHA hashes, install_log tail
-   - CRC32 checksum for tamper detection
+ - Before every `audit` or `update` command, write snapshot to `~/.agent-hunter/backups/pre_audit_*.json`
+ - Snapshot includes: registry, installed skills list, SHA hashes, install_log tail
+ - CRC32 checksum for tamper detection
 
 2. Enhanced rollback:
-   - List available snapshots with metadata
-   - User picks target (or `--to` flag)
-   - Show diff before restore
-   - Restore registry + skill git SHAs (run `git reset --hard`)
-   - Verify restoration succeeded
+ - List available snapshots with metadata
+ - User picks target (or `--to` flag)
+ - Show diff before restore
+ - Restore registry + skill git SHAs (run `git reset --hard`)
+ - Verify restoration succeeded
 
 3. Recovery playbook (`docs/RECOVERY.md`):
-   - "I think a skill was compromised" → steps
-   - "My registry is corrupted" → steps
-   - "How to detect a poisoned SHA" → steps (v0.8.0: sig verification)
+ - "I think a skill was compromised" → steps
+ - "My registry is corrupted" → steps
+ - "How to detect a poisoned SHA" → steps (v0.8.0: sig verification)
 
 **Phase B (v0.8.0+):**
 - Ed25519 signing of snapshots (cryptographic verification)
@@ -905,27 +905,27 @@ license: MIT
 
 **Phase A (v0.7.0):**
 1. Dependency resolver (`scripts/dep_resolver.py`):
-   - Reads all installed skill `requirements.txt`, `pyproject.toml`, `package.json`, `Gemfile`
-   - Builds conflict graph: which skills have incompatible dependencies
-   - Attempts to find compatible semver range for each package
-   - Output: list of conflicts + proposed resolutions (or "UNRESOLVABLE")
+ - Reads all installed skill `requirements.txt`, `pyproject.toml`, `package.json`, `Gemfile`
+ - Builds conflict graph: which skills have incompatible dependencies
+ - Attempts to find compatible semver range for each package
+ - Output: list of conflicts + proposed resolutions (or "UNRESOLVABLE")
 
 2. Audit --deps command:
-   - Reports total unique dependencies
-   - Lists conflicting pairs + severity
-   - Recommends: uninstall, upgrade one skill, or use container mode
-   - Completes in ≤ 5s for 50 skills
+ - Reports total unique dependencies
+ - Lists conflicting pairs + severity
+ - Recommends: uninstall, upgrade one skill, or use container mode
+ - Completes in ≤ 5s for 50 skills
 
 3. Version compatibility matrix:
-   - Registry stores: `python_version_tested`, `node_version_tested` per skill
-   - On audit: compare vs. host environment
-   - Host Python 3.12, skill tested on 3.10 → 🟡 compatibility warning
-   - Host Python 3.12, skill tested on 3.6 → 🔴 incompatible
+ - Registry stores: `python_version_tested`, `node_version_tested` per skill
+ - On audit: compare vs. host environment
+ - Host Python 3.12, skill tested on 3.10 → [REVIEW] compatibility warning
+ - Host Python 3.12, skill tested on 3.6 → [BLOCKED] incompatible
 
 4. Skill isolation options (config):
-   - `"skill_isolation": "none" | "venv" | "container"` (default: none)
-   - `venv`: each skill gets isolated Python venv
-   - `container`: each skill runs in isolated Docker container
+ - `"skill_isolation": "none" | "venv" | "container"` (default: none)
+ - `venv`: each skill gets isolated Python venv
+ - `container`: each skill runs in isolated Docker container
 
 **Phase B (v2.0.0+):**
 - Automatic conflict resolution via dependency pinning
@@ -953,31 +953,31 @@ license: MIT
 
 **Phase A (v0.8.0):**
 1. Cryptographic signing:
-   - Verified skills in `references/VERIFIED_SKILLS.md` are signed with Ed25519 key
-   - Key in `references/TRUSTED_KEYS.pub`
-   - Hunter verifies signature before showing result
-   - Failed signature → 🔴 flag "Signature mismatch — tampered?"
+ - Verified skills in `references/VERIFIED_SKILLS.md` are signed with Ed25519 key
+ - Key in `references/TRUSTED_KEYS.pub`
+ - Hunter verifies signature before showing result
+ - Failed signature → [BLOCKED] flag "Signature mismatch - tampered?"
 
 2. Typo-squat detection:
-   - For each hunt result, compute Levenshtein distance to verified skills
-   - Distance ≤ 2 → flag as "⚠️ Similar to verified skill XXX"
-   - Config: `"block_typo_results": true` to exclude typos entirely
+ - For each hunt result, compute Levenshtein distance to verified skills
+ - Distance ≤ 2 → flag as "⚠️ Similar to verified skill XXX"
+ - Config: `"block_typo_results": true` to exclude typos entirely
 
 3. Curated sources:
-   - New data source: `references/CURATED_SOURCES.md` lists trusted registries
-   - Examples: awesome-claude-skills org, private company index
-   - Hunter consults curated sources BEFORE GitHub Search
-   - Results labeled `[CURATED]` (higher trust tier than raw)
+ - New data source: `references/CURATED_SOURCES.md` lists trusted registries
+ - Examples: awesome-claude-skills org, private company index
+ - Hunter consults curated sources BEFORE GitHub Search
+ - Results labeled `[CURATED]` (higher trust tier than raw)
 
 4. Verified index maintenance:
-   - Contributing.md: process for submitting skills
-   - Criteria: 50+ stars, active (commit in 60d), passing security scan, 2 maintainer sign-offs
-   - Automated: weekly GitHub Actions re-scans all verified skills
+ - Contributing.md: process for submitting skills
+ - Criteria: 50+ stars, active (commit in 60d), passing security scan, 2 maintainer sign-offs
+ - Automated: weekly GitHub Actions re-scans all verified skills
 
 5. Web-of-Trust graph (optional):
-   - Users can endorse trusted authors: `~/.agent-hunter/trusted_authors.json`
-   - Skills by trusted authors get `[AUTHOR_TRUSTED]` label + 0.15× score bonus
-   - Community web-of-trust without central authority
+ - Users can endorse trusted authors: `~/.agent-hunter/trusted_authors.json`
+ - Skills by trusted authors get `[AUTHOR_TRUSTED]` label + 0.15× score bonus
+ - Community web-of-trust without central authority
 
 **Phase B (v2.0.0+):**
 - Formal threat model for Web-of-Trust (published in SECURITY.md)
@@ -1000,25 +1000,25 @@ license: MIT
 
 ```json
 {
-  "hunt": {
-    "min_stars": 10,
-    "max_age_days": 180,
-    "phase": "growth",
-    "timeout_seconds": 30
-  },
-  "sandbox": {
-    "mode": "subprocess",
-    "docker_fallback": true,
-    "timeout_seconds": 10
-  },
-  "skill_isolation": "none",
-  "snapshot_retention_days": 90,
-  "max_snapshots_kept": 30,
-  "freeze_mode": false,
-  "min_trust_tier": "raw",
-  "block_typo_results": false,
-  "github_token": "<from env>",
-  "log_level": "info"
+ "hunt": {
+ "min_stars": 10,
+ "max_age_days": 180,
+ "phase": "growth",
+ "timeout_seconds": 30
+ },
+ "sandbox": {
+ "mode": "subprocess",
+ "docker_fallback": true,
+ "timeout_seconds": 10
+ },
+ "skill_isolation": "none",
+ "snapshot_retention_days": 90,
+ "max_snapshots_kept": 30,
+ "freeze_mode": false,
+ "min_trust_tier": "raw",
+ "block_typo_results": false,
+ "github_token": "<from env>",
+ "log_level": "info"
 }
 ```
 

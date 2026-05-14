@@ -5,9 +5,9 @@ version: "0.1.0"
 license: "MIT"
 author: "{{author}}"
 compatibility:
-  claude: ">=1.0.0"
+ claude: ">=1.0.0"
 triggers:
-  - "{{primary_trigger}}"
+ - "{{primary_trigger}}"
 mcp_dependencies: []
 ---
 
@@ -58,10 +58,10 @@ When the user says something like:
 
 <!-- Remove this comment block before shipping -->
 <!--
-  CHECKLIST before removing draft status:
-  - [ ] All {{placeholders}} replaced
-  - [ ] Triggers tested: does this activate when you want it to? Does it NOT activate when you don't?
-  - [ ] Instructions are clear enough that a different Claude instance would follow them correctly
-  - [ ] Run: agent-hunter audit (once installed) to check for conflicts with other skills
-  - [ ] Update version from 0.1.0 when changes are made
+ CHECKLIST before removing draft status:
+ - [ ] All {{placeholders}} replaced
+ - [ ] Triggers tested: does this activate when you want it to? Does it NOT activate when you don't?
+ - [ ] Instructions are clear enough that a different Claude instance would follow them correctly
+ - [ ] Run: agent-hunter audit (once installed) to check for conflicts with other skills
+ - [ ] Update version from 0.1.0 when changes are made
 -->

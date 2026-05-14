@@ -22,15 +22,15 @@ We have successfully transformed agent-hunter from a feature-rich v0.8.0 codebas
 
 ## Commits (5 total)
 
-1. ✅ **814b61a** — Week 1: Truth restoration (VERSION, README, pyproject.toml to 1.0.0-alpha)
-2. ✅ **cfaf665** — Week 1: SKILL.md simplification (remove deps, focus on 3 commands)
-3. ✅ **736193c** — Week 2: Remove non-core files (7 scripts, 2 bins, 7 tests)
-4. ✅ **e1b0b8d** — Week 2: Scorer simplification (4 signals, defaults.json updated)
-5. ✅ **[current]** — Week 2: Fix imports (inline mcp_parser, update test_scorer)
+1. [YES] **814b61a** - Week 1: Truth restoration (VERSION, README, pyproject.toml to 1.0.0-alpha)
+2. [YES] **cfaf665** - Week 1: SKILL.md simplification (remove deps, focus on 3 commands)
+3. [YES] **736193c** - Week 2: Remove non-core files (7 scripts, 2 bins, 7 tests)
+4. [YES] **e1b0b8d** - Week 2: Scorer simplification (4 signals, defaults.json updated)
+5. [YES] **[current]** - Week 2: Fix imports (inline mcp_parser, update test_scorer)
 
 ---
 
-## Week 1: Truth Restoration ✅ COMPLETE
+## Week 1: Truth Restoration [YES] COMPLETE
 
 ### Files Changed
 
@@ -50,18 +50,18 @@ We have successfully transformed agent-hunter from a feature-rich v0.8.0 codebas
 
 ---
 
-## Week 2: Core Simplification ✅ 70% COMPLETE
+## Week 2: Core Simplification [YES] 70% COMPLETE
 
 ### Removed Files (28 total)
 
 **Python scripts (7):**
-- `scripts/scaffold.py` — stub generation (not core)
-- `scripts/dep_resolver.py` — dependency conflict detection (v2 feature)
-- `scripts/mcp_parser.py` — MCP config parsing (inlined into hunter.py)
-- `scripts/typo_detect.py` — typo-squat detection (v2 feature)
-- `scripts/verify_sig.py` — cryptographic signature verification (v2 feature)
-- `scripts/update.py` — skill update command (merge into audit workflow)
-- `scripts/release.py` — internal release tooling
+- `scripts/scaffold.py` - stub generation (not core)
+- `scripts/dep_resolver.py` - dependency conflict detection (v2 feature)
+- `scripts/mcp_parser.py` - MCP config parsing (inlined into hunter.py)
+- `scripts/typo_detect.py` - typo-squat detection (v2 feature)
+- `scripts/verify_sig.py` - cryptographic signature verification (v2 feature)
+- `scripts/update.py` - skill update command (merge into audit workflow)
+- `scripts/release.py` - internal release tooling
 
 **Bin wrappers (2):**
 - `bin/scaffold`
@@ -81,18 +81,18 @@ We have successfully transformed agent-hunter from a feature-rich v0.8.0 codebas
 **After:** 3 commands, ~450 lines
 
 **Removed commands:**
-- `context` — transparency command (not core value prop)
-- `scaffold` — stub generation (separate tool)
-- `install` — direct install by owner/repo (fold into hunt workflow)
-- `remove` — uninstall skill (not package manager core)
-- `enable` — re-enable disabled skill (not core)
-- `update` — update skills (merge into audit)
-- `contribute` — submit to verified index (v2 community feature)
+- `context` - transparency command (not core value prop)
+- `scaffold` - stub generation (separate tool)
+- `install` - direct install by owner/repo (fold into hunt workflow)
+- `remove` - uninstall skill (not package manager core)
+- `enable` - re-enable disabled skill (not core)
+- `update` - update skills (merge into audit)
+- `contribute` - submit to verified index (v2 community feature)
 
 **Kept commands:**
-1. `hunt` — Main value: find top 3 skills/MCPs for your project
-2. `audit` — Health check installed skills
-3. `rollback` — Restore to last known good state
+1. `hunt` - Main value: find top 3 skills/MCPs for your project
+2. `audit` - Health check installed skills
+3. `rollback` - Restore to last known good state
 
 ### scorer.py Simplification
 
@@ -102,11 +102,11 @@ We have successfully transformed agent-hunter from a feature-rich v0.8.0 codebas
 **New formula:**
 ```python
 total = (
-    stack_match   × 0.40   # Tech stack + domain + intent (unified)
-  + trust_score   × 0.30   # Verified/community/raw tier
-  + recency_score × 0.15   # Last commit age
-  + star_score    × 0.15   # GitHub stars (log-normalized)
-) × yagni_multiplier       # Active 2.0×, recent 1.0×, dormant 0.5×
+ stack_match × 0.40 # Tech stack + domain + intent (unified)
+ + trust_score × 0.30 # Verified/community/raw tier
+ + recency_score × 0.15 # Last commit age
+ + star_score × 0.15 # GitHub stars (log-normalized)
+) × yagni_multiplier # Active 2.0×, recent 1.0×, dormant 0.5×
 ```
 
 **Removed features:**
@@ -125,8 +125,8 @@ total = (
 
 **Issue:** Removed `mcp_parser.py` but `hunter.py` still imported from it
 **Fix:** Inlined two helper functions directly into `hunter.py`:
-- `parse_mcp_json()` — simplified MCP metadata extraction
-- `is_mcp_server_py()` — heuristic MCP server detection
+- `parse_mcp_json()` - simplified MCP metadata extraction
+- `is_mcp_server_py()` - heuristic MCP server detection
 
 **Result:** MCP support retained, dependency removed
 
@@ -210,10 +210,10 @@ total = (
 
 ## Code Quality Checks
 
-**Pre-commit hooks:** ✅ Passing (ruff, trailing whitespace, end-of-files, yaml/json)
-**Import errors:** ✅ Fixed (hunter.py, test_scorer.py)
-**Git status:** ✅ Clean working tree
-**Branch state:** ✅ 5 commits ahead of feat/core-implementation
+**Pre-commit hooks:** [YES] Passing (ruff, trailing whitespace, end-of-files, yaml/json)
+**Import errors:** [YES] Fixed (hunter.py, test_scorer.py)
+**Git status:** [YES] Clean working tree
+**Branch state:** [YES] 5 commits ahead of feat/core-implementation
 
 ---
 

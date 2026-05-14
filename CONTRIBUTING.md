@@ -18,7 +18,7 @@ agent-hunter accepts four types of contributions. Each has a different review ba
 **Requirements before opening a PR:**
 1. Your pattern must include a real-world example that triggers it (add to `tests/fixtures/`)
 2. Your pattern must NOT trigger on any file in `tests/fixtures/clean_skill.md`
-3. Explain the attack vector in the PR description — what does this pattern catch and how was it found in the wild?
+3. Explain the attack vector in the PR description - what does this pattern catch and how was it found in the wild?
 4. Cite a source (CVE, blog post, research paper, or your own observed incident)
 
 **Review bar:** Two maintainer approvals. Security patterns ship in the next patch release.
@@ -50,19 +50,19 @@ agent-hunter accepts four types of contributions. Each has a different review ba
 **What "verified" means:**
 - You read the full SKILL.md (not just the description)
 - You checked the repo history for sudden ownership changes
-- You ran `agent-hunter`'s security scan against it (returns 🟢, no 🔴 flags)
+- You ran `agent-hunter`'s security scan against it (returns [SAFE], no [BLOCKED] flags)
 - You have actually used it in a real project
 - Your review is independent (you are not the skill's author)
 - Two community members have approved the verification
 
 **Verification Criteria Checklist:**
-- ✅ Skill repo has 50+ GitHub stars (active project signal)
-- ✅ Repo has commits within last 60 days (actively maintained)
-- ✅ `security_scan.py` returns 🟢 for all checks
-- ✅ No RED (🔴) findings in static or runtime analysis
-- ✅ SKILL.md frontmatter is valid and complete
-- ✅ You have tested the skill in a working project
-- ✅ Two independent sign-offs from reviewers (not including skill author)
+- [YES] Skill repo has 50+ GitHub stars (active project signal)
+- [YES] Repo has commits within last 60 days (actively maintained)
+- [YES] `security_scan.py` returns [SAFE] for all checks
+- [YES] No RED ([BLOCKED]) findings in static or runtime analysis
+- [YES] SKILL.md frontmatter is valid and complete
+- [YES] You have tested the skill in a working project
+- [YES] Two independent sign-offs from reviewers (not including skill author)
 
 **Signing Process (v0.8.0+):**
 
@@ -75,9 +75,9 @@ from scripts.verify_sig import SignatureVerifier
 
 verifier = SignatureVerifier()
 skill_entry = {
-    "name": "skill-deploy",
-    "repo_url": "https://github.com/owner/skill-deploy",
-    "verified_at": "2026-05-09T00:00:00Z"
+ "name": "skill-deploy",
+ "repo_url": "https://github.com/owner/skill-deploy",
+ "verified_at": "2026-05-09T00:00:00Z"
 }
 
 # Sign with maintainer key
@@ -89,10 +89,10 @@ EOF
 Add the signed entry to `references/VERIFIED_SKILLS.md` in the JSON array:
 ```json
 {
-  "name": "skill-deploy",
-  "repo_url": "https://github.com/owner/skill-deploy",
-  "verified_at": "2026-05-09T00:00:00Z",
-  "signature": "indhra:d3e923da62c022df70bfa30ee5584d02638178d187c02df24ec56e859dc9e805"
+ "name": "skill-deploy",
+ "repo_url": "https://github.com/owner/skill-deploy",
+ "verified_at": "2026-05-09T00:00:00Z",
+ "signature": "indhra:d3e923da62c022df70bfa30ee5584d02638178d187c02df24ec56e859dc9e805"
 }
 ```
 
@@ -103,11 +103,11 @@ Add the signed entry to `references/VERIFIED_SKILLS.md` in the JSON array:
 - **Stars:** 150+ (as of review date)
 - **Last commit:** Within 60 days
 - **License:** MIT
-- **Security scan:** 🟢 (all checks passed)
+- **Security scan:** [SAFE] (all checks passed)
 - **Reviewers:** @reviewer1, @reviewer2 (not including author @author)
 - **Review date:** YYYY-MM-DD
 - **Why verified:** [One sentence: what does this skill do and why is it trustworthy]
-- **Tested on:** [Your stack — e.g. "FastAPI + Postgres project"]
+- **Tested on:** [Your stack - e.g. "FastAPI + Postgres project"]
 - **Cryptographic signature:** indhra:abc123...
 ```
 
@@ -130,30 +130,30 @@ Add the signed entry to `references/VERIFIED_SKILLS.md` in the JSON array:
 - **Top 5 results:** [list them]
 - **Relevant count:** N/5
 - **False positives in security scan:** Y (describe each)
-- **False negatives (malicious skills that slipped through):** Z (critical — describe immediately)
+- **False negatives (malicious skills that slipped through):** Z (critical - describe immediately)
 - **Notes:** [anything unusual]
 ```
 
-False negatives on the security scan are **critical** — open a separate issue immediately with the `security-pattern` label, don't just include it in the benchmark submission.
+False negatives on the security scan are **critical** - open a separate issue immediately with the `security-pattern` label, don't just include it in the benchmark submission.
 
 ---
 
 ## General Process
 
 ### Before You Start
-- Check [open issues](https://github.com/indhra/agent-hunter/issues) — someone may already be working on it
+- Check [open issues](https://github.com/indhra/agent-hunter/issues) - someone may already be working on it
 - For significant changes, open an issue first and describe what you're planning
 
 ### PR Requirements (all types)
 - PRs must pass CI (lints + tests) before review
-- One commit per logical change — clean history helps reviewers
+- One commit per logical change - clean history helps reviewers
 - Update `CHANGELOG.md` under `[Unreleased]` with a one-line entry
 
 ### What We Do NOT Accept
 - Auto-generated security patterns without real-world grounding
 - Skills from repos with < 10 stars in VERIFIED_SKILLS.md
 - Hunt sources that require paid accounts or scraping
-- Any change that adds LLM API calls to Python scripts (scripts are I/O only — host agent does reasoning)
+- Any change that adds LLM API calls to Python scripts (scripts are I/O only - host agent does reasoning)
 - Any change that enables auto-install without explicit user confirmation
 
 ---
@@ -163,40 +163,40 @@ False negatives on the security scan are **critical** — open a separate issue 
 Before merging a PR into `main`, ensure the following:
 
 1. **Update CHANGELOG.md** under the `[Unreleased]` section:
-   ```markdown
-   ### Added
-   - New feature description
+ ```markdown
+ ### Added
+ - New feature description
 
-   ### Fixed
-   - Bug fix description
+ ### Fixed
+ - Bug fix description
 
-   ### Changed
-   - Breaking changes or updates
-   ```
+ ### Changed
+ - Breaking changes or updates
+ ```
 
 2. **For release PRs** (when bumping version):
-   - Move `[Unreleased]` entries into a new versioned section:
-     ```markdown
-     ## [0.4.1] - 2026-05-03
+ - Move `[Unreleased]` entries into a new versioned section:
+ ```markdown
+ ## [0.4.1] - 2026-05-03
 
-     ### Added
-     - Feature A
-     - Feature B
+ ### Added
+ - Feature A
+ - Feature B
 
-     ## [Unreleased]
+ ## [Unreleased]
 
-     (Section ready for next version)
-     ```
+ (Section ready for next version)
+ ```
 
 3. **After merge to main**, run the release script:
-   ```bash
-   python scripts/release.py --version 0.4.1
-   ```
-   This will:
-   - Create a git tag (`v0.4.1`)
-   - Push tag to GitHub
-   - Create a GitHub Release with notes from CHANGELOG.md
-   - Users will be notified via GitHub releases feed
+ ```bash
+ python scripts/release.py --version 0.4.1
+ ```
+ This will:
+ - Create a git tag (`v0.4.1`)
+ - Push tag to GitHub
+ - Create a GitHub Release with notes from CHANGELOG.md
+ - Users will be notified via GitHub releases feed
 
 ---
 
@@ -225,7 +225,7 @@ We aim to respond within 48 hours and ship a patch within 7 days for confirmed v
 
 ## Maintainers
 
-- **Indhra Kiranu N A** ([@indhra](https://github.com/indhra)) — Project creator and primary maintainer
+- **Indhra Kiranu N A** ([@indhra](https://github.com/indhra)) - Project creator and primary maintainer
 
 ---
 

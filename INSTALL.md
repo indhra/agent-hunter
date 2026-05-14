@@ -22,14 +22,14 @@ cd ~/.claude/skills/agent-hunter
 ```
 
 The setup script will:
-- ✅ Check Python 3.10+
-- ✅ Create a local virtual environment
-- ✅ Install dependencies (PyYAML, requests, rich)
-- ✅ Register `/agent-hunter` in your global `~/.claude/CLAUDE.md`
-- ✅ Symlink sub-skills
-- ✅ Create `~/.local/bin/agent-hunter` for CLI access
+- [YES] Check Python 3.10+
+- [YES] Create a local virtual environment
+- [YES] Install dependencies (PyYAML, requests, rich)
+- [YES] Register `/agent-hunter` in your global `~/.claude/CLAUDE.md`
+- [YES] Symlink sub-skills
+- [YES] Create `~/.local/bin/agent-hunter` for CLI access
 
-**That's it.** `/agent-hunter` is now available in every Claude Code session.
+**** `/agent-hunter` is now available in every Claude Code session.
 
 ---
 
@@ -65,11 +65,11 @@ Add this to your project's `.claude/settings.json`:
 
 ```json
 {
-  "autoActivateSkills": ["agent-hunter"],
-  "onSessionStart": {
-    "if": "currentProject !== lastProject",
-    "then": "/agent-hunter"
-  }
+ "autoActivateSkills": ["agent-hunter"],
+ "onSessionStart": {
+ "if": "currentProject !== lastProject",
+ "then": "/agent-hunter"
+ }
 }
 ```
 
@@ -111,17 +111,17 @@ source ~/.zshrc
 ### Why Token for Brownfield?
 
 Brownfield projects have very specific needs. With GitHub token:
-- ✅ Searches 5,000+ skill repositories
-- ✅ Finds niche tools for refactoring, optimization, testing
-- ✅ Better matches for "existing project enhancement"
-- ✅ Avoids GitHub API rate limit hits
+- [YES] Searches 5,000+ skill repositories
+- [YES] Finds niche tools for refactoring, optimization, testing
+- [YES] Better matches for "existing project enhancement"
+- [YES] Avoids GitHub API rate limit hits
 
 ### Coverage Comparison
 
 | Tier | Token? | Coverage | Speed | Best For |
 |---|---|---|---|---|
-| **Tier 1 (Curated)** | ❌ No | ~100 verified | Instant | Quick, trusted skills |
-| **Tier 2 (GitHub)** | ✅ Yes | 5,000+ repos | 2-5 sec | **Brownfield work** |
+| **Tier 1 (Curated)** | [NO] No | ~100 verified | Instant | Quick, trusted skills |
+| **Tier 2 (GitHub)** | [YES] Yes | 5,000+ repos | 2-5 sec | **Brownfield work** |
 | **Tier 3 (Web)** | - | Unlimited | 5-15 sec | Novel discoveries |
 
 **Recommendation:**
@@ -202,11 +202,11 @@ Then add to `.claude/settings.json`:
 
 ```json
 {
-  "autoActivateSkills": ["agent-hunter"],
-  "proactiveTriggers": {
-    "newProject": true,
-    "beforeFeatureBuild": true
-  }
+ "autoActivateSkills": ["agent-hunter"],
+ "proactiveTriggers": {
+ "newProject": true,
+ "beforeFeatureBuild": true
+ }
 }
 ```
 
@@ -223,7 +223,7 @@ ls ~/.claude/skills/agent-hunter/
 
 **Check 2:** Reload your shell
 ```bash
-source ~/.zshrc  # or ~/.bash_profile
+source ~/.zshrc # or ~/.bash_profile
 ```
 
 **Check 3:** Verify global CLAUDE.md
@@ -245,13 +245,13 @@ grep -i "agent-hunter" ~/.claude/CLAUDE.md
 
 ### Security warning on a skill
 
-If agent-hunter flags a skill as 🟡 (review before installing):
+If agent-hunter flags a skill as [REVIEW] (review before installing):
 1. Read the SKILL.md file from the recommended repo
 2. Check the flagged patterns (usually filesystem access, network calls)
 3. Decide if it fits your use case
 4. Install manually if appropriate
 
-RED (🔴) flagged skills are never shown — they're blocked entirely.
+RED ([BLOCKED]) flagged skills are never shown - they're blocked entirely.
 
 ---
 
@@ -275,10 +275,10 @@ Then remove the `## agent-hunter` section from `~/.claude/CLAUDE.md`.
 
 ## Privacy & Security
 
-✅ **Only tech keywords** (framework names, library names) are extracted
-✅ **No code, no paths, no secrets** ever leave your machine
-✅ **All results security-scanned** before showing
-✅ **RED results blocked entirely** — never shown to you
+[YES] **Only tech keywords** (framework names, library names) are extracted
+[YES] **No code, no paths, no secrets** ever leave your machine
+[YES] **All results security-scanned** before showing
+[YES] **RED results blocked entirely** - never shown to you
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md#privacy) for full details.
 
@@ -292,9 +292,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md#privacy) for full details.
 4. **Proactive (optional):** Enable `AGENT_HUNTER_AUTO=1` for auto-activation
 
 **Questions?**
-- 🐛 [GitHub Issues](https://github.com/indhra/agent-hunter/issues)
+- [Issue] [GitHub Issues](https://github.com/indhra/agent-hunter/issues)
 - 💬 [Discussions](https://github.com/indhra/agent-hunter/discussions)
 
 ---
 
-**Built to save time and block the bad stuff.**
+****

@@ -5,16 +5,16 @@ version: "1.0.0-alpha"
 license: "MIT"
 author: "Indhra Kiranu N A"
 compatibility:
-  claude: ">=1.0.0"
+ claude: ">=1.0.0"
 triggers:
-  - "hunt for skills"
-  - "find relevant skills"
-  - "what skills exist for this project"
-  - "what skills should I install"
-  - "are there any skills I should install"
-  - "agent-hunter hunt"
-  - "agent-hunter audit"
-  - "agent-hunter rollback"
+ - "hunt for skills"
+ - "find relevant skills"
+ - "what skills exist for this project"
+ - "what skills should I install"
+ - "are there any skills I should install"
+ - "agent-hunter hunt"
+ - "agent-hunter audit"
+ - "agent-hunter rollback"
 mcp_dependencies: []
 ---
 
@@ -58,18 +58,18 @@ export AGENT_HUNTER_AUTO=1
 Add to `.claude/settings.json`:
 ```json
 {
-  "autoActivateSkills": ["agent-hunter"],
-  "onSessionStart": {
-    "if": "projectChanged",
-    "then": "/agent-hunter"
-  }
+ "autoActivateSkills": ["agent-hunter"],
+ "onSessionStart": {
+ "if": "projectChanged",
+ "then": "/agent-hunter"
+ }
 }
 ```
 
 With proactive mode enabled:
-- ✅ When you open a new project → agent-hunter automatically runs
-- ✅ Top 3 skills surface without waiting for you to ask
-- ✅ One hunt per session per project (guard prevents redundant runs)
+- [YES] When you open a new project → agent-hunter automatically runs
+- [YES] Top 3 skills surface without waiting for you to ask
+- [YES] One hunt per session per project (guard prevents redundant runs)
 
 See [INSTALL.md](./INSTALL.md) for full setup details.
 
@@ -102,7 +102,7 @@ Use agent-hunter when:
 
 ## Session Loop Guard
 
-**CRITICAL — CHECK THIS FIRST:**
+**CRITICAL - CHECK THIS FIRST:**
 
 Check if `AGENT_HUNTER_RAN` is set in this session:
 
@@ -130,7 +130,7 @@ This prevents infinite loops and token waste.
 - Any project-specific strings
 
 Before extracting context:
-> "I'll read your project files to identify your tech stack. Only framework/library names will be used — no file paths, variable names, or project-specific code."
+> "I'll read your project files to identify your tech stack. Only framework/library names will be used - no file paths, variable names, or project-specific code."
 
 After extraction, SHOW the user the tech signals:
 > "Found: FastAPI, PostgreSQL, pytest, Docker"
@@ -159,33 +159,33 @@ This command:
 The hunt prints a report like this:
 
 ```
-📍 Found: FastAPI, PostgreSQL, pytest, Docker
+ Found: FastAPI, PostgreSQL, pytest, Docker
 
 Top 3 recommendations:
 
-1. 🟢 fastapi-backend-testing
-   Safe to install.
-   Why: Your repo uses FastAPI, pytest, and Docker. This skill targets
-   backend test and deployment workflows directly.
+1. [SAFE] fastapi-backend-testing
+ Safe to install.
+ Why: Your repo uses FastAPI, pytest, and Docker. This skill targets
+ backend test and deployment workflows directly.
 
-2. 🟢 postgres-mcp-server
-   Safe to install.
-   Why: Your project connects to PostgreSQL. This MCP gives Claude direct
-   database query and schema inspection tools.
+2. [SAFE] postgres-mcp-server
+ Safe to install.
+ Why: Your project connects to PostgreSQL. This MCP gives Claude direct
+ database query and schema inspection tools.
 
-3. 🟡 api-security-scanner
-   Review before installing.
-   Why: Useful for REST API security audits, but flagged for filesystem
-   access patterns. Review SKILL.md before proceeding.
+3. [REVIEW] api-security-scanner
+ Review before installing.
+ Why: Useful for REST API security audits, but flagged for filesystem
+ access patterns. Review SKILL.md before proceeding.
 
-🔴 2 results blocked (security scan)
+[BLOCKED] 2 results blocked (security scan)
 ```
 
 ### Trust Signals
 
-- 🟢 **Safe to install** — Verified or clean security scan
-- 🟡 **Review before installing** — Minor security flags, user should review
-- 🔴 **Blocked** — Failed security scan, not shown to user
+- [SAFE] **Safe to install** - Verified or clean security scan
+- [REVIEW] **Review before installing** - Minor security flags, user should review
+- [BLOCKED] **Blocked** - Failed security scan, not shown to user
 
 **RED results are NEVER shown.** Only counted.
 
@@ -195,9 +195,9 @@ Top 3 recommendations:
 
 ```
 Tier 1: Curated Index (always runs, instant, verified)
-   ↓
+ ↓
 Tier 2: GitHub API (runs if GITHUB_TOKEN set)
-   ↓
+ ↓
 Tier 3: LLM Web Search (optional enrichment)
 ```
 
@@ -209,7 +209,7 @@ Tier 3: LLM Web Search (optional enrichment)
 **When to offer web search:**
 
 After showing initial hunt results, assess:
-- If **3+ good results** (🟢 or 🟡): Continue to Step 3, don't offer web search
+- If **3+ good results** ([SAFE] or [REVIEW]): Continue to Step 3, don't offer web search
 - If **< 3 results** OR user seems unsatisfied: Offer web search
 
 **Offer prompt:**
@@ -222,80 +222,80 @@ After showing initial hunt results, assess:
 **If user says yes or auto (when < 3 results):**
 
 1. **Construct search query:**
-   ```
-   "GitHub SKILL.md {tech_stack} {domain} development agent skills 2026"
+ ```
+ "GitHub SKILL.md {tech_stack} {domain} development agent skills 2026"
 
-   Examples:
-   - "GitHub SKILL.md FastAPI Python REST API development agent skills 2026"
-   - "GitHub SKILL.md React TypeScript frontend development agent skills 2026"
-   - "GitHub SKILL.md Django PostgreSQL backend development MCP 2026"
-   ```
+ Examples:
+ - "GitHub SKILL.md FastAPI Python REST API development agent skills 2026"
+ - "GitHub SKILL.md React TypeScript frontend development agent skills 2026"
+ - "GitHub SKILL.md Django PostgreSQL backend development MCP 2026"
+ ```
 
 2. **Execute web search** using `vscode-websearchforcopilot_webSearch` tool
 
 3. **Parse results for:**
-   - GitHub repository URLs (github.com/owner/repo)
-   - SKILL.md file references
-   - MCP server mentions
-   - Skill marketplace links (Smithery, Agensi.io, MCP Market, etc.)
+ - GitHub repository URLs (github.com/owner/repo)
+ - SKILL.md file references
+ - MCP server mentions
+ - Skill marketplace links (Smithery, Agensi.io, MCP Market, etc.)
 
 4. **Extract candidate repos:**
-   - Filter for GitHub URLs only
-   - Remove duplicates already in hunt results
-   - Limit to top 5 new discoveries
+ - Filter for GitHub URLs only
+ - Remove duplicates already in hunt results
+ - Limit to top 5 new discoveries
 
 5. **For each new repo:**
-   - Attempt to fetch SKILL.md from standard locations:
-     - `/SKILL.md`
-     - `/.claude/skills/*/SKILL.md`
-     - `/skills/*/SKILL.md`
-   - If found: Add to candidates for security scan
-   - If marketplace link: Note as reference for user
+ - Attempt to fetch SKILL.md from standard locations:
+ - `/SKILL.md`
+ - `/.claude/skills/*/SKILL.md`
+ - `/skills/*/SKILL.md`
+ - If found: Add to candidates for security scan
+ - If marketplace link: Note as reference for user
 
 6. **Security scan** new discoveries (same as GitHub results)
-   - Run through security_scan.py
-   - Block RED results
-   - Flag YELLOW for review
+ - Run through security_scan.py
+ - Block RED results
+ - Flag YELLOW for review
 
 7. **Merge and re-rank:**
-   - Combine web search results with initial hunt results
-   - Re-run scorer.py on combined set
-   - Show updated top 3
+ - Combine web search results with initial hunt results
+ - Re-run scorer.py on combined set
+ - Show updated top 3
 
 8. **Show updated report:**
-   ```
-   🌐 Web search found 3 additional skills:
+ ```
+ Web search found 3 additional skills:
 
-   Top 3 recommendations (updated):
+ Top 3 recommendations (updated):
 
-   1. 🟢 fastapi-official-skill (NEW - web search)
-      Safe to install.
-      Why: Official FastAPI skill from fastapi/fastapi repo
-      Source: Web search
+ 1. [SAFE] fastapi-official-skill (NEW - web search)
+ Safe to install.
+ Why: Official FastAPI skill from fastapi/fastapi repo
+ Source: Web search
 
-   2. 🟢 postgres-mcp-server
-      Safe to install.
-      Why: [original explanation]
-      Source: Curated index
+ 2. [SAFE] postgres-mcp-server
+ Safe to install.
+ Why: [original explanation]
+ Source: Curated index
 
-   3. 🟢 fastapi-ddd-pattern (NEW - web search)
-      Safe to install.
-      Why: Domain-driven design patterns for FastAPI
-      Source: Web search via github.com/iktakahiro
-   ```
+ 3. [SAFE] fastapi-ddd-pattern (NEW - web search)
+ Safe to install.
+ Why: Domain-driven design patterns for FastAPI
+ Source: Web search via github.com/iktakahiro
+ ```
 
 **If web search fails:**
 > "Web search timed out or returned no results. Continuing with {N} skills from curated index + GitHub."
 
 **Performance notes:**
 - Web search typically takes 5-15 seconds
-- Show progress: "🌐 Searching web for additional skills..."
+- Show progress: " Searching web for additional skills..."
 - Timeout after 30 seconds
 - Cache results in session to avoid duplicate searches
 
 **Marketplace references:**
 If web search finds skill marketplaces (Agensi.io, Smithery, MCP Market), mention them:
-> "💡 Also found these skill marketplaces you can browse manually:
+> " Also found these skill marketplaces you can browse manually:
 > - Smithery: https://smithery.ai/
 > - Agensi: https://agensi.io/
 > - MCP Market: https://mcpmarket.com/"
@@ -338,9 +338,9 @@ agent-hunter audit
 This command:
 1. Creates a pre-audit snapshot (for rollback)
 2. Checks all installed skills for:
-   - Security issues
-   - Tamper detection (SHA mismatch)
-   - Dependency conflicts
+ - Security issues
+ - Tamper detection (SHA mismatch)
+ - Dependency conflicts
 3. Reports health status
 
 Show the results in a table:
@@ -348,15 +348,15 @@ Show the results in a table:
 ```
 Skill Health Check:
 
-🟢 skill-a          Healthy
-🟢 skill-b          Healthy
-🟡 skill-c          Warning: SHA mismatch (may have been modified)
-🔴 skill-d          BLOCKED: Security scan failed
+[SAFE] skill-a Healthy
+[SAFE] skill-b Healthy
+[REVIEW] skill-c Warning: SHA mismatch (may have been modified)
+[BLOCKED] skill-d BLOCKED: Security scan failed
 
 Recommendation: Disable skill-d immediately
 ```
 
-For any 🔴 or 🟡 issues:
+For any [BLOCKED] or [REVIEW] issues:
 - Explain what was detected
 - Recommend action (disable, rollback, review)
 - Show the command to fix it
@@ -383,16 +383,16 @@ This restores the registry to the last known good snapshot (created before audit
 If hunt returns 0 results:
 
 1. Explain why:
-   > "No results found. This could mean:
-   > - Your stack is very specialized
-   > - GitHub rate limit hit (set GITHUB_TOKEN for more quota)
-   > - Tech keywords weren't detected correctly"
+ > "No results found. This could mean:
+ > - Your stack is very specialized
+ > - GitHub rate limit hit (set GITHUB_TOKEN for more quota)
+ > - Tech keywords weren't detected correctly"
 
 2. Show what was detected:
-   > "I detected: [tech signals]"
+ > "I detected: [tech signals]"
 
 3. Suggest next steps:
-   > "You can manually search GitHub for 'filename:SKILL.md <your-tech>' or build something new."
+ > "You can manually search GitHub for 'filename:SKILL.md <your-tech>' or build something new."
 
 ---
 
@@ -471,10 +471,10 @@ Results are ranked by 4 signals:
 
 ```
 total_score = (
-    stack_match   × 0.40   # Does it match my tech stack?
-  + trust_score   × 0.30   # Is it safe?
-  + recency_score × 0.15   # Is it maintained?
-  + star_score    × 0.15   # Is it popular?
+ stack_match × 0.40 # Does it match my tech stack?
+ + trust_score × 0.30 # Is it safe?
+ + recency_score × 0.15 # Is it maintained?
+ + star_score × 0.15 # Is it popular?
 ) × yagni_multiplier
 ```
 
@@ -495,14 +495,14 @@ This is handled automatically by the Python scripts. You don't need to calculate
 ## Commands Summary
 
 ```bash
-# Main command — hunt for relevant skills/MCPs
+# Main command - hunt for relevant skills/MCPs
 agent-hunter hunt .
 
-# Health check — audit all installed skills
+# Health check - audit all installed skills
 agent-hunter audit
 
-# Restore — rollback to last known good state
+# Restore - rollback to last known good state
 agent-hunter rollback
 ```
 
-That's it. Three commands. Stay focused on the core value: **top 3 recommendations that save time and block bad stuff.**
+ Three commands. Stay focused on the core value: **top 3 recommendations that save time and block bad stuff.**

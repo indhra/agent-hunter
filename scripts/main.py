@@ -1,5 +1,5 @@
 """
-main.py — CLI entry point for agent-hunter v1.0.0-alpha.
+main.py — CLI entry point for agent-hunter v0.1.0.
 
 Orchestrates the core 3-command pipeline: hunt, audit, rollback.
 
@@ -312,7 +312,7 @@ def cmd_hunt(args: list[str]) -> int:
     scored = score_results(results, profile, metadata_map)
 
     # --- Render report ---
-    top_n = hunt_cfg.get("top_n_shown", 3)  # v1.0.0-alpha: default to top 3
+    top_n = hunt_cfg.get("top_n_shown", 3)  # v0.1.0: default to top 3
     render_hunt_report(
         scored_results=scored,
         scan_results=scan_results,
@@ -434,7 +434,7 @@ def cmd_rollback(_args: list[str]) -> int:
 # ---------------------------------------------------------------------------
 
 USAGE = """\
-agent-hunter v1.0.0-alpha — Repo-aware skill package manager for Claude Code
+agent-hunter v0.1.0 — Repo-aware skill package manager for Claude Code
 
 Usage:
   agent-hunter hunt [project_root]    Find top 3 skills/MCPs for your project

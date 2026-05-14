@@ -1,7 +1,7 @@
 """
 scorer.py — Score and rank HuntResult objects by relevance.
 
-Scoring formula (v1.0.0-alpha, 4-signal):
+Scoring formula (v0.1.0, 4-signal):
     total = (stack_match   × 0.40
            + trust_score   × 0.30
            + recency_score × 0.15

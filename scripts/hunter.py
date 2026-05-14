@@ -34,7 +34,7 @@ from context_extractor import ContextProfile
 
 
 # ---------------------------------------------------------------------------
-# MCP Detection Helpers (inlined from mcp_parser.py for v1.0.0-alpha)
+# MCP Detection Helpers (inlined from mcp_parser.py for v0.1.0)
 # ---------------------------------------------------------------------------
 
 

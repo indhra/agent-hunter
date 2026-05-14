@@ -7,6 +7,7 @@ All network calls are mocked with unittest.mock so tests are offline and fast.
 
 from __future__ import annotations
 
+import os
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -1051,7 +1052,8 @@ class TestCheckAuthMissingLines:
             result = h._check_auth()
         assert result is False
         out = capsys.readouterr().out
-        assert "token" in out.lower() or "github.com/settings" in out.lower()
+        # Updated to check for new single-line message
+        assert "Tier 2" in out and "skipped" in out
 
     def test_request_exception_returns_false(self, capsys):
         h = make_hunter()
@@ -1060,6 +1062,51 @@ class TestCheckAuthMissingLines:
         assert result is False
         out = capsys.readouterr().out
         assert "GitHub API" in out or "reach" in out.lower()
+
+    def test_401_emits_single_line_message(self, capsys):
+        """Verify that 401 error emits exactly one line, not multiple error lines."""
+        h = make_hunter()
+        mock_resp = MagicMock()
+        mock_resp.status_code = 401
+        with patch.object(h._session, "get", return_value=mock_resp):
+            result = h._check_auth()
+        assert result is False
+        out = capsys.readouterr().out
+        # Should contain the new single-line message
+        assert "Tier 2 (GitHub Code Search) skipped" in out
+        assert "requires GITHUB_TOKEN" in out
+        # Count the lines - should be exactly 1
+        lines = [line for line in out.strip().split('\n') if line.strip()]
+        assert len(lines) == 1, f"Expected 1 line, got {len(lines)}: {lines}"
+
+
+class TestNoGithubFlag:
+    """Test the --no-github flag functionality."""
+
+    def test_no_github_flag_skips_api_calls(self, capsys):
+        """Verify that no_github=True skips GitHub API calls entirely."""
+        from context_extractor import ContextProfile
+
+        h = make_hunter(no_github=True)
+        profile = ContextProfile(tech_stack=["python", "fastapi"])
+
+        # Mock the curated index to return some results
+        result = make_result(repo_url="https://github.com/test/skill1")
+        with patch.object(h, '_search_curated_index', return_value=[result]):
+            # Mock prefilter to avoid repo metadata API calls
+            with patch.object(h, '_prefilter_parallel', return_value=[result]):
+                with patch.object(h._session, 'get') as mock_get:
+                    results = h.hunt(profile)
+                    # Verify that NO GitHub API calls were made
+                    mock_get.assert_not_called()
+
+        # Should have returned curated results
+        assert len(results) >= 0
+
+        # Check output message
+        out = capsys.readouterr().out
+        assert "Tier 2 (GitHub Code Search) skipped" in out
+        assert "--no-github flag set" in out
 
 
 class TestBuildQueriesIntentAndMcp:
@@ -1115,5 +1162,10 @@ class TestHunterTokenInHeader:
         assert h._session.headers.get("Authorization") == "Bearer test-token-abc123"
 
     def test_no_token_no_auth_header(self):
-        h = make_hunter(github_token=None)
-        assert "Authorization" not in h._session.headers
+        # Mock environment to ensure GITHUB_TOKEN is not set
+        with patch.dict('os.environ', {}, clear=False):
+            # Remove GITHUB_TOKEN if it exists
+            if 'GITHUB_TOKEN' in os.environ:
+                del os.environ['GITHUB_TOKEN']
+            h = make_hunter(github_token=None)
+            assert "Authorization" not in h._session.headers

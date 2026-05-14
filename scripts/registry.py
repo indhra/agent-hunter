@@ -451,8 +451,8 @@ def _fetch_remote_sha(repo_url: str, token: Optional[str] = None) -> Optional[st
     Args:
         repo_url: Full GitHub repository URL.
         token: Optional GitHub personal access token. When provided, requests are
-               authenticated and count against the 5,000/hr authenticated rate limit
-               instead of the 60/hr unauthenticated limit.
+               authenticated and count against the 5,000/hr authenticated rate limit.
+               GitHub Code Search requires authentication as of February 2024.
     """
     try:
         import requests

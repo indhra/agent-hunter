@@ -189,12 +189,14 @@ class Hunter:
         max_age_days: int = PRE_FILTER_MAX_AGE_DAYS,
         include_mcp: bool = True,
         verified_index_path: Optional[Path] = None,
+        no_github: bool = False,
     ) -> None:
         self.token = github_token or os.environ.get("GITHUB_TOKEN")
         self.min_stars = min_stars
         self.max_age_days = max_age_days
         self.include_mcp = include_mcp
         self.verified_index_path = verified_index_path
+        self.no_github = no_github
         self._session = requests.Session()
         if self.token:
             self._session.headers["Authorization"] = f"Bearer {self.token}"
@@ -223,20 +225,25 @@ class Hunter:
                 results[r.repo_url] = r
 
         # --- GitHub search (lower priority, doesn't overwrite curated) ---
-        if not self._check_auth():
+        # Skip if --no-github flag is set or if auth check fails
+        if self.no_github:
+            print(
+                "[agent-hunter] Tier 2 (GitHub Code Search) skipped — --no-github flag set. Using curated index only."
+            )
+        elif not self._check_auth():
             # If no auth but we have curated results, return them
             if results:
                 return list(results.values())
             return []
+        else:
+            # --- Query construction ---
+            queries = self._build_queries(profile)
 
-        # --- Query construction ---
-        queries = self._build_queries(profile)
-
-        for query, result_type in queries:
-            batch = self._search_github(query, result_type)
-            for r in batch:
-                if r.repo_url not in results:
-                    results[r.repo_url] = r
+            for query, result_type in queries:
+                batch = self._search_github(query, result_type)
+                for r in batch:
+                    if r.repo_url not in results:
+                        results[r.repo_url] = r
 
         # --- Pre-filter (parallel to avoid serial API call bottleneck) ---
         filtered = self._prefilter_parallel(list(results.values()))
@@ -260,11 +267,7 @@ class Hunter:
     def _check_auth(self) -> bool:
         """Probe GitHub API to verify credentials AND rate limit before firing all queries.
 
-        As of May 2026, ALL GitHub API endpoints require authentication:
-        - Code search (/search/code)
-        - Repository search (/search/repositories)
-        - Individual repo metadata (/repos/{owner}/{repo})
-
+        As of February 2024, GitHub Code Search requires authentication.
         WITHOUT a token: agent-hunter uses the curated index only
         (references/VERIFIED_SKILLS.md) - verified, security-vetted skills.
 
@@ -286,13 +289,7 @@ class Hunter:
 
         if resp.status_code == 401 or resp.status_code == 403:
             print(
-                "[agent-hunter] GitHub token not provided — using curated index only.\n"
-                f"[agent-hunter] Found {len(self._load_verified_urls())} verified skills/MCP servers.\n"
-                "[agent-hunter] \n"
-                "[agent-hunter] To enable broader GitHub discovery, add a token:\n"
-                "  1. Get a free token: https://github.com/settings/tokens\n"
-                "  2. Set: export GITHUB_TOKEN=<your_token>\n"
-                "  3. Re-run agent-hunter hunt\n"
+                "[agent-hunter] Tier 2 (GitHub Code Search) skipped — requires GITHUB_TOKEN. Using curated index only."
             )
             return False
 
@@ -302,13 +299,7 @@ class Hunter:
             remaining = data.get("rate", {}).get("remaining", 0)
             if remaining < 5:  # Need at least a few requests for queries
                 print(
-                    "[agent-hunter] GitHub API rate limit exhausted (0 remaining) — using curated index only.\n"
-                    f"[agent-hunter] Found {len(self._load_verified_urls())} verified skills/MCP servers.\n"
-                    "[agent-hunter] \n"
-                    "[agent-hunter] To enable broader GitHub discovery, add a token:\n"
-                    "  1. Get a free token: https://github.com/settings/tokens\n"
-                    "  2. Set: export GITHUB_TOKEN=<your_token>\n"
-                    "  3. Re-run agent-hunter hunt\n"
+                    "[agent-hunter] Tier 2 (GitHub Code Search) skipped — rate limit exhausted. Using curated index only."
                 )
                 return False
         except (ValueError, KeyError):

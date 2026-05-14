@@ -307,23 +307,30 @@ class TestIdempotency:
 class TestPythonVersionGuard:
     def test_fails_with_fake_old_python(self, fake_home, tmp_path):
         """setup should exit non-zero if only Python 2.x is available."""
-        # Create a fake 'python3' that reports version 2.7
+        # Create fake 'python3' and 'python' that both report version 2.7
         fake_bin = tmp_path / "bin"
         fake_bin.mkdir()
-        fake_python = fake_bin / "python3"
-        fake_python.write_text(
+
+        fake_script = (
             "#!/usr/bin/env bash\n"
             'if [[ "$*" == *"version_info.minor"* ]]; then echo 7; exit 0; fi\n'
             'if [[ "$*" == *"version_info.major"* ]]; then echo 2; exit 0; fi\n'
             'echo "Python 2.7.18"\n'
         )
-        fake_python.chmod(fake_python.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
 
-        # Shadow PATH — keep /bin so bash itself is still reachable, but fake python3 wins
+        for cmd_name in ["python3", "python"]:
+            fake_python = fake_bin / cmd_name
+            fake_python.write_text(fake_script)
+            fake_python.chmod(
+                fake_python.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
+            )
+
+        # Shadow PATH — keep /bin so bash itself is still reachable
         env_path = f"{fake_bin}:/usr/bin:/bin"
         result = _run_setup(fake_home, extra_env={"PATH": env_path})
         assert result.returncode != 0, (
-            "setup should fail when no Python 3.10+ is available, but it exited 0"
+            f"setup should fail when no Python 3.10+ is available, but it exited 0\n"
+            f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
         )
 
 

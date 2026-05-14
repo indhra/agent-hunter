@@ -170,7 +170,7 @@ def _prompt_confirm_actions(
         print("  Auto-confirmed (--yes).")
         return actions
 
-    # Get user input
+    # Get user input (only reached when stdin is a TTY)
     response = input("  Proceed? [y/N] or type numbers to skip (e.g. '1,3'): ").strip().lower()
 
     if response in ("y", "yes"):
@@ -191,6 +191,36 @@ def _prompt_confirm_actions(
         except (ValueError, IndexError):
             print("[agent-hunter] Invalid input. Cancelled.")
             return []
+
+
+def _print_dry_run(actions: list[PendingAction]) -> None:
+    """Print what would be done without executing anything (dry-run mode).
+
+    Args:
+        actions: Pending install/disable actions that would be executed.
+    """
+    print("\n" + "─" * 70)
+    print("  HUNT COMPLETE — dry-run mode (no changes made)")
+    print("─" * 70)
+
+    installs = [a for a in actions if a.action == "install"]
+    disables = [a for a in actions if a.action == "disable"]
+
+    if installs:
+        print(f"\n  Would install ({len(installs)} skill(s) → ~/.claude/skills/):")
+        for i, act in enumerate(installs, 1):
+            print(f"    {i}. {act.skill_name:40} {act.repo_url}")
+            if act.reason:
+                print(f"       ({act.reason})")
+
+    if disables:
+        print(f"\n  Would disable ({len(disables)} dangerous skill(s) — soft-disable, reversible):")
+        for i, act in enumerate(disables, 1):
+            print(f"    {i}. {act.skill_name:40} {act.reason}")
+
+    print("\n  To apply these changes, re-run with --yes:")
+    print("    agent-hunter hunt . --yes")
+    print("─" * 70 + "\n")
 
 
 # ---------------------------------------------------------------------------
@@ -242,6 +272,13 @@ def cmd_hunt(args: list[str]) -> int:
 
     config = _load_config()
     hunt_cfg = config.get("hunt", {})
+
+    # --- Privacy notice (emitted before any project files are read) ---
+    print(
+        "[agent-hunter] I'll read your project files to identify your tech stack. "
+        "Only framework/library names will be used — no file paths, variable names, "
+        "or project-specific code."
+    )
 
     # --- Extract context ---
     print(f"[agent-hunter] Extracting context from: {root_path}")
@@ -353,7 +390,7 @@ def cmd_hunt(args: list[str]) -> int:
         print("[agent-hunter] No new actions to take. All recommendations are already installed.")
         return 0
 
-    # --- Step 8: Confirm actions ---
+    # --- Step 8: Dry-run by default; execute only with --yes ---
     if print_actions:
         # SKILL.md mode: print JSON for the LLM to read, then exit without executing.
         # SKILL.md presents this list in chat and calls installer directly.
@@ -371,29 +408,15 @@ def cmd_hunt(args: list[str]) -> int:
         print(json.dumps(output, indent=2))
         return 0
 
-    # Non-interactive without --yes: dry-run only. Print commands, do not execute.
-    # Satisfies SKILL.md §Core Constraints: "No auto-install. Show the command, user runs it."
-    if not yes and not sys.stdin.isatty():
-        print("\n[agent-hunter] Non-interactive mode — pass --yes to execute:")
-        for a in actions:
-            if a.action == "install":
-                print(f"  git clone {a.repo_url} ~/.claude/skills/{a.skill_name}")
-            elif a.action == "disable":
-                print(f"  mv ~/.claude/skills/{a.skill_name} ~/.claude/skills/_{a.skill_name}")
-            elif a.action == "uninstall":
-                print(f"  rm -rf ~/.claude/skills/{a.skill_name}")
+    if not yes:
+        # Dry-run mode: show what would happen but do not execute.
+        _print_dry_run(actions)
         return 0
 
-    confirmed_actions = _prompt_confirm_actions(actions, auto_yes=yes)
-
-    if not confirmed_actions:
-        print("[agent-hunter] No actions confirmed. Exiting.")
-        return 1
-
-    # --- Step 9: Execute confirmed actions ---
-    print("\n[agent-hunter] Executing confirmed actions...\n")
+    # --- Step 9: Execute confirmed actions (--yes provided) ---
+    print("\n[agent-hunter] Executing confirmed actions (--yes)...\n")
     installer = Installer()
-    results = installer.execute_actions(confirmed_actions)
+    results = installer.execute_actions(actions)
 
     # Summary
     successful = sum(1 for r in results if r.success)
@@ -456,12 +479,16 @@ USAGE = """\
 agent-hunter v0.1.0 — Repo-aware skill package manager for Claude Code
 
 Usage:
-  agent-hunter hunt [project_root]    Find top 3 skills/MCPs for your project
-  agent-hunter audit                  Health-check installed skills
-  agent-hunter rollback               Restore registry to last good state
+  agent-hunter hunt [project_root] [--yes]   Find top 3 skills/MCPs for your project
+                                              (dry-run by default; --yes to install)
+  agent-hunter audit                          Health-check installed skills
+  agent-hunter rollback                       Restore registry to last good state
 
 Options:
   -h, --help    Show this message and exit
+
+Flags (hunt):
+  --yes         Execute recommended installs/disables (default: report-only)
 
 Environment:
   GITHUB_TOKEN  GitHub personal access token (optional, enables broader discovery)

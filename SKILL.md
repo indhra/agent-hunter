@@ -314,16 +314,22 @@ Reference something specific from the user's context.
 
 ### Step 4: Install (If User Confirms)
 
-If the user wants to install any recommended skills, guide them:
+`agent-hunter hunt` runs in **dry-run mode by default** — it shows what would be
+installed and prints the exact command to apply it, but makes no changes.
+
+To execute the recommended installs, the user must explicitly run:
 
 ```bash
-# For each skill they want:
+agent-hunter hunt . --yes
+```
+
+Or install a skill manually:
+
+```bash
 cd ~/.claude/skills && git clone https://github.com/owner/skill-name
 ```
 
-Or use the suggested command from the hunt report.
-
-**Never auto-install.** User must confirm first.
+**Never auto-install.** The user must pass `--yes` or run the install command themselves.
 
 ---
 

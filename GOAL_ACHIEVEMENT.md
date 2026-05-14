@@ -82,7 +82,6 @@ This document describes what was built to achieve the stated goal:
 | `INSTALL.md` | Detailed setup + proactive mode configuration |
 | `DISTRIBUTION.md` | How to package and distribute agent-hunter |
 | `.claude/CLAUDE.md` | Project-level configuration template |
-| `RELEASE_CHECKLIST.md` | Pre-release validation checklist |
 | `GOAL_ACHIEVEMENT.md` | This file - proof of goal achievement |
 
 **Enhanced Files:**
@@ -222,7 +221,6 @@ git clone https://github.com/owner/postgres-mcp-server
 - GETTING_STARTED.md for new users
 - INSTALL.md for detailed setup
 - DISTRIBUTION.md for packagers
-- RELEASE_CHECKLIST.md for launch prep
 
 ---
 
@@ -346,7 +344,6 @@ Top 3 recommendations:
 - INSTALL.md (detailed setup)
 - DISTRIBUTION.md (packaging + marketing)
 - .claude/CLAUDE.md (team-level config)
-- RELEASE_CHECKLIST.md (launch prep)
 
 ### [YES] Tests Passing
 - 634 tests passing

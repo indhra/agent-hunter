@@ -51,7 +51,6 @@ New project detected → runs hunt → shows top 3 skills → user doesn't have 
 | **INSTALL.md** | Detailed setup guide + proactive mode configuration options | 6.3 KB |
 | **DISTRIBUTION.md** | Packaging, versioning, release strategy + success metrics | 9.5 KB |
 | **.claude/CLAUDE.md** | Project-level configuration template (team-wide setup) | 6.3 KB |
-| **RELEASE_CHECKLIST.md** | Pre-release validation + launch checklist | 8.7 KB |
 | **GOAL_ACHIEVEMENT.md** | Proof of goal achievement + user journey | 13.1 KB |
 | **IMPLEMENTATION_SUMMARY.md** | This file - what was built | - |
 
@@ -79,9 +78,8 @@ New project detected → runs hunt → shows top 3 skills → user doesn't have 
 ```
 INSTALL.md ← How to install with proactive options
 GETTING_STARTED.md ← Entry point for new users
-DISTRIBUTION.md ← Release strategy + packaging
+DISTRIBUTION.md ← Deployment strategy + packaging
 .claude/CLAUDE.md ← Project-level template
-RELEASE_CHECKLIST.md ← Launch prep checklist
 GOAL_ACHIEVEMENT.md ← Proof of achievement
 IMPLEMENTATION_SUMMARY.md ← This file
 ```
@@ -235,11 +233,6 @@ User sees recommendations → installs what they need
  - Release checklist
  - Marketing channels
 
-2. **Launch prep:** [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
- - Pre-release validation
- - Testing checklist
- - Post-release metrics
-
 ### For Verifiers
 1. **Goal proof:** [GOAL_ACHIEVEMENT.md](./GOAL_ACHIEVEMENT.md)
  - How each part of goal achieved
@@ -372,7 +365,6 @@ agent-hunter is now the complete, production-ready first skill for Claude Code u
 - GETTING_STARTED.md
 - DISTRIBUTION.md
 - .claude/CLAUDE.md
-- RELEASE_CHECKLIST.md
 - GOAL_ACHIEVEMENT.md
 - bin/detect-project
 - README.md (updated)

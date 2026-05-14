@@ -102,9 +102,8 @@ New projects auto-hunt on open. Add to `~/.zshrc` to make permanent.
 |---|---|---|
 | GETTING_STARTED.md | Install guide for new users | 5 min |
 | INSTALL.md | Detailed setup + options | 10 min |
-| DISTRIBUTION.md | Release + packaging strategy | 15 min |
+| DISTRIBUTION.md | Deployment + packaging strategy | 15 min |
 | .claude/CLAUDE.md | Team-level template | 5 min |
-| RELEASE_CHECKLIST.md | Launch prep | 10 min |
 | GOAL_ACHIEVEMENT.md | Proof of goal | 15 min |
 
 ### New Scripts (1 file)
@@ -214,7 +213,6 @@ No manual searching, no redundant rebuilds
 1. This file (START_HERE.md)
 2. [README.md](./README.md)
 3. [DISTRIBUTION.md](./DISTRIBUTION.md)
-4. [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
 
 **For verification:**
 1. This file (START_HERE.md)
@@ -250,9 +248,6 @@ No manual searching, no redundant rebuilds
 
 **Need detailed setup?**
 → Read [INSTALL.md](./INSTALL.md)
-
-**Planning a release?**
-→ See [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md)
 
 **Want proof of goal achievement?**
 → Check [GOAL_ACHIEVEMENT.md](./GOAL_ACHIEVEMENT.md)
@@ -319,8 +314,7 @@ agent-hunter/
 ├── SKILL.md ← Updated: installation section
 ├── GETTING_STARTED.md ← NEW: user entry point
 ├── INSTALL.md ← NEW: detailed setup
-├── DISTRIBUTION.md ← NEW: release strategy
-├── RELEASE_CHECKLIST.md ← NEW: launch prep
+├── DISTRIBUTION.md ← NEW: deployment strategy
 ├── GOAL_ACHIEVEMENT.md ← NEW: goal proof
 ├── IMPLEMENTATION_SUMMARY.md ← NEW: technical overview
 ├── START_HERE.md ← NEW: this file

@@ -26,9 +26,13 @@ No LLM calls. No network access.
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
+
+import yaml
 
 from context_extractor import ContextProfile
 from hunter import HuntResult
@@ -61,6 +65,76 @@ TRUST_TIER_SCORES = {
 
 
 # ---------------------------------------------------------------------------
+# Trusted Publishers
+# ---------------------------------------------------------------------------
+
+
+def _load_trusted_publishers(path: Optional[Path] = None) -> dict[str, dict]:
+    """Load trusted publishers from YAML file.
+
+    Args:
+        path: Optional path to TRUSTED_PUBLISHERS.yaml. If None, uses default
+              location in references/ directory.
+
+    Returns:
+        Dict mapping GitHub handle to publisher metadata:
+        {
+            "handle": str,
+            "primary_repo": str,
+            "domains": list[str],
+            "trust_boost": float,
+            "note": str
+        }
+    """
+    if path is None:
+        # Default path relative to this script
+        script_dir = Path(__file__).parent
+        path = script_dir.parent / "references" / "TRUSTED_PUBLISHERS.yaml"
+
+    # Allow env override for testing
+    env_override = os.environ.get("AGENT_HUNTER_TRUSTED_PUBLISHERS_PATH")
+    if env_override:
+        path = Path(env_override)
+
+    if not path.exists():
+        return {}
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+
+        if not data or "publishers" not in data:
+            return {}
+
+        # Convert list to dict keyed by handle for fast lookup
+        publishers = {}
+        for pub in data["publishers"]:
+            if not isinstance(pub, dict):
+                continue
+            handle = pub.get("handle")
+            if handle:
+                publishers[handle] = pub
+
+        return publishers
+
+    except (yaml.YAMLError, IOError, KeyError):
+        # Fail silently - trusted publishers are optional
+        return {}
+
+
+# Cache loaded publishers to avoid re-reading file on every score_results call
+_TRUSTED_PUBLISHERS_CACHE: Optional[dict[str, dict]] = None
+
+
+def _get_trusted_publishers(path: Optional[Path] = None) -> dict[str, dict]:
+    """Get trusted publishers, using cached version if available."""
+    global _TRUSTED_PUBLISHERS_CACHE
+    if _TRUSTED_PUBLISHERS_CACHE is None:
+        _TRUSTED_PUBLISHERS_CACHE = _load_trusted_publishers(path)
+    return _TRUSTED_PUBLISHERS_CACHE
+
+
+# ---------------------------------------------------------------------------
 # Data model
 # ---------------------------------------------------------------------------
 
@@ -78,6 +152,7 @@ class ScoredResult:
     yagni_multiplier: float = 1.0
 
     explanation: str = ""  # "why this for you" sentence, set by host agent
+    trusted_publisher: Optional[dict] = None  # Trusted publisher metadata if matched
 
 
 # ---------------------------------------------------------------------------
@@ -143,6 +218,15 @@ def _score_single(
 
     # --- Trust score ---
     s.trust_score = TRUST_TIER_SCORES.get(r.trust_tier, 0.4)
+
+    # --- Trusted publisher boost ---
+    # Check if owner matches a trusted publisher and apply boost
+    trusted_publishers = _get_trusted_publishers()
+    if r.owner and r.owner in trusted_publishers:
+        publisher = trusted_publishers[r.owner]
+        trust_boost = publisher.get("trust_boost", 0.0)
+        s.trust_score = min(s.trust_score + trust_boost, 1.0)
+        s.trusted_publisher = publisher
 
     # --- YAGNI multiplier ---
     s.yagni_multiplier = _compute_yagni(r, profile)

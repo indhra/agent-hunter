@@ -617,6 +617,74 @@ class TestCmdHuntWithConfirmation:
 
         out = capsys.readouterr().out
         assert "--yes" in out  # output should hint at the --yes flag
+        # Hint must reference the actual project root, not the hard-coded "."
+        assert str(tmp_path) in out
+
+    def test_hunt_dry_run_hint_includes_intent(self, tmp_path, monkeypatch, capsys):
+        """Dry-run hint command includes --intent when it was originally passed."""
+        (tmp_path / "requirements.txt").write_text("fastapi\n")
+
+        from hunter import HuntResult
+        from scorer import ScoredResult
+        from security_scan import ScanResult
+        from installer import PendingAction
+
+        mock_result = HuntResult(
+            name="fastapi-skill",
+            repo_url="https://github.com/o/fastapi-skill",
+            raw_url="https://github.com/o/fastapi-skill/blob/main/SKILL.md",
+            owner="o",
+            repo_name="fastapi-skill",
+            description="A skill",
+            stars=200,
+            result_type="skill",
+            trust_tier="raw",
+            raw_content="# SKILL\nfastapi helper",
+        )
+
+        mock_scored = ScoredResult(
+            hunt_result=mock_result,
+            skill_metadata=None,
+            total_score=0.7,
+        )
+
+        mock_action = PendingAction(
+            action="install",
+            skill_name="fastapi-skill",
+            repo_url="https://github.com/o/fastapi-skill",
+            owner="o",
+            repo="fastapi-skill",
+            reason="score 0.70",
+        )
+
+        with (
+            patch("main.Hunter") as mock_hunter_cls,
+            patch("main.scan_skill") as mock_scan,
+            patch("main.score_results") as mock_score,
+            patch("main.render_hunt_report") as _mock_render,
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main.Installer") as mock_installer_cls,
+        ):
+            mock_hunter_cls.return_value.hunt.return_value = [mock_result]
+            mock_scan.return_value = ScanResult(severity="GREEN")
+            mock_score.return_value = [mock_scored]
+
+            mock_installer_obj = MagicMock()
+            mock_installer_cls.return_value = mock_installer_obj
+
+            # Pass --intent; no --yes → dry-run
+            code = run(["hunt", str(tmp_path), "--intent", "build rest apis"])
+
+        assert code == 0
+        mock_installer_obj.execute_actions.assert_not_called()
+
+        out = capsys.readouterr().out
+        assert "--yes" in out
+        assert str(tmp_path) in out
+        assert "--intent" in out
+        assert "build rest apis" in out
 
     def test_hunt_dry_run_non_interactive_no_install(self, tmp_path, monkeypatch, capsys):
         """Non-interactive stdin (non-TTY) without --yes still stays in dry-run mode."""

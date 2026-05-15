@@ -196,11 +196,17 @@ def _prompt_confirm_actions(
             return []
 
 
-def _print_dry_run(actions: list[PendingAction]) -> None:
+def _print_dry_run(
+    actions: list[PendingAction],
+    project_root: str = ".",
+    intent: str | None = None,
+) -> None:
     """Print what would be done without executing anything (dry-run mode).
 
     Args:
         actions: Pending install/disable actions that would be executed.
+        project_root: The project root that was scanned (used to build the hint command).
+        intent: The --intent value that was passed, if any (included in hint command).
     """
     print("\n" + _SEPARATOR)
     print("  HUNT COMPLETE — dry-run mode (no changes made)")
@@ -221,8 +227,11 @@ def _print_dry_run(actions: list[PendingAction]) -> None:
         for i, act in enumerate(disables, 1):
             print(f"    {i}. {act.skill_name:40} {act.reason}")
 
+    hint_cmd = f"agent-hunter hunt {project_root} --yes"
+    if intent:
+        hint_cmd += f' --intent "{intent}"'
     print("\n  To apply these changes, re-run with --yes:")
-    print("    agent-hunter hunt . --yes")
+    print(f"    {hint_cmd}")
     print(_SEPARATOR + "\n")
 
 
@@ -413,7 +422,7 @@ def cmd_hunt(args: list[str]) -> int:
 
     if not yes:
         # Dry-run mode: show what would happen but do not execute.
-        _print_dry_run(actions)
+        _print_dry_run(actions, project_root=project_root, intent=intent)
         return 0
 
     # --- Step 9: Execute confirmed actions (--yes provided) ---

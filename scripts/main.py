@@ -208,6 +208,7 @@ def cmd_hunt(args: list[str]) -> int:
         --yes            Execute all recommended install/disable actions.
         --print-actions  Print pending actions as JSON to stdout, then exit 0.
                          SKILL.md reads this output to present confirmation in chat.
+        --no-github      Skip GitHub Code Search (Tier 2); use curated index only.
 
     Returns:
         0 on success with results, 1 if no results or error.
@@ -216,9 +217,10 @@ def cmd_hunt(args: list[str]) -> int:
     intent = None
     yes = "--yes" in args
     print_actions = "--print-actions" in args
+    no_github = "--no-github" in args
 
     # Remove flag tokens before positional parsing
-    positional = [a for a in args if a not in ("--yes", "--print-actions")]
+    positional = [a for a in args if a not in ("--yes", "--print-actions", "--no-github")]
 
     # Simple explicit argument parsing
     if positional:
@@ -265,16 +267,13 @@ def cmd_hunt(args: list[str]) -> int:
 
     # --- Hunt GitHub ---
     github_token = os.environ.get("GITHUB_TOKEN")
-    if not github_token:
-        print(
-            "[agent-hunter] Note: GITHUB_TOKEN not set — using unauthenticated rate limit (60/hr)."
-        )
 
     hunter = Hunter(
         github_token=github_token,
         min_stars=hunt_cfg.get("min_stars", 10),
         max_age_days=hunt_cfg.get("max_age_days", 180),
         include_mcp=hunt_cfg.get("include_mcp_servers", True),
+        no_github=no_github,
     )
 
     print("[agent-hunter] Hunting GitHub for skills and MCP servers...")

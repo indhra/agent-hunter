@@ -226,12 +226,14 @@ class Hunter:
         max_age_days: int = PRE_FILTER_MAX_AGE_DAYS,
         include_mcp: bool = True,
         verified_index_path: Optional[Path] = None,
+        no_github: bool = False,
     ) -> None:
         self.token = github_token or os.environ.get("GITHUB_TOKEN")
         self.min_stars = min_stars
         self.max_age_days = max_age_days
         self.include_mcp = include_mcp
         self.verified_index_path = verified_index_path
+        self.no_github = no_github
         self._session = requests.Session()
         if self.token:
             self._session.headers["Authorization"] = f"Bearer {self.token}"
@@ -260,15 +262,18 @@ class Hunter:
                 results[r.repo_url] = r
 
         # --- GitHub search (lower priority, doesn't overwrite curated) ---
-        if not self._check_auth():
-            # If no auth but we have curated results, return them
+        if self.no_github:
+            print(
+                "[agent-hunter] Tier 2 (GitHub Code Search) skipped (--no-github). "
+                "Using curated index only."
+            )
+        if self.no_github or not self._check_auth():
+            # Curated results only — GitHub search skipped.
             if results:
                 return list(results.values())
             return []
 
-        # --- Query construction ---
         queries = self._build_queries(profile)
-
         for query, result_type in queries:
             batch = self._search_github(query, result_type)
             for r in batch:
@@ -297,23 +302,21 @@ class Hunter:
     def _check_auth(self) -> bool:
         """Probe GitHub API to verify credentials AND rate limit before firing all queries.
 
-        As of May 2026, ALL GitHub API endpoints require authentication:
-        - Code search (/search/code)
-        - Repository search (/search/repositories)
-        - Individual repo metadata (/repos/{owner}/{repo})
-
-        WITHOUT a token: agent-hunter uses the curated index only
-        (references/VERIFIED_SKILLS.md) - verified, security-vetted skills.
-
-        WITH a token: enables broader GitHub discovery beyond the curated set.
-
-        This probe uses /rate_limit (cheap, no search quota consumed) to
-        detect 401 early and print a clear, actionable message.
+        As of May 2026, ALL GitHub Code Search endpoints require authentication.
+        A missing token is detected here before any search query is issued so that
+        we emit exactly one informational line instead of N × 401 error lines.
 
         Returns:
             True if the API responds with usable auth AND has remaining quota,
-            False on 401/403 or exhausted rate limit (curated-only mode).
+            False on missing token, 401/403, or exhausted rate limit.
         """
+        if not self.token:
+            print(
+                "[agent-hunter] Tier 2 (GitHub Code Search) skipped — GITHUB_TOKEN not set. "
+                "Using curated index only."
+            )
+            return False
+
         try:
             resp = self._session.get(f"{GITHUB_API}/rate_limit", timeout=5)
         except requests.RequestException as exc:

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # hunt — run the full agent-hunter pipeline (context → GitHub → scan → score → report)
-# Usage: hunt [project_root] [--intent "intent string"] [--yes]
+# Usage: hunt [project_root] [--intent "intent string"] [--yes] [--no-github]
 # Output: scored, security-scanned hunt report to stdout
 SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 exec "$SKILL_DIR/.venv/bin/python" "$SKILL_DIR/scripts/main.py" hunt "${@:-"."}"

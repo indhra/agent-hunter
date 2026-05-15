@@ -165,9 +165,9 @@ def _prompt_confirm_actions(
     print("  above before confirming. You can remove any from the list.")
     print("\n" + "─" * 70)
 
-    # --yes flag or non-interactive stdin: auto-confirm all
-    if auto_yes or not sys.stdin.isatty():
-        print("  Auto-confirmed (--yes or non-interactive mode).")
+    # --yes flag: auto-confirm all
+    if auto_yes:
+        print("  Auto-confirmed (--yes).")
         return actions
 
     # Get user input
@@ -201,8 +201,11 @@ def _prompt_confirm_actions(
 def cmd_hunt(args: list[str]) -> int:
     """Run the full hunt pipeline.
 
+    Default (no flags): prints report and recommended install commands, exits 0.
+    Non-interactive mode (piped/scripted) without --yes also exits without executing.
+
     Flags:
-        --yes            Skip confirmation prompt and execute all actions.
+        --yes            Execute all recommended install/disable actions.
         --print-actions  Print pending actions as JSON to stdout, then exit 0.
                          SKILL.md reads this output to present confirmation in chat.
 
@@ -255,6 +258,10 @@ def cmd_hunt(args: list[str]) -> int:
         return 1
 
     print(f"[agent-hunter] Stack: {', '.join(profile.tech_stack[:8])}")
+    print(
+        "[agent-hunter] Privacy: only framework/library names extracted — "
+        "no file paths, variable names, or project-specific code."
+    )
 
     # --- Hunt GitHub ---
     github_token = os.environ.get("GITHUB_TOKEN")
@@ -363,6 +370,15 @@ def cmd_hunt(args: list[str]) -> int:
             ]
         }
         print(json.dumps(output, indent=2))
+        return 0
+
+    # Non-interactive without --yes: dry-run only. Print commands, do not execute.
+    # Satisfies SKILL.md §Core Constraints: "No auto-install. Show the command, user runs it."
+    if not yes and not sys.stdin.isatty():
+        print("\n[agent-hunter] Non-interactive mode — pass --yes to execute:")
+        for a in actions:
+            if a.action == "install":
+                print(f"  git clone {a.repo_url} ~/.claude/skills/{a.skill_name}")
         return 0
 
     confirmed_actions = _prompt_confirm_actions(actions, auto_yes=yes)

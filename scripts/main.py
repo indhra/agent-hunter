@@ -378,6 +378,10 @@ def cmd_hunt(args: list[str]) -> int:
         for a in actions:
             if a.action == "install":
                 print(f"  git clone {a.repo_url} ~/.claude/skills/{a.skill_name}")
+            elif a.action == "disable":
+                print(f"  mv ~/.claude/skills/{a.skill_name} ~/.claude/skills/_{a.skill_name}")
+            elif a.action == "uninstall":
+                print(f"  rm -rf ~/.claude/skills/{a.skill_name}")
         return 0
 
     confirmed_actions = _prompt_confirm_actions(actions, auto_yes=yes)

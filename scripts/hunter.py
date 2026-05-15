@@ -326,11 +326,11 @@ class Hunter:
 
         if resp.status_code == 401 or resp.status_code == 403:
             print(
-                "[agent-hunter] GitHub token not provided — using curated index only.\n"
-                f"[agent-hunter] Found {len(self._load_verified_urls())} verified skills/MCP servers.\n"
+                "[agent-hunter] GitHub token rejected (401/403) — using curated index only.\n"
+                f"[agent-hunter] Found {len(self._get_verified_urls())} verified skills/MCP servers.\n"
                 "[agent-hunter] \n"
-                "[agent-hunter] To enable broader GitHub discovery, add a token:\n"
-                "  1. Get a free token: https://github.com/settings/tokens\n"
+                "[agent-hunter] To enable broader GitHub discovery, update your token:\n"
+                "  1. Create/refresh token: https://github.com/settings/tokens\n"
                 "  2. Set: export GITHUB_TOKEN=<your_token>\n"
                 "  3. Re-run agent-hunter hunt\n"
             )
@@ -831,8 +831,9 @@ class Hunter:
     def _load_verified_urls(self) -> set[str]:
         """Load verified skill repo URLs from VERIFIED_SKILLS.md.
 
-        Parses lines matching:
-            - **Repo:** https://github.com/owner/repo
+        Parses JSON code blocks (current format) containing a list of entries
+        with `repo_url`. Falls back to legacy markdown `**Repo:**` lines for
+        older fixtures/tests.
 
         Returns:
             Set of GitHub repo HTML URLs that are verified.
@@ -844,14 +845,36 @@ class Hunter:
             return set()
 
         urls: set[str] = set()
-        repo_line = re.compile(r"\*\*Repo:\*\*\s*(https://github\.com/[^\s]+)")
         try:
-            for line in index_path.read_text(encoding="utf-8").splitlines():
-                m = repo_line.search(line)
-                if m:
-                    urls.add(m.group(1).rstrip("/"))
+            content = index_path.read_text(encoding="utf-8")
         except OSError:
-            pass
+            return set()
+
+        import json
+
+        json_blocks = re.findall(r"```json\n(.*?)\n```", content, re.DOTALL)
+        for block in json_blocks:
+            try:
+                parsed = json.loads(block.strip())
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(parsed, list):
+                continue
+            for entry in parsed:
+                if not isinstance(entry, dict):
+                    continue
+                repo_url = entry.get("repo_url", "")
+                if isinstance(repo_url, str) and repo_url.startswith("https://github.com/"):
+                    urls.add(repo_url.rstrip("/"))
+
+        if urls:
+            return urls
+
+        repo_line = re.compile(r"\*\*Repo:\*\*\s*(https://github\.com/[^\s]+)")
+        for line in content.splitlines():
+            m = repo_line.search(line)
+            if m:
+                urls.add(m.group(1).rstrip("/"))
         return urls
 
 

@@ -20,7 +20,7 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Defensive guard in `build_action_list` drops any pending Action with empty `owner`/`skill_name` and prints a one-line skip count, so future regressions in upstream parsing can no longer crash the installer.
 
 ### Internal
-- 19 new tests covering the URL parser (12 cases), npm + curated paths populating fields (4 cases), and the defensive guard (3 cases). Suite at 697 passing.
+- 19 new tests covering the URL parser (12 cases), npm + curated paths populating fields (4 cases), and the defensive guard (3 cases).
 
 ## [0.1.0] - 2026-05-14
 

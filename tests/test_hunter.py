@@ -445,6 +445,15 @@ class TestFetchRepoMetadata:
 
 
 class TestLoadVerifiedUrls:
+    def test_parses_repo_url_from_json_block(self, tmp_path):
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        md.write_text(
+            '```json\n[{"name":"skill-a","repo_url":"https://github.com/a/skill-a"}]\n```\n'
+        )
+        h = make_hunter(verified_index_path=md)
+        urls = h._load_verified_urls()
+        assert "https://github.com/a/skill-a" in urls
+
     def test_parses_repo_url_from_verified_skills(self, tmp_path):
         md = tmp_path / "VERIFIED_SKILLS.md"
         md.write_text(
@@ -1043,7 +1052,8 @@ class TestCuratedIndexSearch:
 class TestCheckAuthMissingLines:
     """Lines 181-188: _check_auth 401 and RequestException paths."""
 
-    def test_no_token_returns_false_with_one_line(self, capsys):
+    def test_no_token_returns_false_with_one_line(self, monkeypatch, capsys):
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
         h = make_hunter(github_token=None)
         result = h._check_auth()
         assert result is False
@@ -1122,7 +1132,8 @@ class TestHunterTokenInHeader:
         h = make_hunter(github_token="test-token-abc123")
         assert h._session.headers.get("Authorization") == "Bearer test-token-abc123"
 
-    def test_no_token_no_auth_header(self):
+    def test_no_token_no_auth_header(self, monkeypatch):
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
         h = make_hunter(github_token=None)
         assert "Authorization" not in h._session.headers
 

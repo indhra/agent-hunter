@@ -20,6 +20,7 @@ No LLM calls. Network access to GitHub API only.
 from __future__ import annotations
 
 import os
+import json
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -849,8 +850,6 @@ class Hunter:
             content = index_path.read_text(encoding="utf-8")
         except OSError:
             return set()
-
-        import json
 
         json_blocks = re.findall(r"```json\n(.*?)\n```", content, re.DOTALL)
         for block in json_blocks:

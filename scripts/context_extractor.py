@@ -267,11 +267,9 @@ def extract_context(project_root: str | Path, intent: str | None = None) -> Cont
     active_set = git_activity.get("active", set())
     recent_set = git_activity.get("recent", set())
     dormant_set = git_activity.get("dormant", set())
-    profile.active_domains = [t for t in profile.tech_stack if "__all__" in active_set or t in active_set]
-    profile.recent_domains = [t for t in profile.tech_stack if "__all__" in recent_set or t in recent_set]
-    profile.dormant_domains = [
-        t for t in profile.tech_stack if "__all__" in dormant_set or t in dormant_set
-    ]
+    profile.active_domains = _filter_by_activity(profile.tech_stack, active_set)
+    profile.recent_domains = _filter_by_activity(profile.tech_stack, recent_set)
+    profile.dormant_domains = _filter_by_activity(profile.tech_stack, dormant_set)
 
     # Extract recently invoked skills from ~/.claude/sessions/ (v0.1.5)
     profile.session_skills = _extract_session_skills()
@@ -365,6 +363,11 @@ def _extract_signals_from_file(path: Path) -> set[str]:
     except OSError:
         return set()
     return {m.lower() for m in _ALLOWLIST_PATTERN.findall(content)}
+
+
+def _filter_by_activity(tech_stack: list[str], activity_set: set[str]) -> list[str]:
+    """Filter tech stack by a specific activity set."""
+    return [tech for tech in tech_stack if "__all__" in activity_set or tech in activity_set]
 
 
 def _extract_from_git_log(root: Path) -> tuple[set[str], dict[str, set[str]]]:

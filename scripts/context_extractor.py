@@ -376,7 +376,8 @@ def _filter_by_activity(tech_stack: list[str], activity_set: set[str]) -> list[s
         activity_set: Bucket set containing tech names or "__all__".
 
     Returns:
-        Filtered tech names that belong to the activity bucket.
+        Filtered tech names that belong to the activity bucket. Returns an
+        empty list when ``activity_set`` is empty.
     """
     return [tech for tech in tech_stack if "__all__" in activity_set or tech in activity_set]
 

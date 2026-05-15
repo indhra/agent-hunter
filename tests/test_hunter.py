@@ -468,6 +468,32 @@ class TestLoadVerifiedUrls:
         urls = h._load_verified_urls()
         assert "https://github.com/owner/skill-x" in urls
 
+    def test_invalid_json_falls_back_to_legacy_repo_lines(self, tmp_path):
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        md.write_text(
+            """```json
+{not-valid-json
+```
+- **Repo:** https://github.com/fallback/skill-z
+"""
+        )
+        h = make_hunter(verified_index_path=md)
+        urls = h._load_verified_urls()
+        assert "https://github.com/fallback/skill-z" in urls
+
+    def test_non_list_json_falls_back_to_legacy_repo_lines(self, tmp_path):
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        md.write_text(
+            """```json
+{"name":"single-object","repo_url":"https://github.com/ignored/object"}
+```
+- **Repo:** https://github.com/fallback/skill-y
+"""
+        )
+        h = make_hunter(verified_index_path=md)
+        urls = h._load_verified_urls()
+        assert "https://github.com/fallback/skill-y" in urls
+
     def test_multiple_repos_parsed(self, tmp_path):
         md = tmp_path / "VERIFIED_SKILLS.md"
         md.write_text(

@@ -328,7 +328,7 @@ class Hunter:
         if resp.status_code == 401 or resp.status_code == 403:
             print(
                 "[agent-hunter] GitHub token rejected (401/403) — using curated index only.\n"
-                f"[agent-hunter] Found {len(self._get_verified_urls())} verified skills/MCP servers.\n"
+                f"[agent-hunter] Found {len(self._load_verified_urls())} verified skills/MCP servers.\n"
                 "[agent-hunter] \n"
                 "[agent-hunter] To enable broader GitHub discovery, update your token:\n"
                 "  1. Create/refresh token: https://github.com/settings/tokens\n"

@@ -448,7 +448,12 @@ class TestLoadVerifiedUrls:
     def test_parses_repo_url_from_json_block(self, tmp_path):
         md = tmp_path / "VERIFIED_SKILLS.md"
         md.write_text(
-            '```json\n[{"name":"skill-a","repo_url":"https://github.com/a/skill-a"}]\n```\n'
+            """```json
+[
+  {"name":"skill-a","repo_url":"https://github.com/a/skill-a"}
+]
+```
+"""
         )
         h = make_hunter(verified_index_path=md)
         urls = h._load_verified_urls()

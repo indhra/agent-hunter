@@ -489,17 +489,17 @@ class TestContextExtractorEdgeCases:
         profile = extract_context(tmp_path)
         assert "requirements.txt" in profile.sources_read
 
-    def test_signals_from_multiple_files_merged(self, tmp_path):
+    def test_signals_from_multiple_manifest_files_merged(self, tmp_path):
         (tmp_path / "requirements.txt").write_text("fastapi\n")
-        (tmp_path / "CLAUDE.md").write_text("This project uses Redis.\n")
+        (tmp_path / "package.json").write_text('{"dependencies": {"react": "18.0.0"}}')
         profile = extract_context(tmp_path)
         assert "fastapi" in profile.tech_stack
-        assert "redis" in profile.tech_stack
+        assert "react" in profile.tech_stack
 
     def test_no_duplicate_signals(self, tmp_path):
-        """Same tech keyword in multiple files → appears once in tech_stack."""
+        """Same tech keyword in multiple manifest files → appears once in tech_stack."""
         (tmp_path / "requirements.txt").write_text("fastapi\n")
-        (tmp_path / "CLAUDE.md").write_text("We use fastapi here too.\n")
+        (tmp_path / "pyproject.toml").write_text('[tool.poetry.dependencies]\nfastapi = "*"\n')
         profile = extract_context(tmp_path)
         assert profile.tech_stack.count("fastapi") == 1
 

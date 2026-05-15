@@ -366,7 +366,11 @@ def _extract_signals_from_file(path: Path) -> set[str]:
 
 
 def _filter_by_activity(tech_stack: list[str], activity_set: set[str]) -> list[str]:
-    """Filter tech stack by a specific activity set."""
+    """Filter tech stack by activity.
+
+    The sentinel value "__all__" means every tech in ``tech_stack`` is active
+    for that bucket.
+    """
     return [tech for tech in tech_stack if "__all__" in activity_set or tech in activity_set]
 
 
@@ -374,6 +378,10 @@ def _extract_from_git_log(root: Path) -> tuple[set[str], dict[str, set[str]]]:
     """Extract activity buckets from git commit dates only.
 
     Privacy constraint: commit subjects are never read or parsed.
+
+    Returns:
+        Tuple of ``(signals, activity_buckets)`` where ``signals`` is always an
+        empty set, and ``activity_buckets`` contains active/recent/dormant sets.
     """
     try:
         result = subprocess.run(

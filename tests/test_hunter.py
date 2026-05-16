@@ -15,7 +15,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 import requests
-from hunter import Hunter, HuntResult, _to_raw_url, _extract_skill_name
+from hunter import Hunter, HuntResult, _to_raw_url, _extract_skill_name, _parse_github_url
 
 
 # ---------------------------------------------------------------------------
@@ -1117,3 +1117,125 @@ class TestHunterTokenInHeader:
     def test_no_token_no_auth_header(self):
         h = make_hunter(github_token=None)
         assert "Authorization" not in h._session.headers
+
+
+# ---------------------------------------------------------------------------
+# Issue #6: _parse_github_url + npm/curated populate owner/repo_name
+# ---------------------------------------------------------------------------
+
+
+class TestParseGitHubUrl:
+    """_parse_github_url handles every URL form npm and curated index emit."""
+
+    def test_https_plain(self):
+        assert _parse_github_url("https://github.com/owner/repo") == ("owner", "repo")
+
+    def test_https_with_dot_git(self):
+        assert _parse_github_url("https://github.com/owner/repo.git") == ("owner", "repo")
+
+    def test_git_plus_https_npm_form(self):
+        # The exact form that crashed the installer in the bug report.
+        assert _parse_github_url("git+https://github.com/pandanpc/mcp-server") == (
+            "pandanpc",
+            "mcp-server",
+        )
+
+    def test_git_plus_https_with_dot_git(self):
+        assert _parse_github_url("git+https://github.com/owner/repo.git") == ("owner", "repo")
+
+    def test_ssh_form(self):
+        assert _parse_github_url("git@github.com:owner/repo.git") == ("owner", "repo")
+
+    def test_git_protocol_form(self):
+        assert _parse_github_url("git://github.com/owner/repo.git") == ("owner", "repo")
+
+    def test_trailing_slash(self):
+        assert _parse_github_url("https://github.com/owner/repo/") == ("owner", "repo")
+
+    def test_repo_with_dots_in_name(self):
+        # GitHub allows dots in repo names (e.g. xyz.js)
+        assert _parse_github_url("https://github.com/owner/cool.js") == ("owner", "cool.js")
+
+    def test_empty_string_returns_none(self):
+        assert _parse_github_url("") is None
+
+    def test_non_github_url_returns_none(self):
+        assert _parse_github_url("https://gitlab.com/owner/repo") is None
+
+    def test_malformed_returns_none(self):
+        assert _parse_github_url("https://github.com/owner") is None  # no repo
+
+    def test_only_protocol_returns_none(self):
+        assert _parse_github_url("git+https://github.com/") is None
+
+
+class TestSearchNpmPopulatesOwnerRepo:
+    """_search_npm must populate owner/repo_name (issue #6 root cause)."""
+
+    def _mock_npm_response(self, packages):
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {"objects": [{"package": p} for p in packages]}
+        return resp
+
+    def test_npm_result_has_owner_and_repo_name(self):
+        h = make_hunter()
+        pkg = {
+            "name": "@pandanpc/mcp-server",
+            "description": "PandaNote MCP Server",
+            "links": {"repository": "git+https://github.com/pandanpc/mcp-server.git"},
+        }
+        with patch.object(requests, "get", return_value=self._mock_npm_response([pkg])):
+            results = h._search_npm(["python"])
+
+        assert len(results) >= 1
+        r = next(x for x in results if x.name == "@pandanpc/mcp-server")
+        assert r.owner == "pandanpc"
+        assert r.repo_name == "mcp-server"
+
+    def test_npm_unparseable_url_skipped(self):
+        h = make_hunter()
+        pkg = {
+            "name": "@bad/pkg",
+            "description": "bad",
+            "links": {"repository": "https://example.com/not-github"},
+        }
+        with patch.object(requests, "get", return_value=self._mock_npm_response([pkg])):
+            results = h._search_npm(["python"])
+
+        # Candidate with non-GitHub repo URL is dropped — it cannot be installed.
+        names = [r.name for r in results]
+        assert "@bad/pkg" not in names
+
+    def test_npm_missing_repo_url_skipped(self):
+        h = make_hunter()
+        pkg = {"name": "@noref/pkg", "description": "no repo link", "links": {}}
+        with patch.object(requests, "get", return_value=self._mock_npm_response([pkg])):
+            results = h._search_npm(["python"])
+
+        names = [r.name for r in results]
+        assert "@noref/pkg" not in names
+
+
+class TestSearchCuratedIndexPopulatesOwnerRepo:
+    """_search_curated_index must also populate owner/repo_name (issue #6)."""
+
+    def test_curated_entry_has_owner_and_repo_name(self, tmp_path):
+        from context_extractor import ContextProfile
+
+        # Minimal VERIFIED_SKILLS.md fixture
+        index = tmp_path / "VERIFIED_SKILLS.md"
+        index.write_text(
+            "## fastapi-helper\n- **Repo:** https://github.com/example-org/fastapi-helper\n"
+        )
+        h = make_hunter()
+        h.verified_index_path = index
+
+        profile = ContextProfile(tech_stack=["fastapi"], domain_tags=[])
+        results = h._search_curated_index(profile)
+
+        # Either matches via tech_stack and populates fields, or is filtered out.
+        # If it matches, owner/repo_name MUST be populated.
+        for r in results:
+            assert r.owner, f"curated result {r.name!r} has empty owner"
+            assert r.repo_name, f"curated result {r.name!r} has empty repo_name"

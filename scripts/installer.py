@@ -574,6 +574,7 @@ def build_action_list(
         uninstalls/disables for dangerous skills.
     """
     actions: list[PendingAction] = []
+    skipped_malformed = 0
 
     # Install recommended skills (GREEN/YELLOW, not already installed)
     for s in top_results:
@@ -583,6 +584,13 @@ def build_action_list(
             continue  # never install RED
         if r.repo_name in installed_names:
             continue  # already installed
+        # Issue #6: defensive guard — never emit an install action with
+        # empty owner/skill_name. Upstream HuntResult construction should
+        # populate these, but if it doesn't we drop the candidate rather
+        # than letting it crash _validate_skill_name downstream.
+        if not r.owner or not r.repo_name:
+            skipped_malformed += 1
+            continue
         actions.append(
             PendingAction(
                 action="install",
@@ -593,6 +601,12 @@ def build_action_list(
                 sha=r.git_tree_sha,
                 reason=f"Score {s.total_score:.2f} — {s.explanation or 'matches your stack'}",
             )
+        )
+
+    if skipped_malformed:
+        print(
+            f"[agent-hunter] Skipped {skipped_malformed} candidate(s) with "
+            "missing owner/repo (unparseable source URL)."
         )
 
     # Disable dangerous installed skills (RED flagged in audit)

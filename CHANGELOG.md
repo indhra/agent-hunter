@@ -12,6 +12,16 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 - No unreleased changes yet.
 
+## [0.1.1] - 2026-05-14
+
+### Fixed
+- Install crash on npm and curated-index hunts (issue #6). `bin/hunt .` used to terminate with `InstallerError: Invalid skill name ''` whenever the npm registry or the curated index produced a candidate, because `owner` and `repo_name` were never populated on the `HuntResult`. The installer now receives real `owner/repo` strings (e.g. `pandanpc/mcp-server`) instead of empty fields.
+- Added a `_parse_github_url()` helper in `hunter.py` that handles every common GitHub URL form: `https://`, `git+https://` (npm-style), `git://`, `git@github.com:` (SSH), with or without `.git` suffix and trailing slash.
+- Defensive guard in `build_action_list` drops any pending Action with empty `owner`/`skill_name` and prints a one-line skip count, so future regressions in upstream parsing can no longer crash the installer.
+
+### Internal
+- 19 new tests covering the URL parser (12 cases), npm + curated paths populating fields (4 cases), and the defensive guard (3 cases). Suite at 697 passing.
+
 ## [0.1.0] - 2026-05-14
 
 Initial beta release.

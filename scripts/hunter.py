@@ -139,6 +139,43 @@ class HuntResult:
 # ---------------------------------------------------------------------------
 
 
+def _parse_github_url(url: str) -> Optional[tuple[str, str]]:
+    """Extract (owner, repo) from a GitHub URL in any common form.
+
+    Handles:
+        https://github.com/owner/repo
+        https://github.com/owner/repo.git
+        git+https://github.com/owner/repo.git    (npm-style)
+        git://github.com/owner/repo.git
+        git@github.com:owner/repo.git            (SSH)
+
+    Returns None if the URL is not a parseable GitHub URL or if owner/repo
+    are missing. Fix for issue #6 — npm/curated paths were producing
+    HuntResults with empty owner/repo_name, crashing the installer.
+    """
+    if not url:
+        return None
+    s = url.strip()
+    if s.startswith("git+"):
+        s = s[4:]
+    if s.startswith("git@github.com:"):
+        s = "https://github.com/" + s[len("git@github.com:") :]
+    elif s.startswith("git://github.com/"):
+        s = "https://github.com/" + s[len("git://github.com/") :]
+    if not (s.startswith("https://github.com/") or s.startswith("http://github.com/")):
+        return None
+    path = s.split("github.com/", 1)[1].rstrip("/")
+    if path.endswith(".git"):
+        path = path[:-4]
+    parts = path.split("/")
+    if len(parts) < 2:
+        return None
+    owner, repo = parts[0], parts[1]
+    if not owner or not repo:
+        return None
+    return owner, repo
+
+
 def _extract_skill_name(repo_name: str, repo_url: str) -> str:
     """Extract a clean skill name from repo name or URL.
 
@@ -456,9 +493,15 @@ class Hunter:
             is_relevant = stack_match or domain_match
 
             if is_relevant and repo_url:
+                parsed = _parse_github_url(repo_url)
+                if not parsed:
+                    continue
+                owner, repo_name = parsed
                 r = HuntResult(
                     name=name,
                     repo_url=repo_url,
+                    owner=owner,
+                    repo_name=repo_name,
                     description=f"[CURATED] {name}",  # Tag with [CURATED]
                     stars=100,  # Curated skills get baseline high score
                     trust_tier="verified",  # Directly verified
@@ -758,10 +801,20 @@ class Hunter:
                 if repo_url.endswith(".git"):
                     repo_url = repo_url[:-4]
 
+                # Issue #6: parse owner/repo from the URL so installer
+                # gets non-empty fields. Skip candidates without a parseable
+                # GitHub URL — installing without owner/repo is impossible.
+                parsed = _parse_github_url(repo_url)
+                if not parsed:
+                    continue
+                owner, repo_name = parsed
+
                 r = HuntResult(
                     name=name,
                     repo_url=repo_url,
                     raw_url="",
+                    owner=owner,
+                    repo_name=repo_name,
                     description=pkg.get("description", ""),
                     stars=0,  # npm has no star count; use downloads as proxy
                     result_type="mcp_npm",

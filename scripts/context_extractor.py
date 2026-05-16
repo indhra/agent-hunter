@@ -2,10 +2,17 @@
 context_extractor.py — Extract tech signal keywords from the current project.
 
 Responsibility:
-    Read project files (CLAUDE.md, requirements.txt, pyproject.toml,
-    package.json, Cargo.toml, git log) and extract ONLY tech signal
-    keywords from an explicit allowlist. Never extract file paths,
-    variable names, function names, or any project-specific strings.
+    Read dependency manifests ONLY and extract tech signal keywords from an
+    explicit allowlist. Never read docs, README files, git commit messages,
+    or agent instruction files (CLAUDE.md, SKILL.md, etc.).
+
+Allowed sources:
+    requirements.txt, requirements-dev.txt, requirements-test.txt,
+    pyproject.toml, package.json, Cargo.toml, go.mod
+
+Forbidden sources (produce false signals from documentation mentions):
+    CLAUDE.md, SKILL.md, any *.md file, README files,
+    git commit message bodies, YAML frontmatter trigger/description fields
 
 Input:  Project root directory (str or Path)
 Output: ContextProfile dataclass
@@ -149,6 +156,14 @@ TECH_ALLOWLIST: set[str] = {
     "gitlab-ci",
     "jenkins",
     "argocd",
+    # Python utilities
+    "requests",
+    "httpx",
+    "rich",
+    "click",
+    "typer",
+    "pyyaml",
+    "yaml",
     # AI / Agent
     "claude",
     "openai",
@@ -158,7 +173,6 @@ TECH_ALLOWLIST: set[str] = {
     "langchain",
     "mcp",
     "agentskills",
-    "skill.md",
 }
 
 # Pattern: word boundary around each allowlisted term (case-insensitive)
@@ -203,8 +217,9 @@ class ContextProfile:
 def extract_context(project_root: str | Path, intent: str | None = None) -> ContextProfile:
     """Extract tech signal keywords from a project directory.
 
-    Reads: CLAUDE.md, AGENTS.md, requirements.txt, pyproject.toml,
-    package.json, Cargo.toml, git log (last 50 commits).
+    Reads dependency manifests only: requirements.txt, pyproject.toml,
+    package.json, Cargo.toml, go.mod. Does NOT read docs, CLAUDE.md,
+    SKILL.md, README files, or git commit messages.
 
     Args:
         project_root: Path to the project root directory.
@@ -239,18 +254,9 @@ def extract_context(project_root: str | Path, intent: str | None = None) -> Cont
             all_signals.update(signals)
             profile.sources_read.append(fname)
 
-    # --- Read agent instruction files ---
-    agent_files = ["CLAUDE.md", "AGENTS.md", "COPILOT-instructions.md", ".cursorrules"]
-    for fname in agent_files:
-        fpath = root / fname
-        if fpath.exists():
-            signals = _extract_signals_from_file(fpath)
-            all_signals.update(signals)
-            profile.sources_read.append(fname)
-
-    # --- Read git log (last 50 commits) ---
-    git_signals, git_activity = _extract_from_git_log(root)
-    all_signals.update(git_signals)
+    # --- Read git log for activity bucketing only (no signal extraction) ---
+    # Commit messages are a forbidden signal source — they document intent, not deps.
+    _, git_activity = _extract_from_git_log(root)
     if git_activity:
         profile.sources_read.append("git log (last 50)")
 

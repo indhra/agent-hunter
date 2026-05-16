@@ -52,16 +52,23 @@ class TestSignalExtraction:
         profile = extract_context(tmp_path)
         assert profile.tech_stack == []
 
-    def test_extracts_from_claude_md(self, tmp_path):
+    def test_does_not_read_claude_md(self, tmp_path):
+        # CLAUDE.md mentions fastapi — but it must NOT be read (forbidden source)
         (tmp_path / "CLAUDE.md").write_text("This project uses FastAPI and Redis.\n")
         profile = extract_context(tmp_path)
-        assert "fastapi" in profile.tech_stack
-        assert "redis" in profile.tech_stack
+        assert "fastapi" not in profile.tech_stack
+        assert "redis" not in profile.tech_stack
+
+    def test_manifest_signal_not_polluted_by_readme(self, tmp_path):
+        # Django mentioned only in README, flask only in requirements.txt
+        (tmp_path / "README.md").write_text("We could use Django here.\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+        profile = extract_context(tmp_path)
+        assert "flask" in profile.tech_stack
+        assert "django" not in profile.tech_stack
 
     def test_allowlist_only_signals(self, tmp_path):
-        (tmp_path / "CLAUDE.md").write_text(
-            "The variable mySecretProjectName uses fastapi and some_private_function.\n"
-        )
+        (tmp_path / "requirements.txt").write_text("fastapi\nsome_private_function\n")
         profile = extract_context(tmp_path)
         # Only allowlisted terms should appear
         for signal in profile.tech_stack:
@@ -74,6 +81,13 @@ class TestAllowlist:
 
     def test_common_frameworks_in_allowlist(self):
         for tech in ["fastapi", "django", "react", "postgres", "docker"]:
+            assert tech in TECH_ALLOWLIST
+
+    def test_skill_md_not_in_allowlist(self):
+        assert "skill.md" not in TECH_ALLOWLIST
+
+    def test_utility_libs_in_allowlist(self):
+        for tech in ["requests", "rich", "pyyaml"]:
             assert tech in TECH_ALLOWLIST
 
 

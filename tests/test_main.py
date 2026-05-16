@@ -1495,3 +1495,52 @@ class TestHuntFlags:
         # --print-actions exits before execute_actions
         mi.return_value.execute_actions.assert_not_called()
         assert code == 0
+
+    def test_noninteractive_without_yes_does_not_execute(self, tmp_path, monkeypatch, capsys):
+        """Non-interactive mode without --yes: dry-run only, execute_actions NOT called."""
+        mock_result, mock_scored, mock_scan, mock_action = self._setup_mocks(tmp_path, monkeypatch)
+
+        monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+        with (
+            patch("main.Hunter") as mh,
+            patch("main.scan_skill") as ms,
+            patch("main.score_results") as msc,
+            patch("main.render_hunt_report"),
+            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+            patch("main.Installer") as mi,
+        ):
+            mh.return_value.hunt.return_value = [mock_result]
+            ms.return_value = mock_scan
+            msc.return_value = [mock_scored]
+            code = run(["hunt", str(tmp_path)])
+
+        assert code == 0, "dry-run mode should exit 0"
+        mi.return_value.execute_actions.assert_not_called()
+        out = capsys.readouterr().out
+        assert "--yes" in out, "should show --yes hint"
+
+    def test_privacy_prompt_emitted(self, tmp_path, monkeypatch, capsys):
+        """Privacy notice should appear in output before hunting."""
+        mock_result, mock_scored, mock_scan, mock_action = self._setup_mocks(tmp_path, monkeypatch)
+
+        monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+
+        with (
+            patch("main.Hunter") as mh,
+            patch("main.scan_skill") as ms,
+            patch("main.score_results") as msc,
+            patch("main.render_hunt_report"),
+            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+        ):
+            mh.return_value.hunt.return_value = [mock_result]
+            ms.return_value = mock_scan
+            msc.return_value = [mock_scored]
+            run(["hunt", str(tmp_path)])
+
+        out = capsys.readouterr().out
+        assert "Privacy" in out, "privacy notice must appear in output"

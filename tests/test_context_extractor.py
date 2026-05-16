@@ -274,7 +274,7 @@ class TestExtractFromGitLog:
 
         now = datetime.now()
         recent_date = (now - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")
-        stdout = f"{recent_date} +0000 fastapi hello world\n"
+        stdout = f"{recent_date} +0000\n"
 
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -283,8 +283,8 @@ class TestExtractFromGitLog:
         with patch("subprocess.run", return_value=mock_result):
             signals, activity = _extract_from_git_log(tmp_path)
 
-        assert "fastapi" in signals
-        assert "fastapi" in activity["active"]
+        assert signals == set()
+        assert "__all__" in activity["active"]
 
     def test_recent_commits_classified_correctly(self, tmp_path):
         """Commits 7-30 days old should go into 'recent' bucket."""
@@ -293,7 +293,7 @@ class TestExtractFromGitLog:
 
         now = datetime.now()
         medium_date = (now - timedelta(days=15)).strftime("%Y-%m-%d %H:%M:%S")
-        stdout = f"{medium_date} +0000 fastapi service update\n"
+        stdout = f"{medium_date} +0000\n"
 
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -302,9 +302,9 @@ class TestExtractFromGitLog:
         with patch("subprocess.run", return_value=mock_result):
             signals, activity = _extract_from_git_log(tmp_path)
 
-        assert "fastapi" in signals
-        assert "fastapi" in activity["recent"]
-        assert "fastapi" not in activity["active"]
+        assert signals == set()
+        assert "__all__" in activity["recent"]
+        assert "__all__" not in activity["active"]
 
     def test_dormant_commits_classified_correctly(self, tmp_path):
         """Commits >= 90 days old should go into 'dormant' bucket."""
@@ -313,7 +313,7 @@ class TestExtractFromGitLog:
 
         now = datetime.now()
         old_date = (now - timedelta(days=120)).strftime("%Y-%m-%d %H:%M:%S")
-        stdout = f"{old_date} +0000 pytorch training fix\n"
+        stdout = f"{old_date} +0000\n"
 
         mock_result = MagicMock()
         mock_result.returncode = 0
@@ -322,8 +322,8 @@ class TestExtractFromGitLog:
         with patch("subprocess.run", return_value=mock_result):
             signals, activity = _extract_from_git_log(tmp_path)
 
-        assert "pytorch" in signals
-        assert "pytorch" in activity["dormant"]
+        assert signals == set()
+        assert "__all__" in activity["dormant"]
 
     def test_nonzero_returncode_returns_empty(self, tmp_path):
         """Non-zero exit from git log should return empty signals + activity."""
@@ -373,11 +373,11 @@ class TestExtractFromGitLog:
 
         mock_result = MagicMock()
         mock_result.returncode = 0
-        mock_result.stdout = "not-a-date 00:00:00 +0000 fastapi service\n"
+        mock_result.stdout = "not-a-date 00:00:00 +0000\n"
         with patch("subprocess.run", return_value=mock_result):
             signals, activity = _extract_from_git_log(tmp_path)
-        # fastapi signal skipped because date parse failed
-        assert "fastapi" not in signals
+        assert signals == set()
+        assert activity == {"active": set(), "recent": set(), "dormant": set()}
 
 
 # ---------------------------------------------------------------------------

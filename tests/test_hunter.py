@@ -445,6 +445,20 @@ class TestFetchRepoMetadata:
 
 
 class TestLoadVerifiedUrls:
+    def test_parses_repo_url_from_json_block(self, tmp_path):
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        md.write_text(
+            """```json
+[
+  {"name":"skill-a","repo_url":"https://github.com/a/skill-a"}
+]
+```
+"""
+        )
+        h = make_hunter(verified_index_path=md)
+        urls = h._load_verified_urls()
+        assert "https://github.com/a/skill-a" in urls
+
     def test_parses_repo_url_from_verified_skills(self, tmp_path):
         md = tmp_path / "VERIFIED_SKILLS.md"
         md.write_text(
@@ -453,6 +467,32 @@ class TestLoadVerifiedUrls:
         h = make_hunter(verified_index_path=md)
         urls = h._load_verified_urls()
         assert "https://github.com/owner/skill-x" in urls
+
+    def test_invalid_json_falls_back_to_legacy_repo_lines(self, tmp_path):
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        md.write_text(
+            """```json
+{not-valid-json
+```
+- **Repo:** https://github.com/fallback/skill-z
+"""
+        )
+        h = make_hunter(verified_index_path=md)
+        urls = h._load_verified_urls()
+        assert "https://github.com/fallback/skill-z" in urls
+
+    def test_non_list_json_falls_back_to_legacy_repo_lines(self, tmp_path):
+        md = tmp_path / "VERIFIED_SKILLS.md"
+        md.write_text(
+            """```json
+{"name":"single-object","repo_url":"https://github.com/ignored/object"}
+```
+- **Repo:** https://github.com/fallback/skill-y
+"""
+        )
+        h = make_hunter(verified_index_path=md)
+        urls = h._load_verified_urls()
+        assert "https://github.com/fallback/skill-y" in urls
 
     def test_multiple_repos_parsed(self, tmp_path):
         md = tmp_path / "VERIFIED_SKILLS.md"
@@ -1043,8 +1083,17 @@ class TestCuratedIndexSearch:
 class TestCheckAuthMissingLines:
     """Lines 181-188: _check_auth 401 and RequestException paths."""
 
+    def test_no_token_returns_false_with_one_line(self, monkeypatch, capsys):
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        h = make_hunter(github_token=None)
+        result = h._check_auth()
+        assert result is False
+        out = capsys.readouterr().out
+        assert "Tier 2" in out and "GITHUB_TOKEN" in out
+        assert out.count("\n") == 1, "should emit exactly one line"
+
     def test_401_returns_false_and_prints_token_url(self, capsys):
-        h = make_hunter()
+        h = make_hunter(github_token="fake-token")
         mock_resp = MagicMock()
         mock_resp.status_code = 401
         with patch.object(h._session, "get", return_value=mock_resp):
@@ -1054,7 +1103,7 @@ class TestCheckAuthMissingLines:
         assert "token" in out.lower() or "github.com/settings" in out.lower()
 
     def test_request_exception_returns_false(self, capsys):
-        h = make_hunter()
+        h = make_hunter(github_token="fake-token")
         with patch.object(h._session, "get", side_effect=requests.RequestException("timeout")):
             result = h._check_auth()
         assert result is False
@@ -1114,9 +1163,63 @@ class TestHunterTokenInHeader:
         h = make_hunter(github_token="test-token-abc123")
         assert h._session.headers.get("Authorization") == "Bearer test-token-abc123"
 
-    def test_no_token_no_auth_header(self):
+    def test_no_token_no_auth_header(self, monkeypatch):
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
         h = make_hunter(github_token=None)
         assert "Authorization" not in h._session.headers
+
+
+class TestNoTokenHuntSkipsGitHub:
+    """Issue #9: missing token emits exactly one info line, no per-query 401 lines."""
+
+    def test_no_token_emits_one_tier2_skipped_line(self, monkeypatch, capsys):
+        """Hunt without token must print exactly one 'Tier 2 skipped' line, no 401 lines."""
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+        h = make_hunter(github_token=None)
+
+        with patch.object(h, "_search_curated_index", return_value=[]):
+            results = h.hunt(profile)
+
+        out = capsys.readouterr().out
+        assert "Tier 2" in out and "GITHUB_TOKEN" in out
+        assert "401" not in out
+        assert results == []
+
+    def test_no_token_zero_github_queries(self, monkeypatch):
+        """_search_github must never be called when token is absent."""
+        monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+        h = make_hunter(github_token=None)
+
+        with (
+            patch.object(h, "_search_curated_index", return_value=[]),
+            patch.object(h, "_search_github") as mock_search,
+        ):
+            h.hunt(profile)
+
+        mock_search.assert_not_called()
+
+    def test_no_github_flag_skips_regardless_of_token(self, capsys):
+        """--no-github skips Tier 2 even when a valid token is set."""
+        from context_extractor import ContextProfile
+
+        profile = ContextProfile(tech_stack=["fastapi"])
+        h = make_hunter(github_token="valid-token", no_github=True)
+
+        with (
+            patch.object(h, "_search_curated_index", return_value=[]),
+            patch.object(h, "_search_github") as mock_search,
+        ):
+            h.hunt(profile)
+
+        mock_search.assert_not_called()
+        out = capsys.readouterr().out
+        assert "--no-github" in out
 
 
 # ---------------------------------------------------------------------------

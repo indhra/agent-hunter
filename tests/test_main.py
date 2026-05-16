@@ -1499,6 +1499,13 @@ class TestHuntFlags:
     def test_noninteractive_without_yes_does_not_execute(self, tmp_path, monkeypatch, capsys):
         """Non-interactive mode without --yes: dry-run only, execute_actions NOT called."""
         mock_result, mock_scored, mock_scan, mock_action = self._setup_mocks(tmp_path, monkeypatch)
+        from installer import PendingAction
+
+        disable_action = PendingAction(
+            action="disable",
+            skill_name="dangerous-skill",
+            reason="RED flagged",
+        )
 
         monkeypatch.setattr("sys.stdin.isatty", lambda: False)
 
@@ -1507,7 +1514,7 @@ class TestHuntFlags:
             patch("main.scan_skill") as ms,
             patch("main.score_results") as msc,
             patch("main.render_hunt_report"),
-            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main.build_action_list", return_value=[mock_action, disable_action]),
             patch("main._list_installed_skills", return_value=set()),
             patch("main._get_dangerous_installed", return_value=[]),
             patch("main.Installer") as mi,
@@ -1521,6 +1528,8 @@ class TestHuntFlags:
         mi.return_value.execute_actions.assert_not_called()
         out = capsys.readouterr().out
         assert "--yes" in out, "should show --yes hint"
+        assert "git clone https://github.com/o/fastapi-skill ~/.claude/skills/fastapi-skill" in out
+        assert "mv ~/.claude/skills/dangerous-skill ~/.claude/skills/_dangerous-skill" in out
 
     def test_privacy_prompt_emitted(self, tmp_path, monkeypatch, capsys):
         """Privacy notice should appear in output before hunting."""

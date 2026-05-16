@@ -264,15 +264,12 @@ def extract_context(project_root: str | Path, intent: str | None = None) -> Cont
     profile.domain_tags = _infer_domain_tags(all_signals)
 
     # Bucket by git activity
-    profile.active_domains = [
-        t for t in profile.tech_stack if t in git_activity.get("active", set())
-    ]
-    profile.recent_domains = [
-        t for t in profile.tech_stack if t in git_activity.get("recent", set())
-    ]
-    profile.dormant_domains = [
-        t for t in profile.tech_stack if t in git_activity.get("dormant", set())
-    ]
+    active_set = git_activity.get("active", set())
+    recent_set = git_activity.get("recent", set())
+    dormant_set = git_activity.get("dormant", set())
+    profile.active_domains = _filter_by_activity(profile.tech_stack, active_set)
+    profile.recent_domains = _filter_by_activity(profile.tech_stack, recent_set)
+    profile.dormant_domains = _filter_by_activity(profile.tech_stack, dormant_set)
 
     # Extract recently invoked skills from ~/.claude/sessions/ (v0.1.5)
     profile.session_skills = _extract_session_skills()
@@ -368,11 +365,35 @@ def _extract_signals_from_file(path: Path) -> set[str]:
     return {m.lower() for m in _ALLOWLIST_PATTERN.findall(content)}
 
 
+def _filter_by_activity(tech_stack: list[str], activity_set: set[str]) -> list[str]:
+    """Filter tech stack by activity.
+
+    The sentinel value "__all__" means every tech in ``tech_stack`` is active
+    for that bucket.
+
+    Args:
+        tech_stack: Technology names discovered from dependency manifests.
+        activity_set: Bucket set containing tech names or "__all__".
+
+    Returns:
+        Filtered tech names that belong to the activity bucket. Returns an
+        empty list when ``activity_set`` is empty.
+    """
+    return [tech for tech in tech_stack if "__all__" in activity_set or tech in activity_set]
+
+
 def _extract_from_git_log(root: Path) -> tuple[set[str], dict[str, set[str]]]:
-    """Extract tech signals from git log. Returns (signals, activity_buckets)."""
+    """Extract activity buckets from git commit dates only.
+
+    Privacy constraint: commit subjects are never read or parsed.
+
+    Returns:
+        Tuple of ``(signals, activity_buckets)`` where ``signals`` is always an
+        empty set, and ``activity_buckets`` contains active/recent/dormant sets.
+    """
     try:
         result = subprocess.run(
-            ["git", "log", "--oneline", "--format=%ai %s", "-50"],
+            ["git", "log", "--oneline", "--format=%ai", "-50"],
             cwd=root,
             capture_output=True,
             text=True,
@@ -388,28 +409,23 @@ def _extract_from_git_log(root: Path) -> tuple[set[str], dict[str, set[str]]]:
     activity: dict[str, set[str]] = {"active": set(), "recent": set(), "dormant": set()}
 
     for line in result.stdout.splitlines():
-        parts = line.split(" ", 3)
-        if len(parts) < 4:
+        parts = line.split(" ", 2)
+        if len(parts) < 2:
             continue
         try:
             # Parse date: "2026-04-15 10:30:00 +0000"
             date_str = f"{parts[0]} {parts[1]}"
             commit_date = datetime.strptime(date_str, "%Y-%m-%d %H:%M:%S")
-            commit_text = parts[3]  # commit message — extract signals only
-        except (ValueError, IndexError):
+        except ValueError:
             continue
 
-        line_signals = {m.lower() for m in _ALLOWLIST_PATTERN.findall(commit_text)}
-        signals.update(line_signals)
-
         age = now - commit_date
-        for sig in line_signals:
-            if age <= timedelta(days=7):
-                activity["active"].add(sig)
-            elif age <= timedelta(days=30):
-                activity["recent"].add(sig)
-            elif age >= timedelta(days=90):
-                activity["dormant"].add(sig)
+        if age <= timedelta(days=7):
+            activity["active"].add("__all__")
+        elif age <= timedelta(days=30):
+            activity["recent"].add("__all__")
+        elif age >= timedelta(days=90):
+            activity["dormant"].add("__all__")
 
     return signals, activity
 

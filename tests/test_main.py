@@ -484,10 +484,11 @@ class TestPromptConfirmActions:
 class TestCmdHuntWithConfirmation:
     @pytest.fixture(autouse=True)
     def _force_tty(self, monkeypatch):
-        """Make stdin appear to be a TTY so interactive prompt is reached."""
+        """Ensure stdin appears to be a TTY for tests that exercise the interactive prompt."""
         monkeypatch.setattr("sys.stdin.isatty", lambda: True)
 
-    def test_hunt_with_user_confirmation_yes_executes_install(self, tmp_path, monkeypatch, capsys):
+    def test_hunt_with_yes_flag_executes_install(self, tmp_path, monkeypatch, capsys):
+        """--yes flag causes execute_actions to be called and returns 0."""
         (tmp_path / "requirements.txt").write_text("fastapi\n")
 
         from hunter import HuntResult
@@ -524,9 +525,6 @@ class TestCmdHuntWithConfirmation:
             reason="score 0.70",
         )
 
-        # User confirms with 'y'
-        monkeypatch.setattr("builtins.input", lambda _: "y")
-
         with (
             patch("main.Hunter") as mock_hunter_cls,
             patch("main.scan_skill") as mock_scan,
@@ -549,15 +547,15 @@ class TestCmdHuntWithConfirmation:
                 )
             ]
 
-            code = run(["hunt", str(tmp_path)])
+            # Explicit --yes flag triggers execution
+            code = run(["hunt", str(tmp_path), "--yes"])
 
         # Should have called execute_actions
         mock_installer_obj.execute_actions.assert_called_once()
         assert code == 0
 
-    def test_hunt_with_user_confirmation_no_exits_without_install(
-        self, tmp_path, monkeypatch, capsys
-    ):
+    def test_hunt_without_yes_flag_is_dry_run(self, tmp_path, monkeypatch, capsys):
+        """Without --yes, hunt prints dry-run report, exits 0, never calls execute_actions."""
         (tmp_path / "requirements.txt").write_text("fastapi\n")
 
         from hunter import HuntResult
@@ -593,8 +591,139 @@ class TestCmdHuntWithConfirmation:
             reason="score 0.70",
         )
 
-        # User declines with 'n'
-        monkeypatch.setattr("builtins.input", lambda _: "n")
+        with (
+            patch("main.Hunter") as mock_hunter_cls,
+            patch("main.scan_skill") as mock_scan,
+            patch("main.score_results") as mock_score,
+            patch("main.render_hunt_report") as _mock_render,
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main.Installer") as mock_installer_cls,
+        ):
+            mock_hunter_cls.return_value.hunt.return_value = [mock_result]
+            mock_scan.return_value = ScanResult(severity="GREEN")
+            mock_score.return_value = [mock_scored]
+
+            mock_installer_obj = MagicMock()
+            mock_installer_cls.return_value = mock_installer_obj
+
+            # No --yes flag → dry-run
+            code = run(["hunt", str(tmp_path)])
+
+        # execute_actions must NOT be called in dry-run mode
+        mock_installer_obj.execute_actions.assert_not_called()
+        assert code == 0
+
+        out = capsys.readouterr().out
+        assert "--yes" in out  # output should hint at the --yes flag
+        # Hint must reference the actual project root, not the hard-coded "."
+        assert str(tmp_path) in out
+
+    def test_hunt_dry_run_hint_includes_intent(self, tmp_path, monkeypatch, capsys):
+        """Dry-run hint command includes --intent when it was originally passed."""
+        (tmp_path / "requirements.txt").write_text("fastapi\n")
+
+        from hunter import HuntResult
+        from scorer import ScoredResult
+        from security_scan import ScanResult
+        from installer import PendingAction
+
+        mock_result = HuntResult(
+            name="fastapi-skill",
+            repo_url="https://github.com/o/fastapi-skill",
+            raw_url="https://github.com/o/fastapi-skill/blob/main/SKILL.md",
+            owner="o",
+            repo_name="fastapi-skill",
+            description="A skill",
+            stars=200,
+            result_type="skill",
+            trust_tier="raw",
+            raw_content="# SKILL\nfastapi helper",
+        )
+
+        mock_scored = ScoredResult(
+            hunt_result=mock_result,
+            skill_metadata=None,
+            total_score=0.7,
+        )
+
+        mock_action = PendingAction(
+            action="install",
+            skill_name="fastapi-skill",
+            repo_url="https://github.com/o/fastapi-skill",
+            owner="o",
+            repo="fastapi-skill",
+            reason="score 0.70",
+        )
+
+        with (
+            patch("main.Hunter") as mock_hunter_cls,
+            patch("main.scan_skill") as mock_scan,
+            patch("main.score_results") as mock_score,
+            patch("main.render_hunt_report") as _mock_render,
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+            patch("main.build_action_list", return_value=[mock_action]),
+            patch("main.Installer") as mock_installer_cls,
+        ):
+            mock_hunter_cls.return_value.hunt.return_value = [mock_result]
+            mock_scan.return_value = ScanResult(severity="GREEN")
+            mock_score.return_value = [mock_scored]
+
+            mock_installer_obj = MagicMock()
+            mock_installer_cls.return_value = mock_installer_obj
+
+            # Pass --intent; no --yes → dry-run
+            code = run(["hunt", str(tmp_path), "--intent", "build rest apis"])
+
+        assert code == 0
+        mock_installer_obj.execute_actions.assert_not_called()
+
+        out = capsys.readouterr().out
+        assert "--yes" in out
+        assert str(tmp_path) in out
+        assert "--intent" in out
+        assert "build rest apis" in out
+
+    def test_hunt_dry_run_non_interactive_no_install(self, tmp_path, monkeypatch, capsys):
+        """Non-interactive stdin (non-TTY) without --yes still stays in dry-run mode."""
+        # Force non-TTY to confirm the old auto-confirm bug is fixed
+        monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+        (tmp_path / "requirements.txt").write_text("fastapi\n")
+
+        from hunter import HuntResult
+        from scorer import ScoredResult
+        from security_scan import ScanResult
+        from installer import PendingAction
+
+        mock_result = HuntResult(
+            name="fastapi-skill",
+            repo_url="https://github.com/o/fastapi-skill",
+            raw_url="https://github.com/o/fastapi-skill/blob/main/SKILL.md",
+            owner="o",
+            repo_name="fastapi-skill",
+            description="A skill",
+            stars=200,
+            result_type="skill",
+            trust_tier="raw",
+            raw_content="# SKILL\nfastapi helper",
+        )
+
+        mock_scored = ScoredResult(
+            hunt_result=mock_result,
+            skill_metadata=None,
+            total_score=0.7,
+        )
+
+        mock_action = PendingAction(
+            action="install",
+            skill_name="fastapi-skill",
+            repo_url="https://github.com/o/fastapi-skill",
+            owner="o",
+            repo="fastapi-skill",
+            reason="score 0.70",
+        )
 
         with (
             patch("main.Hunter") as mock_hunter_cls,
@@ -615,12 +744,57 @@ class TestCmdHuntWithConfirmation:
 
             code = run(["hunt", str(tmp_path)])
 
-        # Should NOT have called execute_actions
+        # Still dry-run — non-TTY alone must never trigger installation
         mock_installer_obj.execute_actions.assert_not_called()
-        assert code == 1
+        assert code == 0
+
+    def test_hunt_privacy_prompt_shown_before_extraction(self, tmp_path, capsys):
+        """Privacy prompt appears as first output line before any extraction output."""
+        (tmp_path / "requirements.txt").write_text("fastapi\n")
+
+        from hunter import HuntResult
+        from scorer import ScoredResult
+        from security_scan import ScanResult
+
+        mock_result = HuntResult(
+            name="fastapi-skill",
+            repo_url="https://github.com/o/fastapi-skill",
+            raw_url="https://github.com/o/fastapi-skill/blob/main/SKILL.md",
+            owner="o",
+            repo_name="fastapi-skill",
+            description="A skill",
+            stars=200,
+            result_type="skill",
+            trust_tier="raw",
+            raw_content="# SKILL\nfastapi helper",
+        )
+
+        mock_scored = ScoredResult(
+            hunt_result=mock_result,
+            skill_metadata=None,
+            total_score=0.7,
+        )
+
+        with (
+            patch("main.Hunter") as mock_hunter_cls,
+            patch("main.scan_skill") as mock_scan,
+            patch("main.score_results") as mock_score,
+            patch("main.render_hunt_report") as _mock_render,
+            patch("main._list_installed_skills", return_value=set()),
+            patch("main._get_dangerous_installed", return_value=[]),
+            patch("main.build_action_list", return_value=[]),
+        ):
+            mock_hunter_cls.return_value.hunt.return_value = [mock_result]
+            mock_scan.return_value = ScanResult(severity="GREEN")
+            mock_score.return_value = [mock_scored]
+
+            run(["hunt", str(tmp_path)])
 
         out = capsys.readouterr().out
-        assert "Cancelled" in out
+        lines = [ln for ln in out.splitlines() if ln.strip()]
+        assert lines, "Expected at least one line of output"
+        # Privacy prompt must be the very first non-empty output line
+        assert "framework/library names" in lines[0] or "tech stack" in lines[0]
 
     def test_hunt_no_actions_to_take_returns_0(self, tmp_path, capsys):
         (tmp_path / "requirements.txt").write_text("fastapi\n")
@@ -856,7 +1030,7 @@ class TestEdgeCases:
         assert code == 0
 
     def test_hunt_with_all_action_failures(self, tmp_path, monkeypatch):
-        """Hunt → confirm → execute where all actions fail."""
+        """Hunt → --yes → execute where all actions fail returns exit 1."""
         (tmp_path / "requirements.txt").write_text("fastapi\n")
 
         from hunter import HuntResult
@@ -894,8 +1068,6 @@ class TestEdgeCases:
             ),
         ]
 
-        monkeypatch.setattr("builtins.input", lambda _: "y")
-
         with (
             patch("main.Hunter") as mock_cls,
             patch("main.scan_skill") as mock_scan,
@@ -919,7 +1091,7 @@ class TestEdgeCases:
                 ),
             ]
 
-            code = run(["hunt", str(tmp_path)])
+            code = run(["hunt", str(tmp_path), "--yes"])
 
         # Should return 1 on failure
         assert code == 1
@@ -1218,7 +1390,7 @@ class TestCmdHuntActionExecution:
         assert code == 0
         assert "No new actions" in capsys.readouterr().out
 
-    def test_user_cancels_returns_1(self, tmp_path, capsys):
+    def test_user_does_not_pass_yes_is_dry_run_returns_0(self, tmp_path, capsys):
         mock_result, mock_scored, mock_scan = self._setup(tmp_path)
         mock_action = MagicMock()
         mock_action.action = "install"
@@ -1233,13 +1405,13 @@ class TestCmdHuntActionExecution:
             patch("main.build_action_list", return_value=[mock_action]),
             patch("main._list_installed_skills", return_value=set()),
             patch("main._get_dangerous_installed", return_value=[]),
-            patch("builtins.input", return_value="n"),
         ):
             mh.return_value.hunt.return_value = [mock_result]
             ms.return_value = mock_scan
             msc.return_value = [mock_scored]
+            # No --yes → dry-run
             code = run(["hunt", str(tmp_path)])
-        assert code == 1
+        assert code == 0
 
     def test_successful_actions_returns_0(self, tmp_path, capsys):
         mock_result, mock_scored, mock_scan = self._setup(tmp_path)
@@ -1262,13 +1434,12 @@ class TestCmdHuntActionExecution:
             patch("main._list_installed_skills", return_value=set()),
             patch("main._get_dangerous_installed", return_value=[]),
             patch("main.Installer") as mi,
-            patch("builtins.input", return_value="y"),
         ):
             mh.return_value.hunt.return_value = [mock_result]
             ms.return_value = mock_scan
             msc.return_value = [mock_scored]
             mi.return_value.execute_actions.return_value = [success]
-            code = run(["hunt", str(tmp_path)])
+            code = run(["hunt", str(tmp_path), "--yes"])
         assert code == 0
         out = capsys.readouterr().out
         assert "1/1" in out
@@ -1294,13 +1465,12 @@ class TestCmdHuntActionExecution:
             patch("main._list_installed_skills", return_value=set()),
             patch("main._get_dangerous_installed", return_value=[]),
             patch("main.Installer") as mi,
-            patch("builtins.input", return_value="y"),
         ):
             mh.return_value.hunt.return_value = [mock_result]
             ms.return_value = mock_scan
             msc.return_value = [mock_scored]
             mi.return_value.execute_actions.return_value = [fail]
-            code = run(["hunt", str(tmp_path)])
+            code = run(["hunt", str(tmp_path), "--yes"])
         assert code == 1
         out = capsys.readouterr().out
         assert "failed" in out.lower()
@@ -1395,7 +1565,7 @@ class TestHuntFlags:
         assert code == 0
         assert not input_called, "--yes should not call input()"
         out = capsys.readouterr().out
-        assert "Auto-confirmed" in out
+        assert "Executing confirmed actions" in out
 
     def test_print_actions_outputs_json(self, tmp_path, monkeypatch, capsys):
         """--print-actions should print JSON and exit 0 without executing."""
